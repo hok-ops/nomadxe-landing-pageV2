@@ -1,0 +1,36 @@
+:root {
+  --background: #0a0a0a;
+  --background-secondary: #111111;
+  --surface: #18181b;
+  --surface-light: #27272a;
+  --foreground: #ffffff;
+  --foreground-muted: #a1a1aa;
+  --accent: #00d2ff;
+  --accent-glow: rgba(0, 210, 255, 0.4);
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  background-color: var(--background);
+  color: var(--foreground);
+  scroll-behavior: smooth;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}

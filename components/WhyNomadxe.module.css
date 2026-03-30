@@ -1,0 +1,34 @@
+.section {
+  padding: 8rem 0;
+  background: var(--background);
+  position: relative;
+  overflow: hidden;
+}
+.bgImage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(rgba(10, 10, 10, 0.85), rgba(10, 10, 10, 1)), url('https://images.unsplash.com/photo-1541888081682-1ddccb6b8cb7?auto=format&fit=crop&q=80');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  z-index: 0;
+}
+.content {
+  position: relative;
+  z-index: 1;
+  max-width: 800px;
+  margin: 0 auto;
+  text-align: center;
+}
+.headline {
+  font-size: 2.5rem;
+  margin-bottom: 2rem;
+}
+.bodyCopy {
+  font-size: 1.2rem;
+  line-height: 1.8;
+  color: var(--foreground-muted);
+}

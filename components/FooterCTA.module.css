@@ -1,0 +1,40 @@
+.section {
+  padding: 6rem 0;
+  background-color: var(--background-secondary);
+  text-align: center;
+}
+
+.content {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.headline {
+  font-size: 2.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.bodyCopy {
+  font-size: 1.2rem;
+  color: var(--foreground-muted);
+  margin-bottom: 3rem;
+  line-height: 1.6;
+}
+
+.ctaButton {
+  background-color: transparent;
+  color: var(--accent);
+  border: 2px solid var(--accent);
+  padding: 1rem 3rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.ctaButton:hover {
+  background-color: var(--accent);
+  color: #000;
+  box-shadow: 0 0 20px var(--accent-glow);
+}
