@@ -14,7 +14,7 @@ export default function FooterCTA() {
           className={styles.content}
         >
           <h2 className={styles.headline}>Ready to Secure Your Site?</h2>
-          <p className={styles.bodyCopy}>Let's discuss your security challenges and architect a mobile visibility solution that works for you.</p>
+          <p className={styles.bodyCopy}>Let&apos;s discuss your security challenges and architect a mobile visibility solution that works for you.</p>
           <motion.button 
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}

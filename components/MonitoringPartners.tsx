@@ -15,7 +15,7 @@ export default function MonitoringPartners() {
         >
           <h2 className={styles.headline}>A Consultative Partnership Ecosystem</h2>
           <p className={styles.bodyCopy}>
-            If you require active oversight but aren't sure where to begin, we can help. We work alongside a network of trusted monitoring professionals. Taking a consultative approach, we aim to understand your specific challenges and pair you with the right monitoring partner—ensuring incident response and situational awareness are handled by experts who fit your operational needs.
+            If you require active oversight but aren&apos;t sure where to begin, we can help. We work alongside a network of trusted monitoring professionals. Taking a consultative approach, we aim to understand your specific challenges and pair you with the right monitoring partner—ensuring incident response and situational awareness are handled by experts who fit your operational needs.
           </p>
         </motion.div>
         
