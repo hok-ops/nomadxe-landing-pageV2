@@ -5,8 +5,8 @@
   --surface-light: #27272a;
   --foreground: #ffffff;
   --foreground-muted: #a1a1aa;
-  --accent: #00d2ff;
-  --accent-glow: rgba(0, 210, 255, 0.4);
+  --accent: #127baf;
+  --accent-glow: rgba(18, 123, 175, 0.4);
 }
 
 * {

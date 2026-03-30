@@ -1,3 +1,4 @@
+import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
 import TheProblem from '../components/TheProblem';
 import HowItWorks from '../components/HowItWorks';
@@ -10,6 +11,7 @@ import FooterCTA from '../components/FooterCTA';
 export default function Home() {
   return (
     <main>
+      <Navbar />
       <Hero />
       <TheProblem />
       <HowItWorks />
