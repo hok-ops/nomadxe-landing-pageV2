@@ -1,46 +1,71 @@
 'use client';
-import { motion } from 'framer-motion';
-import styles from './MonitoringPartners.module.css';
+
+/* Placeholder partner logos — styled SVG text.
+   TODO: replace with real partner SVG logos when available. */
+const PARTNERS = [
+  { name: 'Securitas', abbr: 'SEC' },
+  { name: 'G4S', abbr: 'G4S' },
+  { name: 'Allied Universal', abbr: 'AUS' },
+  { name: 'ADT', abbr: 'ADT' },
+  { name: 'Alarm.com', abbr: 'ALM' },
+  { name: 'Bold Group', abbr: 'BLD' },
+];
+
+function PartnerLogo({ name, abbr }: { name: string; abbr: string }) {
+  return (
+    <div
+      className="group flex items-center justify-center px-6 py-4 rounded-xl border border-white/5 transition-all duration-300 hover:border-blue/30 hover:shadow-blue-glow cursor-default"
+      title={name}
+      aria-label={name}
+    >
+      <span className="font-sans font-bold text-2xl text-white/25 group-hover:text-blue/80 transition-colors duration-300 tracking-wider select-none">
+        {abbr}
+      </span>
+    </div>
+  );
+}
 
 export default function MonitoringPartners() {
   return (
-    <section className={styles.section}>
-      <div className={styles.container}>
-        <motion.div 
-          initial={{ opacity: 0, x: -50 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.8 }}
-          className={styles.content}
-        >
-          <h2 className={styles.headline}>A Consultative Partnership Ecosystem</h2>
-          <p className={styles.bodyCopy}>
-            If you require active oversight but aren&apos;t sure where to begin, we can help. We work alongside a network of trusted monitoring professionals. Taking a consultative approach, we aim to understand your specific challenges and pair you with the right monitoring partner—ensuring incident response and situational awareness are handled by experts who fit your operational needs.
+    <section
+      id="partners"
+      className="bg-surface py-24 px-8"
+      aria-label="Monitoring partners"
+    >
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-16">
+          <p className="font-mono text-xs tracking-widest uppercase text-blue/60 mb-4">Network</p>
+          <h2 className="text-3xl md:text-4xl font-bold text-white">
+            We work with leading monitoring partners —{' '}
+            <em className="font-display italic text-blue not-italic">or yours.</em>
+          </h2>
+          <p className="mt-6 text-white/50 max-w-xl mx-auto leading-relaxed">
+            Nomadxe integrates with your preferred monitoring station. If you don&apos;t have one,
+            we&apos;ll connect you with a vetted partner from our network.
           </p>
-        </motion.div>
-        
-        <motion.div 
-          initial={{ opacity: 0, x: 50 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-          className={styles.visual}
+        </div>
+
+        {/* Logo row */}
+        <div
+          className="flex flex-wrap justify-center gap-4 items-center mb-16"
+          aria-label="Partner logos"
         >
-          <div className={styles.screenMockup}>
-            <div className={styles.dashboardGraphic}>
-              <motion.div 
-                animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 3, repeat: Infinity }}
-                className={styles.dataPoint} style={{ top: '30%', left: '40%' }} 
-              />
-              <motion.div 
-                animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 4, repeat: Infinity, delay: 1 }}
-                className={styles.dataPoint} style={{ top: '60%', left: '70%' }} 
-              />
-            </div>
-          </div>
-        </motion.div>
+          {PARTNERS.map((p) => (
+            <PartnerLogo key={p.name} {...p} />
+          ))}
+        </div>
+
+        {/* CTA */}
+        <div className="text-center">
+          <a
+            href="#contact"
+            className="inline-flex items-center border border-white/20 text-white font-semibold rounded-full px-8 py-3 text-sm transition-all duration-300 hover:border-blue hover:text-blue hover:scale-[1.02] active:scale-[0.98]"
+            aria-label="Talk to us about monitoring partners"
+          >
+            Talk to Us About Partners
+          </a>
+        </div>
       </div>
     </section>
   );

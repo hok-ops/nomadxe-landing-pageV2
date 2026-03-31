@@ -1,25 +1,29 @@
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
-import TheProblem from '../components/TheProblem';
+import Features from '../components/Features';
 import HowItWorks from '../components/HowItWorks';
+import Manifesto from '../components/Manifesto';
 import TwoOptions from '../components/TwoOptions';
 import MonitoringPartners from '../components/MonitoringPartners';
 import UseCases from '../components/UseCases';
-import WhyNomadxe from '../components/WhyNomadxe';
-import FooterCTA from '../components/FooterCTA';
+import ContactForm from '../components/ContactForm';
+import Footer from '../components/Footer';
 
 export default function Home() {
   return (
-    <main>
+    <>
       <Navbar />
-      <Hero />
-      <TheProblem />
-      <HowItWorks />
-      <TwoOptions />
-      <MonitoringPartners />
-      <UseCases />
-      <WhyNomadxe />
-      <FooterCTA />
-    </main>
+      <main id="main">
+        <Hero />
+        <Features />
+        <HowItWorks />
+        <Manifesto />
+        <TwoOptions />
+        <UseCases />
+        <MonitoringPartners />
+        <ContactForm />
+        <Footer />
+      </main>
+    </>
   );
 }
