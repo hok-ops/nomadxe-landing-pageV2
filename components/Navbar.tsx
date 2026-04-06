@@ -55,10 +55,15 @@ export default function Navbar() {
           ))}
         </nav>
 
-        <a href="#contact"
-          className="hidden md:inline-flex relative overflow-hidden items-center bg-blue text-midnight text-sm font-semibold rounded-full px-6 py-2 transition-all duration-300 hover:scale-[1.02] hover:-translate-y-px hover:shadow-blue-glow active:scale-[0.98]">
-          Get Started
-        </a>
+        <div className="hidden md:flex items-center gap-4">
+          <a href="/login" className="text-sm font-mono text-white/50 hover:text-white transition-colors duration-300 uppercase tracking-widest">
+            Login
+          </a>
+          <a href="#contact"
+            className="inline-flex relative overflow-hidden items-center bg-blue text-midnight text-sm font-semibold rounded-full px-6 py-2 transition-all duration-300 hover:scale-[1.02] hover:-translate-y-px hover:shadow-blue-glow active:scale-[0.98]">
+            Get Started
+          </a>
+        </div>
 
         <button
           aria-label={menuOpen ? 'Close menu' : 'Open menu'}
@@ -90,9 +95,14 @@ export default function Navbar() {
             {link.label}
           </a>
         ))}
+        <a href="/login" onClick={() => setMenuOpen(false)}
+          className="text-xl font-mono text-white/50 hover:text-white transition-colors uppercase tracking-widest mt-2"
+          style={{ transitionDelay: menuOpen ? `${navLinks.length * 60}ms` : '0ms', opacity: menuOpen ? 1 : 0 }}>
+          Client Login
+        </a>
         <a href="#contact" onClick={() => setMenuOpen(false)}
           className="mt-4 bg-blue text-midnight text-lg font-semibold rounded-full px-8 py-3 hover:shadow-blue-glow transition-all duration-300"
-          style={{ transitionDelay: menuOpen ? `${navLinks.length * 60}ms` : '0ms', opacity: menuOpen ? 1 : 0 }}>
+          style={{ transitionDelay: menuOpen ? `${(navLinks.length + 1) * 60}ms` : '0ms', opacity: menuOpen ? 1 : 0 }}>
           Get Started
         </a>
       </div>

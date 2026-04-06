@@ -141,6 +141,9 @@ function TelemetryTypewriter() {
     <div ref={containerRef} className="bg-surface border border-white/5 rounded-2xl p-8 shadow-2xl border-t-2 border-t-blue/30 flex flex-col gap-6" aria-label="Telemetry typewriter feature card">
       <div className="font-mono text-xs tracking-widest uppercase text-blue/70">02 — Intelligence</div>
       <h3 className="text-xl font-bold text-white">Intelligence, Not Just Footage.</h3>
+      <p className="text-sm text-white/50 leading-relaxed -mt-4">
+        Powered by <a href="https://alphavision.ai/" target="_blank" rel="noopener noreferrer" className="text-blue transition-colors hover:text-white">AlphaVision AGI7</a>
+      </p>
       {/* Live feed header */}
       <div className="flex items-center gap-2">
         <span className="w-2 h-2 rounded-full bg-blue animate-pulse" aria-hidden="true" />

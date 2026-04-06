@@ -2,19 +2,12 @@
 
 /* Placeholder partner logos — styled SVG text.
    TODO: replace with real partner SVG logos when available. */
-const PARTNERS = [
-  { name: 'Securitas', abbr: 'SEC' },
-  { name: 'G4S', abbr: 'G4S' },
-  { name: 'Allied Universal', abbr: 'AUS' },
-  { name: 'ADT', abbr: 'ADT' },
-  { name: 'Alarm.com', abbr: 'ALM' },
-  { name: 'Bold Group', abbr: 'BLD' },
-];
+const PARTNERS: Array<{ name: string; abbr: string; url?: string }> = [];
 
-function PartnerLogo({ name, abbr }: { name: string; abbr: string }) {
-  return (
+function PartnerLogo({ name, abbr, url }: { name: string; abbr: string; url?: string }) {
+  const content = (
     <div
-      className="group flex items-center justify-center px-6 py-4 rounded-xl border border-white/5 transition-all duration-300 hover:border-blue/30 hover:shadow-blue-glow cursor-default"
+      className="group flex items-center justify-center px-6 py-4 rounded-xl border border-white/5 transition-all duration-300 hover:border-blue/30 hover:shadow-blue-glow cursor-pointer"
       title={name}
       aria-label={name}
     >
@@ -23,6 +16,12 @@ function PartnerLogo({ name, abbr }: { name: string; abbr: string }) {
       </span>
     </div>
   );
+
+  return url ? (
+    <a href={url} target="_blank" rel="noopener noreferrer">
+      {content}
+    </a>
+  ) : content;
 }
 
 export default function MonitoringPartners() {

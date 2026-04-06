@@ -64,15 +64,14 @@ export default function Manifesto() {
     >
       {/* Aerial background */}
       <Image
-        src="https://images.unsplash.com/photo-1508361001413-7a9dca21d08a?w=1920&q=60"
-        alt=""
+        src="/images/aerial_site_night.png"
+        alt="Aerial view of industrial site at night"
         aria-hidden="true"
         fill
         sizes="100vw"
         className="object-cover opacity-10"
         placeholder="blur"
         blurDataURL={BLUR_DATA}
-        // TODO: replace with final brand aerial image
       />
 
       <div className="relative z-10 max-w-4xl mx-auto text-center">
