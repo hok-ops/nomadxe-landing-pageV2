@@ -5,7 +5,7 @@ import { createClientAccount, registerDevice, assignDevice, deleteAssignment, up
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Admin Control Portal | NomadXE',
+  title: 'Admin Command Console | NomadXE',
 };
 
 export default async function AdminDashboard() {
@@ -20,12 +20,9 @@ export default async function AdminDashboard() {
   const { data: authUsersResponse } = await adminClient.auth.admin.listUsers();
   const authUsers = authUsersResponse?.users || [];
   
-  // Fetch profiles to get roles for management
   const { data: profiles } = await supabase.from('profiles').select('*');
-  
   const { data: devices } = await supabase.from('vrm_devices').select('*');
 
-  // Fetch live assignments with joined data
   const { data: assignments } = await supabase
     .from('device_assignments')
     .select(`
@@ -36,173 +33,243 @@ export default async function AdminDashboard() {
       profiles(id)
     `);
 
+  const accentColor = '#00FF41'; // Volt Green
+
   return (
-    <div className="min-h-screen bg-midnight pt-32 pb-24 px-8 md:px-12 text-white/90">
-      <div className="max-w-6xl mx-auto">
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 border-b border-white/10 pb-6 gap-6">
-          <div>
-            <h1 className="text-3xl font-bold text-white mb-2">Systems Administration</h1>
-            <p className="font-mono text-xs text-blue/70 uppercase tracking-[0.3em]">Trailer Allocation & Provisioning</p>
+    <div className="min-h-screen bg-[#080808] text-[#00FF41]/90 font-mono relative selection:bg-[#00FF41] selection:text-black">
+      {/* Tactical CRT Overlay */}
+      <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(0,255,65,0.02),rgba(0,255,65,0.01),rgba(0,255,65,0.02))] bg-[length:100%_4px,3px_100%] z-50 opacity-30" />
+      
+      <div className="max-w-[1600px] mx-auto px-6 py-12 lg:px-12 relative z-10">
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 border-b border-[#00FF41]/20 pb-8 gap-8">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+               <span className="w-2 h-2 rounded-full bg-[#00FF41] animate-ping" />
+               <h1 className="text-3xl font-black tracking-tighter uppercase text-white shadow-[#00FF41]/20">
+                 Command_Center // Fleet_Ops
+               </h1>
+            </div>
+            <p className="text-[10px] text-[#00FF41]/40 uppercase tracking-[0.5em] font-mono">
+              SECURE_ADMIN_PORTAL // SYSTEM_TIME_SYNCED
+            </p>
           </div>
-          <Link href="/dashboard" className="text-[10px] font-mono border border-white/10 px-6 py-2.5 rounded-lg text-white/50 hover:bg-white/5 hover:text-white transition-all uppercase tracking-[0.2em]">
-            &larr; Exit to Dashboard
+          <Link href="/dashboard" className="text-[11px] font-bold border border-[#00FF41]/30 bg-[#00FF41]/5 px-8 py-3 rounded-sm hover:bg-[#00FF41] hover:text-black transition-all uppercase tracking-[0.3em] shadow-[0_0_15px_rgba(0,255,65,0.1)] active:scale-[0.98]">
+            &larr; Exit_To_Dash
           </Link>
         </header>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Section 1: Provision Users */}
-          <section className="bg-surface border border-white/5 p-8 rounded-3xl shadow-2xl space-y-6">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="w-8 h-8 rounded-full bg-blue/10 flex items-center justify-center text-blue text-sm">01</span>
-              <h2 className="text-xl font-bold uppercase tracking-tight text-white">Provision Client</h2>
-            </div>
-            <form action={createClientAccount} className="space-y-4">
-              <div>
-                <label className="text-[10px] font-mono text-white/40 uppercase mb-2 block ml-1">Client Email</label>
-                <input name="email" type="email" required className="w-full bg-black/40 border border-white/10 p-4 rounded-xl text-sm focus:outline-none focus:border-blue/50 transition-all font-mono" placeholder="client@example.com" />
-              </div>
-              <div>
-                <label className="text-[10px] font-mono text-white/40 uppercase mb-2 block ml-1">Access Key</label>
-                <input name="password" type="password" required className="w-full bg-black/40 border border-white/10 p-4 rounded-xl text-sm focus:outline-none focus:border-blue/50 transition-all font-mono" placeholder="••••••••" />
-              </div>
-              <button className="w-full bg-blue text-midnight font-bold py-4 rounded-xl text-sm uppercase tracking-widest hover:shadow-[0_0_20px_rgba(14,165,233,0.4)] transition-all active:scale-[0.98]">
-                Initialize Account
-              </button>
-            </form>
-          </section>
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
+          
+          {/* Left Column: Quick Actions & Forms */}
+          <div className="xl:col-span-1 space-y-8">
+            
+            {/* User Provisioning */}
+            <section className="bg-black/40 border-l-2 border-[#00FF41] p-6 space-y-6 backdrop-blur-md relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-2 text-[10px] text-[#00FF41]/20 group-hover:text-[#00FF41]/40 transition-colors">NO_01</div>
+              <h2 className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-3 text-white">
+                <span className="w-1.5 h-1.5 bg-[#00FF41]" />
+                Provision_Node
+              </h2>
+              <form action={createClientAccount} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase tracking-widest text-[#00FF41]/50">Client_Email</label>
+                  <input name="email" type="email" required className="w-full bg-black/60 border border-[#00FF41]/20 p-3 text-sm focus:border-[#00FF41] focus:ring-1 focus:ring-[#00FF41]/20 transition-all outline-none" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase tracking-widest text-[#00FF41]/50">Auth_Secret</label>
+                  <input name="password" type="password" required className="w-full bg-black/60 border border-[#00FF41]/20 p-3 text-sm focus:border-[#00FF41] focus:ring-1 focus:ring-[#00FF41]/20 transition-all outline-none" />
+                </div>
+                <button className="w-full bg-[#00FF41]/10 border border-[#00FF41]/40 py-3 text-[10px] font-bold uppercase tracking-[0.3em] hover:bg-[#00FF41] hover:text-black transition-all">
+                  Initialize_Account
+                </button>
+              </form>
+            </section>
 
-          {/* Section 2: Register Trailer */}
-          <section className="bg-surface border border-white/5 p-8 rounded-3xl shadow-2xl space-y-6">
-             <div className="flex items-center gap-3 mb-4">
-              <span className="w-8 h-8 rounded-full bg-blue/10 flex items-center justify-center text-blue text-sm">02</span>
-              <h2 className="text-xl font-bold uppercase tracking-tight text-white">Register Trailer</h2>
-            </div>
-            <form action={registerDevice} className="space-y-4">
-              <div>
-                <label className="text-[10px] font-mono text-white/40 uppercase mb-2 block ml-1">VRM ID</label>
-                <input name="vrm_site_id" required className="w-full bg-black/40 border border-white/10 p-4 rounded-xl text-sm focus:outline-none focus:border-blue/50 transition-all font-mono" placeholder="e.g. 123456" />
-              </div>
-              <div>
-                <label className="text-[10px] font-mono text-white/40 uppercase mb-2 block ml-1">Trailer Tag</label>
-                <input name="name" required className="w-full bg-black/40 border border-white/10 p-4 rounded-xl text-sm focus:outline-none focus:border-blue/50 transition-all font-mono" placeholder="e.g. ALPHA-01" />
-              </div>
-               <button className="w-full bg-blue text-midnight font-bold py-4 rounded-xl text-sm uppercase tracking-widest hover:shadow-[0_0_20px_rgba(14,165,233,0.4)] transition-all active:scale-[0.98]">
-                Add VRM Node
-              </button>
-            </form>
-          </section>
+            {/* Trailer Registration */}
+            <section className="bg-black/40 border-l-2 border-[#00FF41]/40 p-6 space-y-6 backdrop-blur-md relative overflow-hidden group">
+               <div className="absolute top-0 right-0 p-2 text-[10px] text-[#00FF41]/20 group-hover:text-[#00FF41]/40 transition-colors">NO_02</div>
+               <h2 className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-3 text-white">
+                <span className="w-1.5 h-1.5 bg-[#00FF41]/60" />
+                Register_Unit
+              </h2>
+              <form action={registerDevice} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase tracking-widest text-[#00FF41]/50">VRM_ID</label>
+                  <input name="vrm_site_id" required className="w-full bg-black/60 border border-[#00FF41]/20 p-3 text-sm focus:border-[#00FF41] outline-none" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase tracking-widest text-[#00FF41]/50">Callsign</label>
+                  <input name="name" required className="w-full bg-black/60 border border-[#00FF41]/20 p-3 text-sm focus:border-[#00FF41] outline-none" placeholder="e.g. ALPHA-01" />
+                </div>
+                <button className="w-full bg-[#00FF41]/5 border border-[#00FF41]/20 py-3 text-[10px] font-bold uppercase tracking-[0.3em] hover:bg-white hover:text-black transition-all">
+                  Sync_Hardware
+                </button>
+              </form>
+            </section>
 
-          {/* Section 3: Mapping / Assignment */}
-          <section className="bg-surface border border-white/5 p-8 rounded-3xl shadow-2xl space-y-6">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="w-8 h-8 rounded-full bg-blue/10 flex items-center justify-center text-blue text-sm">03</span>
-              <h2 className="text-xl font-bold uppercase tracking-tight text-white">Assign Access</h2>
-            </div>
-            <form action={assignDevice} className="space-y-4">
-              <div>
-                <label className="text-[10px] font-mono text-white/40 uppercase mb-2 block ml-1">Target Client</label>
-                <select name="user_id" required className="w-full bg-black/40 border border-white/10 p-4 rounded-xl text-sm focus:outline-none focus:border-blue/50 transition-all text-white appearance-none cursor-pointer">
-                  <option value="" className="bg-midnight text-white/50">Select Account...</option>
-                  {authUsers.map((u) => (
-                    <option key={u.id} value={u.id} className="bg-midnight">{u.email}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] font-mono text-white/40 uppercase mb-2 block ml-1">Target Trailer</label>
-                <select name="device_id" required className="w-full bg-black/40 border border-white/10 p-4 rounded-xl text-sm focus:outline-none focus:border-blue/50 transition-all text-white appearance-none cursor-pointer">
-                   <option value="" className="bg-midnight text-white/50">Select Device...</option>
-                   {devices?.map((d: any) => (
-                     <option key={d.id} value={d.id} className="bg-midnight">{d.name} ({d.vrm_site_id})</option>
-                   ))}
-                </select>
-              </div>
-               <button className="w-full bg-emerald-500 text-midnight font-bold py-4 rounded-xl text-sm uppercase tracking-widest hover:shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all active:scale-[0.98]">
-                Commit Mapping
-              </button>
-            </form>
-          </section>
-        </div>
+            {/* Assignment Form */}
+            <section className="bg-black/40 border-l-2 border-[#00FF41]/20 p-6 space-y-6 backdrop-blur-md relative overflow-hidden group">
+               <div className="absolute top-0 right-0 p-2 text-[10px] text-[#00FF41]/20 group-hover:text-[#00FF41]/40 transition-colors">NO_03</div>
+               <h2 className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-3 text-white">
+                <span className="w-1.5 h-1.5 bg-[#00FF41]/20" />
+                Map_Relay
+              </h2>
+              <form action={assignDevice} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase tracking-widest text-[#00FF41]/50">Source_Client</label>
+                  <select name="user_id" required className="w-full bg-black/60 border border-[#00FF41]/20 p-3 text-sm focus:border-[#00FF41] text-[#00FF41] outline-none appearance-none">
+                    <option value="" className="bg-[#050505]">Select...</option>
+                    {authUsers.map((u) => (
+                      <option key={u.id} value={u.id} className="bg-[#050505]">{u.email}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase tracking-widest text-[#00FF41]/50">Target_Unit</label>
+                  <select name="device_id" required className="w-full bg-black/60 border border-[#00FF41]/20 p-3 text-sm focus:border-[#00FF41] text-[#00FF41] outline-none appearance-none">
+                     <option value="" className="bg-[#050505]">Select...</option>
+                     {devices?.map((d: any) => (
+                       <option key={d.id} value={d.id} className="bg-[#050505]">{d.name}</option>
+                     ))}
+                  </select>
+                </div>
+                <button className="w-full bg-[#00FF41] text-black py-3 text-[10px] font-black uppercase tracking-[0.3em] hover:bg-white transition-all shadow-[0_0_20px_rgba(0,255,65,0.2)]">
+                  Execute_Final_Mapping
+                </button>
+              </form>
+            </section>
+          </div>
 
-        {/* Advanced Access Audit Section */}
-        <div className="mt-12 bg-surface border border-white/5 rounded-3xl p-8 overflow-hidden">
-          <h3 className="text-sm font-mono text-white/30 uppercase tracking-[0.2em] mb-8">Active Access Matrix</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-white/5 text-[10px] font-mono text-white/20 uppercase tracking-widest">
-                  <th className="pb-4">Client ID</th>
-                  <th className="pb-4">Assignment Status</th>
-                  <th className="pb-4">Trailer Node</th>
-                  <th className="pb-4 text-right">Operations</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {assignments && assignments.length > 0 ? (assignments as any[]).map((a) => (
-                  <tr key={a.id} className="group hover:bg-white/[0.02] transition-all">
-                    <td className="py-6 text-sm font-mono text-white/50">{a.profiles?.email || a.user_id.substring(0, 16)}...</td>
-                    <td className="py-6 italic text-xs text-emerald-400/60">ACTIVE_RELAY</td>
-                    <td className="py-6 text-sm font-bold text-white">{a.vrm_devices?.name} <span className="font-normal opacity-30">({a.vrm_devices?.vrm_site_id})</span></td>
-                    <td className="py-6 text-right">
-                      <form action={deleteAssignment}>
-                        <input type="hidden" name="id" value={a.id} />
-                        <button className="text-[10px] font-mono bg-rose-500/10 text-rose-400 px-4 py-2 rounded-lg hover:bg-rose-500 hover:text-white transition-all uppercase tracking-widest">
-                          Revoke Access
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                )) : (
-                  <tr>
-                    <td colSpan={4} className="py-12 text-center text-xs font-mono text-white/20 uppercase italic">No active mappings identified in registry.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+          {/* Main Area: Fleet Matrix Audit */}
+          <div className="xl:col-span-3 space-y-8">
+            <div className="bg-[#0a0a0a]/80 border border-[#00FF41]/10 rounded-sm p-8 shadow-2xl relative">
+              <div className="flex justify-between items-center mb-8 border-b border-[#00FF41]/10 pb-6">
+                <h3 className="text-xl font-black uppercase tracking-[0.4em] text-white">System_Fleet_Registry</h3>
+                <div className="flex gap-6 items-center">
+                   <div className="flex items-center gap-2">
+                     <span className="w-2 h-2 rounded-sm bg-[#00FF41]" />
+                     <span className="text-[10px] text-[#00FF41]/40 uppercase tracking-widest font-bold">Relay_Active</span>
+                   </div>
+                   <div className="text-[10px] font-mono text-white/20">TOTAL_NODES: {devices?.length || 0}</div>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse border-spacing-0">
+                  <thead>
+                    <tr className="bg-[#00FF41]/5 text-[9px] font-black text-[#00FF41]/60 uppercase tracking-[0.3em]">
+                      <th className="p-4 border border-[#00FF41]/10">Access_ID</th>
+                      <th className="p-4 border border-[#00FF41]/10 text-center">Status</th>
+                      <th className="p-4 border border-[#00FF41]/10">Allocated_Node</th>
+                      <th className="p-4 border border-[#00FF41]/10 text-right">Ops</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#00FF41]/5">
+                    {assignments && assignments.length > 0 ? (assignments as any[]).map((a) => (
+                      <tr key={a.id} className="group hover:bg-[#00FF41]/5 transition-all">
+                        <td className="p-5 text-xs text-[#00FF41]/40 border border-[#00FF41]/10 font-mono">
+                          {a.profiles?.email || 'UNSET_IDENTITY'}
+                        </td>
+                        <td className="p-5 border border-[#00FF41]/10 text-center">
+                          <span className="px-3 py-1 bg-[#00FF41]/10 text-[9px] font-black border border-[#00FF41]/20 animate-pulse">
+                            ACTIVE
+                          </span>
+                        </td>
+                        <td className="p-5 text-sm font-bold text-white border border-[#00FF41]/10">
+                          {a.vrm_devices?.name} <span className="opacity-30 text-xs font-normal">::{a.vrm_devices?.vrm_site_id}</span>
+                        </td>
+                        <td className="p-5 text-right border border-[#00FF41]/10">
+                          <form action={deleteAssignment}>
+                            <input type="hidden" name="id" value={a.id} />
+                            <button className="text-[9px] font-black bg-rose-900/20 text-rose-500 border border-rose-500/30 px-6 py-2 hover:bg-rose-600 hover:text-white transition-all uppercase tracking-widest">
+                              Revoke
+                            </button>
+                          </form>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan={4} className="p-20 text-center text-[10px] font-black text-[#00FF41]/20 uppercase tracking-[0.5em] italic">No active telemetry mapped to nodes // Waiting for initialization</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Bottom Section: Audit Log & User Management */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+               {/* User Management */}
+               <div className="bg-black/40 border border-[#00FF41]/10 p-8 space-y-6">
+                 <h3 className="text-xs font-black uppercase text-white tracking-[0.3em] flex items-center justify-between">
+                   <span>Auth_Profiles</span>
+                   <span className="text-[9px] opacity-30">REGISTRY_V1.1</span>
+                 </h3>
+                 <div className="max-h-80 overflow-y-auto space-y-3 custom-scrollbar pr-2">
+                   {authUsers.map(u => {
+                      const p = profiles?.find(prof => prof.id === u.id);
+                      return (
+                        <div key={u.id} className="flex items-center justify-between p-4 bg-[#050505] border border-[#00FF41]/5 group">
+                          <div>
+                            <p className="text-xs text-[#00FF41]/80 font-bold">{u.email}</p>
+                            <p className={`text-[8px] uppercase tracking-widest font-black ${p?.role === 'admin' ? 'text-blue-400' : 'text-[#00FF41]/40'}`}>
+                              ACL_LEVEL: {p?.role || 'user'}
+                            </p>
+                          </div>
+                          <form action={updateUserRole}>
+                            <input type="hidden" name="userId" value={u.id} />
+                            <input type="hidden" name="role" value={p?.role === 'admin' ? 'user' : 'admin'} />
+                            <button className="text-[8px] font-black px-4 py-2 bg-white/5 border border-white/10 text-white/40 uppercase hover:bg-[#00FF41] hover:text-black hover:border-transparent transition-all">
+                              Cycle_Role
+                            </button>
+                          </form>
+                        </div>
+                      )
+                   })}
+                 </div>
+               </div>
+
+               {/* Nodes Physical Mapping */}
+               <div className="bg-black/40 border border-[#00FF41]/10 p-8 space-y-6">
+                 <h3 className="text-xs font-black uppercase text-white tracking-[0.3em] flex items-center justify-between">
+                   <span>Nodes_Hardware_Map</span>
+                   <span className="text-[9px] opacity-30">VRM_LINK: CONNECTED</span>
+                 </h3>
+                 <div className="max-h-80 overflow-y-auto space-y-3 pr-2">
+                    {devices?.map((d: any) => (
+                      <div key={d.id} className="p-4 bg-[#050505] border border-[#00FF41]/5 flex justify-between items-center group">
+                         <div>
+                           <p className="text-xs font-black text-[#00FF41] uppercase tracking-widest">{d.name}</p>
+                           <p className="text-[9px] opacity-30 font-mono">SITE_ID_{d.vrm_site_id}</p>
+                         </div>
+                         <div className="flex gap-1">
+                           {[1,2,3].map(i => (
+                             <div key={i} className="w-1 h-3 bg-[#00FF41]/20 rounded-full group-hover:bg-[#00FF41] transition-all" />
+                           ))}
+                         </div>
+                      </div>
+                    ))}
+                 </div>
+               </div>
+            </div>
           </div>
         </div>
-
-        {/* Global Registry Audit & Role Management */}
-        <div className="mt-12 bg-surface/30 border border-white/5 rounded-3xl p-8 backdrop-blur-sm grid md:grid-cols-2 gap-12">
-            <div className="space-y-6">
-              <h3 className="text-sm font-mono text-white/30 uppercase tracking-[0.2em]">Global User Registry</h3>
-              <ul className="space-y-4">
-                {authUsers.map(u => {
-                  const p = profiles?.find(prof => prof.id === u.id);
-                  return (
-                    <li key={u.id} className="flex items-center justify-between p-4 bg-black/20 rounded-2xl border border-white/[0.02]">
-                      <div className="font-mono">
-                        <p className="text-sm text-white/80">{u.email}</p>
-                        <p className="text-[10px] text-blue uppercase tracking-widest">{p?.role || 'user'}</p>
-                      </div>
-                      <form action={updateUserRole} className="flex gap-2">
-                        <input type="hidden" name="userId" value={u.id} />
-                        <input type="hidden" name="role" value={p?.role === 'admin' ? 'user' : 'admin'} />
-                        <button className={`text-[9px] font-mono px-3 py-1.5 rounded bg-white/5 uppercase tracking-widest hover:bg-blue hover:text-midnight transition-all`}>
-                          Toggle Admin
-                        </button>
-                      </form>
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
-            <div className="space-y-6">
-              <h3 className="text-sm font-mono text-white/30 uppercase tracking-[0.2em]">Registered VRM Nodes</h3>
-              <ul className="space-y-4">
-                 {devices && devices.map((d: any) => (
-                   <li key={d.id} className="p-4 bg-black/20 rounded-2xl border border-white/[0.02] flex justify-between items-center">
-                      <div>
-                        <p className="text-sm font-bold text-white">{d.name}</p>
-                        <p className="text-[10px] font-mono text-white/30">{d.vrm_site_id}</p>
-                      </div>
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]"></span>
-                   </li>
-                 ))}
-              </ul>
-            </div>
-        </div>
       </div>
+      
+      <style jsx global>{`
+        body {
+          background-color: #050505;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(0,255,65,0.05);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(0,255,65,0.2);
+        }
+      `}</style>
     </div>
   );
 }
