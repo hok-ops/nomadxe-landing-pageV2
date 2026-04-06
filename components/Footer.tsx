@@ -8,7 +8,7 @@ const FOOTER_LINKS = {
     { label: 'Use Cases', href: '#use-cases' },
   ],
   Company: [
-    { label: 'About Nomadxe', href: '#' },
+    { label: 'About Us', href: '/about' },
     { label: 'Monitoring Partners', href: '#partners' },
     { label: 'Blog', href: '#' },
     { label: 'Careers', href: '#' },
