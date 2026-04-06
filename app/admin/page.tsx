@@ -1,7 +1,8 @@
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { redirect } from 'next/navigation';
-import { inviteNewUser, registerDevice, updateUserRole, resendInvite, deleteUser } from './actions';
+import { inviteNewUser, registerDevice, updateUserRole, resendInvite } from './actions';
+import { DeleteUserButton } from './DeleteUserButton';
 import Link from 'next/link';
 
 export const metadata = {
@@ -300,16 +301,7 @@ export default async function AdminDashboard({
                               </form>
 
                               {/* Delete User */}
-                              <form action={deleteUser}>
-                                <input type="hidden" name="userId" value={u.id} />
-                                <button
-                                  type="submit"
-                                  className="text-[10px] font-bold px-3 py-2 rounded-lg border border-red-500/20 text-red-400/60 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                                  onClick={(e) => { if (!confirm(`Delete ${u.email}? This cannot be undone.`)) e.preventDefault(); }}
-                                >
-                                  Delete
-                                </button>
-                              </form>
+                              <DeleteUserButton userId={u.id} email={u.email || ''} />
                             </div>
                           </td>
                         </tr>
