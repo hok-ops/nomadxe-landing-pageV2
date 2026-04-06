@@ -36,7 +36,7 @@ export default function ActivateAccountPage() {
       if (user) {
         const { error: profileError } = await supabase
           .from('profiles')
-          .update({ full_name: fullName, is_active: true })
+          .update({ full_name: fullName, is_active: true, status: 'active' })
           .eq('id', user.id);
 
         if (profileError) throw profileError;
