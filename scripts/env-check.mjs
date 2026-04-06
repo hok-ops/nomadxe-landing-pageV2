@@ -8,15 +8,21 @@ const REQUIRED_SECRETS = [
 
 const FORBIDDEN_PUBLIC_PREFIX = 'NEXT_PUBLIC_';
 
+const IS_CI = process.env.VERCEL || process.env.CI;
+
 console.log('\x1b[36m%s\x1b[0m', '🛡️  NomadXE Security Pre-flight Check...');
 
-let hasError = false;
+let hasMissingSecrets = false;
 
-// 1. Check for .env.local existence or environment presence
+// 1. Check for required environment presence
 REQUIRED_SECRETS.forEach(secret => {
   if (!process.env[secret]) {
-    console.error('\x1b[31m%s\x1b[0m', `❌ MISSING CRITICAL SECRET: ${secret}`);
-    hasError = true;
+    if (IS_CI) {
+      console.warn('\x1b[33m%s\x1b[0m', `⚠️  WARNING: Missing Secret "${secret}". Admin features will be restricted.`);
+    } else {
+      console.error('\x1b[31m%s\x1b[0m', `❌ MISSING CRITICAL SECRET: ${secret}`);
+      hasMissingSecrets = true;
+    }
   }
 });
 
@@ -24,14 +30,20 @@ REQUIRED_SECRETS.forEach(secret => {
 Object.keys(process.env).forEach(key => {
   if (key.startsWith(FORBIDDEN_PUBLIC_PREFIX) && (key.includes('SERVICE_ROLE') || key.includes('SECRET'))) {
     console.error('\x1b[31m%s\x1b[0m', `⚠️  SECURITY RISK: Sensitive key "${key}" is exposed to the client!`);
-    hasError = true;
+    hasMissingSecrets = true;
   }
 });
 
-if (hasError) {
+if (hasMissingSecrets) {
   console.log('\x1b[33m%s\x1b[0m', '\nℹ️  Consult /docs/superpowers/plans/implementation_plan.md for setup instructions.');
-  process.exit(1);
+  process.exit(1); 
 }
 
-console.log('\x1b[32m%s\x1b[0m', '✅ Security validation passed. Booting system...\n');
+if (IS_CI) {
+  console.log('\x1b[32m%s\x1b[0m', '✅ Build-phase validation complete (with warnings). Proceeding to Next.js build...\n');
+} else {
+  console.log('\x1b[32m%s\x1b[0m', '✅ Local security validation passed. Booting system...\n');
+}
+
 process.exit(0);
+

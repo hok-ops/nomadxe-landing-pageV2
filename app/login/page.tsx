@@ -3,7 +3,24 @@ import { createAdminClient } from '@/utils/supabase/admin';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 
-export default function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: { error?: string } }) {
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+
+  // If already authenticated, redirect to appropriate portal
+  if (session) {
+    const adminClient = createAdminClient();
+    const { data: profile } = await adminClient
+      .from('profiles')
+      .select('role')
+      .eq('id', session.user.id)
+      .single();
+
+    if (profile?.role === 'admin') {
+      return redirect('/admin');
+    }
+    return redirect('/dashboard');
+  }
 
   const signIn = async (formData: FormData) => {
     'use server';
@@ -19,10 +36,10 @@ export default function LoginPage() {
     });
 
     if (authError || !user) {
-      return redirect('/login?error=Invalid credentials');
+      console.error(`[AUTH_GATEWAY] Authentication failed for ${email}: ${authError?.message || 'Unknown Error'}`);
+      return redirect(`/login?error=${encodeURIComponent(authError?.message || 'Invalid credentials')}`);
     }
 
-    // DEBUG: Log the user details arriving at the gateway
     console.log(`[AUTH_GATEWAY] Authenticated User: ${user.email} (ID: ${user.id})`);
 
     // Role-Based Redirection Logic (Using Admin Client to bypass RLS latency)
@@ -36,84 +53,92 @@ export default function LoginPage() {
       console.error(`[AUTH_GATEWAY] Profile Fetch Error: ${profileError.message}`);
     }
 
-    console.log(`[AUTH_GATEWAY] Detected Role: ${profile?.role || 'null'}`);
-
     if (profile?.role === 'admin') {
-      console.log(`[AUTH_GATEWAY] Routing to OPS_CONSOLE`);
       return redirect('/admin');
     }
     
-    console.log(`[AUTH_GATEWAY] Routing to CLIENT_DASHBOARD`);
     return redirect('/dashboard');
   };
 
-
-
   return (
-    <div className="min-h-screen bg-midnight relative overflow-hidden flex items-center justify-center p-6">
-      {/* Dynamic ambient background glow */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue/10 rounded-full blur-[120px] pointer-events-none" aria-hidden="true" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue/5 rounded-full blur-[100px] pointer-events-none" aria-hidden="true" />
+    <div className="min-h-screen bg-[#050505] text-[#00FF41] font-mono relative selection:bg-[#00FF41] selection:text-black flex items-center justify-center p-6 overflow-hidden">
+      {/* Tactical CRT Overlay */}
+      <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(0,255,65,0.02),rgba(0,255,65,0.01),rgba(0,255,65,0.02))] bg-[length:100%_4px,3px_100%] z-50 opacity-20" />
+      
+      {/* 🚨 TACTICAL CACHE BUSTER: This confirms you are on the Master Gateway Build */}
+      <div className="fixed top-0 left-0 right-0 h-1.5 bg-[#00FF41] z-[100] animate-pulse shadow-[0_0_15px_rgba(0,255,65,0.8)]" />
+      <div className="fixed top-6 left-6 text-[10px] font-black uppercase tracking-[0.5em] text-[#00FF41]/40 z-[100]">
+         [ SYSTEM_LAYER_01: NOMADXE_GATEWAY ]
+      </div>
 
-      <div className="relative w-full max-w-md bg-white/[0.02] backdrop-blur-3xl border border-white/10 rounded-3xl p-10 shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-lg bg-black border-2 border-[#00FF41]/20 p-12 shadow-[0_0_100px_rgba(0,255,65,0.05)] relative z-10 transition-all hover:border-[#00FF41]/40">
         
-        {/* Subtle glassmorphic highlight rim */}
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-blue/50 to-transparent opacity-70" />
+        {/* Decorative corner brackets */}
+        <div className="absolute -top-1 -left-1 w-10 h-10 border-t-4 border-l-4 border-[#00FF41]" />
+        <div className="absolute -bottom-1 -right-1 w-10 h-10 border-b-4 border-r-4 border-[#00FF41]" />
 
-        <div className="text-center mb-10 mt-2">
-          <p className="font-mono text-2xl tracking-[0.3em] uppercase text-white font-bold mb-3 drop-shadow-lg">
-            NOMADXE
-          </p>
-          <p className="text-xs text-blue/70 font-mono uppercase tracking-widest">
-            Identity Gateway
-          </p>
+        <div className="text-center mb-12">
+          <h1 className="text-5xl font-black tracking-[-0.15em] uppercase text-white mb-4 italic leading-none">
+            NOMAD<span className="text-[#00FF41]">XE</span>
+          </h1>
+          <div className="flex items-center justify-center gap-3">
+            <span className="w-2.5 h-2.5 bg-[#00FF41] rounded-full animate-ping" />
+            <p className="text-[11px] text-[#00FF41]/60 uppercase tracking-[0.6em] font-bold">
+              IDENTITY_GATEWAY // SECURE_HUB
+            </p>
+          </div>
         </div>
 
-        <form action={signIn} className="flex flex-col gap-6 relative z-10">
-          <div className="group">
-            <label className="block font-mono text-[10px] text-white/40 mb-2 uppercase tracking-[0.2em] group-focus-within:text-blue/70 transition-colors">
-              User Email
+        {searchParams.error && (
+          <div className="mb-10 bg-red-950/20 border border-red-500/50 p-6 text-red-500 text-[10px] font-black uppercase tracking-[0.2em] animate-pulse flex flex-col gap-2">
+            <div>[ ! ] AUTH_ERROR_DETECTED</div>
+            <div className="opacity-70">{searchParams.error}</div>
+          </div>
+        )}
+
+        <form action={signIn} className="flex flex-col gap-10">
+          <div className="space-y-4">
+            <label className="block text-[10px] uppercase tracking-[0.5em] text-[#00FF41]/40 font-black">
+              [ TARGET_ID ]
             </label>
             <input 
               name="email"
               type="email" 
               required
-              className="w-full bg-black/20 border border-white/5 rounded-xl px-5 py-4 text-white text-sm focus:outline-none focus:border-blue/50 focus:ring-1 focus:ring-blue/50 transition-all shadow-inner" 
+              className="w-full bg-black border-2 border-[#00FF41]/20 p-5 text-[#00FF41] text-sm focus:outline-none focus:border-[#00FF41] transition-all placeholder:text-[#00FF41]/30 selection:bg-[#00FF41] selection:text-black font-bold" 
               placeholder="operator@nomadxe.com" 
             />
           </div>
-          <div className="group">
-            <div className="flex justify-between items-end mb-2">
-              <label className="block font-mono text-[10px] text-white/40 uppercase tracking-[0.2em] group-focus-within:text-blue/70 transition-colors">
-                Access Key
+          
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <label className="block text-[10px] uppercase tracking-[0.5em] text-[#00FF41]/40 font-black">
+                [ ACCESS_KEY ]
               </label>
-              <Link href="/reset-password" title="Recover account access" className="text-[9px] font-mono text-blue/40 hover:text-blue transition-colors uppercase tracking-widest">
-                Forgot Key?
-              </Link>
             </div>
             <input 
               name="password"
               type="password" 
               required
-              className="w-full bg-black/20 border border-white/5 rounded-xl px-5 py-4 text-white text-sm focus:outline-none focus:border-blue/50 focus:ring-1 focus:ring-blue/50 transition-all shadow-inner" 
+              className="w-full bg-black border-2 border-[#00FF41]/20 p-5 text-[#00FF41] text-sm focus:outline-none focus:border-[#00FF41] transition-all placeholder:text-[#00FF41]/30 selection:bg-[#00FF41] selection:text-black font-bold" 
               placeholder="••••••••" 
             />
           </div>
+
           <button 
             type="submit" 
-            className="w-full mt-4 bg-gradient-to-r from-blue/90 to-blue hover:from-blue hover:to-blue/90 text-midnight font-bold tracking-widest uppercase py-4 rounded-xl transition-all duration-300 shadow-[0_0_20px_rgba(14,165,233,0.3)] hover:shadow-[0_0_30px_rgba(14,165,233,0.5)] active:scale-[0.98]"
+            className="w-full bg-[#00FF41] text-black font-black tracking-[0.5em] uppercase py-6 text-sm hover:bg-white transition-all shadow-[0_0_30px_rgba(0,255,65,0.4)] mt-6 active:scale-[0.98]"
           >
-            Authenticate
+            AUTHENTICATE_SESSION
           </button>
         </form>
 
-        <div className="mt-8 text-center pt-8 border-t border-white/5 relative z-10">
-          <Link href="/" className="text-[10px] font-mono text-white/30 hover:text-white transition-colors uppercase tracking-[0.2em]">
-            &larr; Return to main site
+        <div className="mt-14 text-center pt-8 border-t border-[#00FF41]/10">
+          <Link href="/" className="text-[11px] text-[#00FF41]/20 hover:text-[#00FF41] transition-colors uppercase tracking-[0.4em] font-black">
+            &larr; TERMINATE_AND_ABORT
           </Link>
         </div>
       </div>
     </div>
   );
 }
-
