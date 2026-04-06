@@ -51,10 +51,8 @@ export default function LoginPage() {
             <input 
               name="email"
               type="email" 
-              required 
-              defaultValue="admin@nomadxe.com"
               className="w-full bg-black/20 border border-white/5 rounded-xl px-5 py-4 text-white text-sm focus:outline-none focus:border-blue/50 focus:ring-1 focus:ring-blue/50 transition-all shadow-inner" 
-              placeholder="operator@nomadxe.com" 
+              placeholder="client@nomadxe.com" 
             />
           </div>
           <div className="group">
@@ -64,8 +62,6 @@ export default function LoginPage() {
             <input 
               name="password"
               type="password" 
-              required 
-              defaultValue="admin123"
               className="w-full bg-black/20 border border-white/5 rounded-xl px-5 py-4 text-white text-sm focus:outline-none focus:border-blue/50 focus:ring-1 focus:ring-blue/50 transition-all shadow-inner" 
               placeholder="••••••••" 
             />
