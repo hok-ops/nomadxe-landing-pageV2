@@ -2,7 +2,7 @@ import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 
-export default function LoginPage() {
+export default function StaffLoginPage() {
 
   const signIn = async (formData: FormData) => {
     'use server';
@@ -16,9 +16,9 @@ export default function LoginPage() {
       password,
     });
 
-    if (error) {
-      // If the database actually exists and there's an error, handle it cleanly.
-      // For this native template without a DB hookup, simply allow access via the simulated redirect.
+    if (!error) {
+       // Typically Admin logs in and goes to a user manager/trailer manager route
+       return redirect('/dashboard'); 
     }
     
     // Auth fallback simulating correct credentials:
@@ -27,9 +27,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-midnight relative overflow-hidden flex items-center justify-center p-6">
-      {/* Dynamic ambient background glow */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue/10 rounded-full blur-[120px] pointer-events-none" aria-hidden="true" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue/5 rounded-full blur-[100px] pointer-events-none" aria-hidden="true" />
+      {/* Dynamic ambient background glow - Ops Red accent */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue/5 rounded-full blur-[120px] pointer-events-none" aria-hidden="true" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue/10 rounded-full blur-[100px] pointer-events-none" aria-hidden="true" />
 
       <div className="relative w-full max-w-md bg-white/[0.02] backdrop-blur-3xl border border-white/10 rounded-3xl p-10 shadow-2xl overflow-hidden">
         
@@ -38,28 +38,28 @@ export default function LoginPage() {
 
         <div className="text-center mb-10 mt-2">
           <p className="font-mono text-2xl tracking-[0.3em] uppercase text-white font-bold mb-3 drop-shadow-lg">
-            NOMADXE
+            NOMADXE OPS
           </p>
-          <p className="text-xs text-blue/70 font-mono uppercase tracking-widest">
-            Client Telemetry Portal
+          <p className="text-[10px] text-blue/70 font-mono uppercase tracking-widest">
+            Restricted Staff Access
           </p>
         </div>
 
-        <form action={signIn} className="flex flex-col gap-6 relative z-10">
-          <div className="group">
+        <form action={signIn} className="flex flex-col gap-6 relative z-10 text-center">
+          <div className="group text-left">
             <label className="block font-mono text-[10px] text-white/40 mb-2 uppercase tracking-[0.2em] group-focus-within:text-blue/70 transition-colors">
-              User Email
+              Operator ID
             </label>
             <input 
               name="email"
               type="email" 
               required 
-              defaultValue="admin@nomadxe.com"
+              defaultValue="ops@nomadxe.com"
               className="w-full bg-black/20 border border-white/5 rounded-xl px-5 py-4 text-white text-sm focus:outline-none focus:border-blue/50 focus:ring-1 focus:ring-blue/50 transition-all shadow-inner" 
-              placeholder="operator@nomadxe.com" 
+              placeholder="operator-id@nomadxe.com" 
             />
           </div>
-          <div className="group">
+          <div className="group text-left">
             <label className="block font-mono text-[10px] text-white/40 mb-2 uppercase tracking-[0.2em] group-focus-within:text-blue/70 transition-colors">
               Access Key
             </label>
@@ -67,14 +67,14 @@ export default function LoginPage() {
               name="password"
               type="password" 
               required 
-              defaultValue="admin123"
+              defaultValue="ops123"
               className="w-full bg-black/20 border border-white/5 rounded-xl px-5 py-4 text-white text-sm focus:outline-none focus:border-blue/50 focus:ring-1 focus:ring-blue/50 transition-all shadow-inner" 
               placeholder="••••••••" 
             />
           </div>
           <button 
             type="submit" 
-            className="w-full mt-4 bg-gradient-to-r from-blue/90 to-blue hover:from-blue hover:to-blue/90 text-midnight font-bold tracking-widest uppercase py-4 rounded-xl transition-all duration-300 shadow-[0_0_20px_rgba(14,165,233,0.3)] hover:shadow-[0_0_30px_rgba(14,165,233,0.5)] active:scale-[0.98]"
+            className="w-full mt-4 bg-transparent border border-blue/40 text-blue font-bold tracking-widest uppercase py-4 rounded-xl transition-all duration-300 hover:bg-blue/10 active:scale-[0.98]"
           >
             Authenticate
           </button>
@@ -82,7 +82,7 @@ export default function LoginPage() {
 
         <div className="mt-8 text-center pt-8 border-t border-white/5 relative z-10">
           <Link href="/" className="text-[10px] font-mono text-white/30 hover:text-white transition-colors uppercase tracking-[0.2em]">
-            &larr; Return to main site
+            &larr; Exit Ops Portal
           </Link>
         </div>
       </div>

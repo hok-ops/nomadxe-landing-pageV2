@@ -13,6 +13,10 @@ const FOOTER_LINKS = {
     { label: 'Blog', href: '#' },
     { label: 'Careers', href: '#' },
   ],
+  Portals: [
+    { label: 'Client Dashboard', href: '/login' },
+    { label: 'Team Login', href: '/staff' },
+  ],
   Legal: [
     { label: 'Privacy Policy', href: '/privacy' },
     { label: 'Terms of Service', href: '/terms' },

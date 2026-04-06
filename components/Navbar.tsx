@@ -57,7 +57,7 @@ export default function Navbar() {
 
         <div className="hidden md:flex items-center gap-4">
           <a href="/login" className="text-sm font-mono text-white/50 hover:text-white transition-colors duration-300 uppercase tracking-widest">
-            Login
+            Client Portal
           </a>
           <a href="#contact"
             className="inline-flex relative overflow-hidden items-center bg-blue text-midnight text-sm font-semibold rounded-full px-6 py-2 transition-all duration-300 hover:scale-[1.02] hover:-translate-y-px hover:shadow-blue-glow active:scale-[0.98]">

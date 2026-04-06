@@ -9,43 +9,47 @@ export default function AboutPage() {
   return (
     <div className="bg-midnight min-h-screen pt-32 pb-24 px-6 md:px-12 flex flex-col items-center">
       <div className="max-w-3xl w-full">
-        {/* Punchy Headline */}
+        {/* Humble Headline */}
         <header className="mb-12 border-b border-white/10 pb-8 text-center md:text-left">
           <p className="font-mono text-xs text-blue/70 uppercase tracking-[0.3em] mb-4">The Foundation</p>
           <h1 className="text-4xl md:text-6xl font-bold text-white leading-tight">
-            Decades of Reliability.<br />
-            <span className="text-blue">Customer-First Driven.</span>
+            Committed Service.<br />
+            <span className="text-blue">Built on Experience.</span>
           </h1>
         </header>
 
-        {/* Our Story Section */}
-        <section className="mb-12">
-          <h2 className="font-mono text-xs text-white/40 uppercase tracking-widest mb-6">Our Story</h2>
+        {/* Real Story Section */}
+        <section className="mb-12 text-center md:text-left">
+          <h2 className="font-mono text-xs text-white/40 uppercase tracking-widest mb-6 underline decoration-blue/30 underline-offset-8">Our Journey</h2>
           <div className="space-y-6 text-lg text-white/70 leading-relaxed font-light">
             <p>
-              With years of hands-on expertise in the mobile trailer and heavy equipment industry, 
-              NomadXE wasn&apos;t born in a boardroom—it was built in the field. We understand that in mobile 
-              surveillance, reliability isn&apos;t just a feature; it&apos;s the mission.
+              With years of hands-on expertise in the mobile trailer and heavy equipment industry, we&apos;ve 
+              learned that field conditions are unpredictable. NomadXE wasn&apos;t built to be a perfect system—it 
+              was built to provide a reliable, resilient infrastructure that we stand by every day.
             </p>
             <p>
-              We’ve combined old-school service values with next-generation technology to ensure that 
-              wherever your assets are, they are protected by the toughest, smartest infrastructure available.
+              We aim for the best possible service in the market, acknowledging the complexities of mobile 
+              deployments and prioritizing the uptime of your assets above all else.
             </p>
           </div>
         </section>
 
-        {/* Why Us Section */}
+        {/* Grounded Why Us Section */}
         <section className="mb-16 grid md:grid-cols-2 gap-8">
-          <div className="bg-surface/50 backdrop-blur-sm border border-white/5 p-8 rounded-2xl">
-            <h3 className="text-white font-bold mb-4">Proven Expertise</h3>
-            <p className="text-sm text-white/60 leading-relaxed italic">
-              &quot;We&apos;ve seen every terrain and every challenge. Our trailers are engineered from decades of real-world deployment data.&quot;
+          <div className="bg-surface/50 backdrop-blur-sm border border-white/5 p-8 rounded-2xl relative group overflow-hidden">
+             <div className="absolute top-0 right-0 p-4 opacity-5 font-mono text-xs uppercase tracking-widest">[ Field Proven ]</div>
+            <h3 className="text-white font-bold mb-4">Realworld Expertise</h3>
+            <p className="text-sm text-white/60 leading-relaxed">
+              We&apos;ve worked across challenging terrains and complex sites. Our trailers are engineered from 
+              years of practical deployment data, built for durability and continuous operation.
             </p>
           </div>
-          <div className="bg-surface/50 backdrop-blur-sm border border-white/5 p-8 rounded-2xl">
-            <h3 className="text-white font-bold mb-4">Service Obsession</h3>
-            <p className="text-sm text-white/60 leading-relaxed italic">
-              &quot;A handshake still means something here. We don&apos;t just lease equipment; we provide an unwavering 24/7 commitment to your uptime.&quot;
+          <div className="bg-surface/50 backdrop-blur-sm border border-white/5 p-8 rounded-2xl relative group overflow-hidden">
+             <div className="absolute top-0 right-0 p-4 opacity-5 font-mono text-xs uppercase tracking-widest">[ Active Support ]</div>
+            <h3 className="text-white font-bold mb-4">Dedicated Service</h3>
+            <p className="text-sm text-white/60 leading-relaxed">
+              We aim to provide the best service possible. When things go wrong in the field, we identify, 
+              respond, and resolve. Our goal is minimal downtime through proactive site management.
             </p>
           </div>
         </section>
