@@ -46,23 +46,30 @@ export default async function AdminDashboard() {
     `);
 
   return (
-    <div className="min-h-screen bg-[#080808] text-[#00FF41]/90 font-mono relative selection:bg-[#00FF41] selection:text-black pt-32 pb-24">
+    <div className="min-h-screen bg-[#050505] text-[#00FF41] font-mono relative selection:bg-[#00FF41] selection:text-black pt-32 pb-24">
+      {/* 🚨 TACTICAL CACHE BUSTER: This confirms you are on the Master Admin Build */}
+      <div className="fixed top-0 left-0 right-0 h-1.5 bg-[#00FF41] z-[100] animate-pulse" />
+      <div className="fixed top-6 left-6 text-[10px] font-black uppercase tracking-[0.5em] text-[#00FF41]/40 z-[100]">
+         [ SYSTEM_LAYER_01: NOMADXE_COMMAND ]
+      </div>
+
       {/* Tactical CRT Overlay */}
-      <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(0,255,65,0.02),rgba(0,255,65,0.01),rgba(0,255,65,0.02))] bg-[length:100%_4px,3px_100%] z-50 opacity-30" />
+      <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(0,255,65,0.02),rgba(0,255,65,0.01),rgba(0,255,65,0.02))] bg-[length:100%_4px,3px_100%] z-50 opacity-20" />
       
       <div className="max-w-[1600px] mx-auto px-6 lg:px-12 relative z-10">
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 border-b border-[#00FF41]/20 pb-8 gap-8">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-               <span className="w-2 h-2 rounded-full bg-[#00FF41] animate-ping" />
-               <h1 className="text-4xl font-black tracking-tighter uppercase text-white">
-                 Command_Center // Fleet_Ops
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 border-b-4 border-[#00FF41] pb-10 gap-8">
+          <div className="space-y-6">
+            <div className="flex items-center gap-4">
+               <span className="w-4 h-4 bg-[#00FF41] shadow-[0_0_15px_rgba(0,255,65,0.8)]" />
+               <h1 className="text-5xl font-black tracking-tighter uppercase text-white leading-none">
+                 OPS_CONSOLE // <span className="text-[#00FF41]">MASTER_LAYER</span>
                </h1>
             </div>
-            <p className="text-[10px] text-[#00FF41]/40 uppercase tracking-[0.5em]">
-              AUTHORIZED_ADMIN_LAYER // SESSION_ACTIVE
+            <p className="text-[11px] text-[#00FF41]/50 uppercase tracking-[0.6em] font-bold">
+              AUTHORIZED_ADMINISTRATION_CORE_V1.1 // FLEET_CONNECTED
             </p>
           </div>
+
           <Link href="/dashboard" className="text-[10px] font-black border border-[#00FF41]/40 px-8 py-3 rounded-sm hover:bg-[#00FF41] hover:text-black transition-all uppercase tracking-[0.3em]">
             &larr; CLIENT_DASHBOARD
           </Link>
