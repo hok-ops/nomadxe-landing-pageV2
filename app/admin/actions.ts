@@ -4,13 +4,14 @@ import { createAdminClient } from '@/utils/supabase/admin';
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 
-// Verify privileges natively
+// Verify privileges — use adminClient for profile lookup to avoid RLS recursion
 async function verifyAdmin() {
   const supabase = createClient();
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) throw new Error('Unauthorized');
-  
-  const { data, error: profileError } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+
+  const adminClient = createAdminClient();
+  const { data, error: profileError } = await adminClient.from('profiles').select('role').eq('id', user.id).single();
   if (profileError || data?.role !== 'admin') throw new Error('Forbidden');
 }
 
@@ -145,7 +146,7 @@ export async function inviteNewUser(formData: FormData) {
       }
     }
 
-    revalidatePath('/admin/users');
+    revalidatePath('/admin');
   } catch (err: any) {
     console.error('Invitation error:', err.message);
     throw err;

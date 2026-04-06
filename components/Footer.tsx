@@ -15,7 +15,6 @@ const FOOTER_LINKS = {
   ],
   Portals: [
     { label: 'Client Dashboard', href: '/login' },
-    { label: 'Team Login', href: '/staff' },
   ],
   Legal: [
     { label: 'Privacy Policy', href: '/privacy' },
