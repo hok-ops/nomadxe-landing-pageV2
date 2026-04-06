@@ -1,6 +1,7 @@
 -- ############################################################################
 -- NOMADXE V2: MASTER IDENTITY MIGRATION
 -- DESCRIPTION: Consolidates all tables, security, and triggers into one script.
+-- RUN THIS IN SUPABASE SQL EDITOR EACH TIME YOU RESET OR SET UP THE PROJECT
 -- ############################################################################
 
 -- 1. EXTEND PROFILES (Identity Layer)
@@ -8,8 +9,12 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid REFERENCES auth.users NOT NULL PRIMARY KEY,
   role TEXT CHECK (role IN ('admin', 'user')) DEFAULT 'user',
   full_name TEXT,
+  status TEXT DEFAULT 'active',
   is_active BOOLEAN DEFAULT false
 );
+
+-- Add status column if it doesn't exist (for existing deployments)
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active';
 
 -- 2. STORE DEVICES (Hardware Layer)
 CREATE TABLE IF NOT EXISTS public.vrm_devices (
@@ -32,43 +37,52 @@ ALTER TABLE public.vrm_devices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.device_assignments ENABLE ROW LEVEL SECURITY;
 
 -- 5. RLS POLICIES (Access Controls)
+-- NOTE: Admin operations in the app use service_role (bypasses RLS entirely).
+-- Only user-context read/write policies are needed here.
 
--- Profiles
+-- Profiles: users read/write their own row
 DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 CREATE POLICY "Users can view own profile" ON public.profiles FOR SELECT USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+
+-- Drop the recursive admin policies that caused infinite recursion
 DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
-CREATE POLICY "Admins can view all profiles" ON public.profiles FOR SELECT USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin');
-
 DROP POLICY IF EXISTS "Admins can update all profiles" ON public.profiles;
-CREATE POLICY "Admins can update all profiles" ON public.profiles FOR UPDATE USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin');
 
--- VRM Devices
+-- VRM Devices: users see only devices assigned to them
 DROP POLICY IF EXISTS "Users see assigned devices" ON public.vrm_devices;
-CREATE POLICY "Users see assigned devices" ON public.vrm_devices FOR SELECT USING (id IN (SELECT device_id FROM public.device_assignments WHERE user_id = auth.uid()));
+CREATE POLICY "Users see assigned devices" ON public.vrm_devices FOR SELECT
+  USING (id IN (SELECT device_id FROM public.device_assignments WHERE user_id = auth.uid()));
 
+-- Drop recursive admin device policies (service_role handles admin ops)
 DROP POLICY IF EXISTS "Admins see all devices" ON public.vrm_devices;
-CREATE POLICY "Admins see all devices" ON public.vrm_devices FOR SELECT USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin');
-
 DROP POLICY IF EXISTS "Admins manage all devices" ON public.vrm_devices;
-CREATE POLICY "Admins manage all devices" ON public.vrm_devices FOR ALL USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin');
 
--- Assignments
+-- Assignments: users can read their own assignments
+DROP POLICY IF EXISTS "Users see own assignments" ON public.device_assignments;
+CREATE POLICY "Users see own assignments" ON public.device_assignments FOR SELECT
+  USING (user_id = auth.uid());
+
+-- Drop recursive admin assignment policies (service_role handles admin ops)
 DROP POLICY IF EXISTS "Admins manage all assignments" ON public.device_assignments;
-CREATE POLICY "Admins manage all assignments" ON public.device_assignments FOR ALL USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin');
 
 
 -- 6. AUTO-PROFILE TRIGGER (Lifecycle)
+-- Creates a profile row automatically when a new user signs up or is invited
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
-  INSERT INTO public.profiles (id, role, is_active, full_name)
+  INSERT INTO public.profiles (id, role, status, is_active, full_name)
   VALUES (
-    new.id, 
-    'user', 
+    new.id,
+    'user',
+    'active',
     (CASE WHEN new.email_confirmed_at IS NOT NULL THEN true ELSE false END),
     (new.raw_user_meta_data->>'full_name')
-  );
+  )
+  ON CONFLICT (id) DO NOTHING;
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -79,18 +93,18 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
 
--- 7. 🚨 ADMIN PROMOTION (Identity Hook)
--- Replace the email below with your definitive admin account
+-- 7. ADMIN PROMOTION
+-- Sets your primary admin account. Replace the email if needed.
 DO $$
 DECLARE
     target_id uuid;
 BEGIN
-    SELECT id INTO target_id FROM auth.users WHERE lower(email) = lower('admin@nomadxe.com'); -- 🗺️ SET EMAIL HERE
-    
+    SELECT id INTO target_id FROM auth.users WHERE lower(email) = lower('admin@nomadxe.com');
+
     IF target_id IS NOT NULL THEN
-        INSERT INTO public.profiles (id, role, is_active)
-        VALUES (target_id, 'admin', true)
-        ON CONFLICT (id) DO UPDATE 
-        SET role = 'admin', is_active = true;
+        INSERT INTO public.profiles (id, role, status, is_active)
+        VALUES (target_id, 'admin', 'active', true)
+        ON CONFLICT (id) DO UPDATE
+        SET role = 'admin', status = 'active', is_active = true;
     END IF;
 END $$;
