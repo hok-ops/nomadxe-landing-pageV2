@@ -81,6 +81,7 @@ export default function Footer() {
                   <li key={link.label}>
                     <a
                       href={link.href}
+                      aria-label={link.label}
                       className="text-sm text-white/50 hover:text-blue transition-colors duration-300"
                     >
                       {link.label}

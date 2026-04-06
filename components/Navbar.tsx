@@ -56,7 +56,7 @@ export default function Navbar() {
         </nav>
 
         <div className="hidden md:flex items-center gap-4">
-          <a href="/login" className="text-sm font-mono text-white/50 hover:text-white transition-colors duration-300 uppercase tracking-widest">
+          <a href="/login" aria-label="Client Portal Login" className="text-sm font-mono text-white/50 hover:text-white transition-colors duration-300 uppercase tracking-widest">
             Client Portal
           </a>
           <a href="#contact"
@@ -96,6 +96,7 @@ export default function Navbar() {
           </a>
         ))}
         <a href="/login" onClick={() => setMenuOpen(false)}
+          aria-label="Client Portal Login"
           className="text-xl font-mono text-white/50 hover:text-white transition-colors uppercase tracking-widest mt-2"
           style={{ transitionDelay: menuOpen ? `${navLinks.length * 60}ms` : '0ms', opacity: menuOpen ? 1 : 0 }}>
           Client Portal
