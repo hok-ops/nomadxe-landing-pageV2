@@ -11,13 +11,24 @@ export default function LoginPage() {
     const password = formData.get('password') as string;
     const supabase = createClient();
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data: { user }, error: authError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (error) {
+    if (authError || !user) {
       return redirect('/login?error=Invalid credentials');
+    }
+
+    // Role-Based Redirection Logic
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (profile?.role === 'admin') {
+      return redirect('/admin');
     }
     
     return redirect('/dashboard');
@@ -39,7 +50,7 @@ export default function LoginPage() {
             NOMADXE
           </p>
           <p className="text-xs text-blue/70 font-mono uppercase tracking-widest">
-            Client Telemetry Portal
+            Identity Gateway
           </p>
         </div>
 
@@ -51,17 +62,24 @@ export default function LoginPage() {
             <input 
               name="email"
               type="email" 
+              required
               className="w-full bg-black/20 border border-white/5 rounded-xl px-5 py-4 text-white text-sm focus:outline-none focus:border-blue/50 focus:ring-1 focus:ring-blue/50 transition-all shadow-inner" 
-              placeholder="client@nomadxe.com" 
+              placeholder="operator@nomadxe.com" 
             />
           </div>
           <div className="group">
-            <label className="block font-mono text-[10px] text-white/40 mb-2 uppercase tracking-[0.2em] group-focus-within:text-blue/70 transition-colors">
-              Access Key
-            </label>
+            <div className="flex justify-between items-end mb-2">
+              <label className="block font-mono text-[10px] text-white/40 uppercase tracking-[0.2em] group-focus-within:text-blue/70 transition-colors">
+                Access Key
+              </label>
+              <Link href="/reset-password" title="Recover account access" className="text-[9px] font-mono text-blue/40 hover:text-blue transition-colors uppercase tracking-widest">
+                Forgot Key?
+              </Link>
+            </div>
             <input 
               name="password"
               type="password" 
+              required
               className="w-full bg-black/20 border border-white/5 rounded-xl px-5 py-4 text-white text-sm focus:outline-none focus:border-blue/50 focus:ring-1 focus:ring-blue/50 transition-all shadow-inner" 
               placeholder="••••••••" 
             />
@@ -83,3 +101,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

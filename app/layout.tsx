@@ -72,14 +72,21 @@ export const metadata: Metadata = {
   },
 };
 
+import { ToastProvider } from '@/components/ToastProvider';
+import AutoToast from '@/components/AutoToast';
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable} ${jetbrains.variable}`}>
       <body className="bg-midnight text-white antialiased font-sans">
-        {children}
+        <ToastProvider>
+          {children}
+          <AutoToast />
+        </ToastProvider>
       </body>
     </html>
   );
 }
+

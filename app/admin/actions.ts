@@ -107,3 +107,49 @@ export async function updateUserRole(formData: FormData) {
   }
 }
 
+export async function inviteNewUser(formData: FormData) {
+  try {
+    await verifyAdmin();
+    const email = formData.get('email') as string;
+    const vrm_site_id = formData.get('vrm_site_id') as string;
+    const device_name = formData.get('device_name') as string || 'Primary Trailer';
+
+    if (!email) throw new Error('Email is required');
+
+    const adminAuthClient = createAdminClient();
+    const { data: inviteData, error: inviteError } = await adminAuthClient.auth.admin.inviteUserByEmail(email, {
+       redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/activate-account`
+    });
+
+    if (inviteError) throw new Error(inviteError.message);
+
+    // If a device was provided, register it and assign it to the new user
+    if (vrm_site_id && inviteData.user) {
+      const supabase = createClient();
+      
+      // 1. Ensure device exists
+      const { data: device, error: deviceError } = await supabase
+        .from('vrm_devices')
+        .upsert([{ vrm_site_id, name: device_name }], { onConflict: 'vrm_site_id' })
+        .select()
+        .single();
+      
+      if (deviceError) console.error('Device sync error:', deviceError.message);
+
+      // 2. Map assignment
+      if (device) {
+        await supabase.from('device_assignments').insert([{ 
+          user_id: inviteData.user.id, 
+          device_id: device.id 
+        }]);
+      }
+    }
+
+    revalidatePath('/admin/users');
+  } catch (err: any) {
+    console.error('Invitation error:', err.message);
+    throw err;
+  }
+}
+
+

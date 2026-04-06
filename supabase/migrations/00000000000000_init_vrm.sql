@@ -1,7 +1,9 @@
 -- 1. Extend auth.users with custom roles (Idempotent)
 CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid references auth.users not null primary key,
-  role text check (role in ('admin', 'user')) default 'user'
+  role text check (role in ('admin', 'user')) default 'user',
+  full_name text,
+  is_active boolean default false
 );
 
 -- 2. Store VRM configuration (Idempotent)
@@ -67,8 +69,12 @@ ON CONFLICT (id) DO UPDATE SET role = 'admin';
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
-  INSERT INTO public.profiles (id, role)
-  VALUES (new.id, 'user');
+  INSERT INTO public.profiles (id, role, is_active)
+  VALUES (
+    new.id, 
+    'user', 
+    (CASE WHEN new.email_confirmed_at IS NOT NULL THEN true ELSE false END)
+  );
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
