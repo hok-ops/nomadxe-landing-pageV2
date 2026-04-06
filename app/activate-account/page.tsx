@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 
@@ -8,9 +8,20 @@ export default function ActivateAccountPage() {
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const [sessionError, setSessionError] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const supabase = createClient();
+
+  // Verify session exists before showing the form — if none, the invite
+  // link was not completed via /auth/confirm and we can't activate.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) setSessionError(true);
+      setChecking(false);
+    });
+  }, []);
 
   const handleActivation = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,28 +29,20 @@ export default function ActivateAccountPage() {
     setError(null);
 
     try {
-      // 1. Update Password
-      const { error: authError } = await supabase.auth.updateUser({
-        password: password,
-      });
-
+      const { error: authError } = await supabase.auth.updateUser({ password });
       if (authError) throw authError;
 
-      // 2. Update Profile Name and Mark Active
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { error: profileError } = await supabase
           .from('profiles')
-          .update({ 
-            full_name: fullName,
-            is_active: true 
-          })
+          .update({ full_name: fullName, is_active: true })
           .eq('id', user.id);
 
         if (profileError) throw profileError;
       }
 
-      router.push('/dashboard?success=Account_Activated');
+      router.push('/dashboard');
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -47,63 +50,127 @@ export default function ActivateAccountPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-midnight relative overflow-hidden flex items-center justify-center p-6">
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue/10 rounded-full blur-[120px] pointer-events-none" aria-hidden="true" />
-      
-      <div className="relative w-full max-w-md bg-white/[0.02] backdrop-blur-3xl border border-white/10 rounded-3xl p-10 shadow-2xl overflow-hidden">
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-blue/50 to-transparent opacity-70" />
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-[#080c14] flex items-center justify-center">
+        <span className="font-mono text-[#3b82f6]/50 text-sm animate-pulse tracking-widest">
+          VERIFYING SESSION...
+        </span>
+      </div>
+    );
+  }
 
-        <div className="text-center mb-10 mt-2">
-          <p className="font-mono text-2xl tracking-[0.3em] uppercase text-white font-bold mb-3">
-            INITIALIZE_NODE
-          </p>
-          <p className="text-xs text-blue/70 font-mono uppercase tracking-widest">
-            Complete Operator Profile
-          </p>
+  if (sessionError) {
+    return (
+      <div className="min-h-screen bg-[#080c14] flex items-center justify-center p-6">
+        <div className="w-full max-w-md bg-[#0d1526] border border-[#1e3a5f] rounded-2xl p-10 text-center space-y-6">
+          <div className="w-12 h-12 rounded-xl bg-red-900/20 border border-red-500/20 flex items-center justify-center mx-auto">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+          </div>
+          <div>
+            <h1 className="text-white font-bold text-lg mb-2">Invite Link Expired</h1>
+            <p className="text-[#93c5fd]/50 text-sm leading-relaxed">
+              This activation link is invalid or has already been used. Please ask your administrator to send a new invite.
+            </p>
+          </div>
+          <a
+            href="/login"
+            className="inline-block text-sm text-[#3b82f6]/70 hover:text-[#3b82f6] transition-colors"
+          >
+            ← Back to Sign In
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#080c14] flex items-center justify-center p-6 relative overflow-hidden">
+
+      {/* Dot-grid background */}
+      <div
+        className="pointer-events-none fixed inset-0 z-0 opacity-[0.025]"
+        style={{ backgroundImage: 'radial-gradient(circle, #3b82f6 1px, transparent 1px)', backgroundSize: '32px 32px' }}
+      />
+      <div className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#1e40af] via-[#3b82f6] to-[#1e40af] z-[100]" />
+
+      <div className="relative z-10 w-full max-w-[420px]">
+        <div className="bg-[#0d1526] border border-[#1e3a5f]/80 rounded-2xl shadow-[0_32px_80px_rgba(0,0,0,0.7)]">
+          <div className="h-px w-full rounded-t-2xl bg-gradient-to-r from-transparent via-[#3b82f6]/30 to-transparent" />
+
+          <div className="px-8 pt-10 pb-8 sm:px-10 sm:pt-12 sm:pb-10">
+
+            {/* Brand */}
+            <div className="text-center mb-10">
+              <div className="w-12 h-12 rounded-xl bg-[#1e40af]/20 border border-[#3b82f6]/20 flex items-center justify-center mx-auto mb-4">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              </div>
+              <span className="font-mono text-[22px] font-black tracking-[0.18em] uppercase text-white">
+                NOMAD<span className="text-[#3b82f6]">XE</span>
+              </span>
+              <div className="mt-4 space-y-1">
+                <h1 className="text-[17px] font-bold text-white">Activate your account</h1>
+                <p className="text-[12px] text-[#93c5fd]/45">Set your name and password to complete setup.</p>
+              </div>
+            </div>
+
+            {/* Error */}
+            {error && (
+              <div className="mb-5 bg-red-950/25 border border-red-500/35 rounded-xl p-3.5 text-[12.5px] text-red-400">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleActivation} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="block text-[10.5px] font-semibold text-[#93c5fd]/55 uppercase tracking-[0.12em]">
+                  Full Name
+                </label>
+                <input
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full bg-[#080c14] border border-[#1e3a5f] rounded-xl px-4 py-3.5 text-white text-sm placeholder:text-[#93c5fd]/20 outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6]/20 transition-all"
+                  placeholder="Jane Smith"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-[10.5px] font-semibold text-[#93c5fd]/55 uppercase tracking-[0.12em]">
+                  Create Password
+                </label>
+                <input
+                  required
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  minLength={8}
+                  className="w-full bg-[#080c14] border border-[#1e3a5f] rounded-xl px-4 py-3.5 text-white text-sm placeholder:text-[#93c5fd]/20 outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6]/20 transition-all"
+                  placeholder="Min. 8 characters"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-2 bg-[#2563eb] hover:bg-[#3b82f6] disabled:opacity-50 text-white font-bold py-3.5 rounded-xl text-sm tracking-wide transition-all hover:shadow-[0_0_28px_rgba(59,130,246,0.45)] active:scale-[0.98]"
+              >
+                {loading ? 'Activating…' : 'Activate Account'}
+              </button>
+            </form>
+          </div>
         </div>
 
-        <form onSubmit={handleActivation} className="flex flex-col gap-6 relative z-10">
-          {error && (
-            <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-mono uppercase tracking-widest text-center">
-              Activation_Error // {error}
-            </div>
-          )}
-
-          <div className="group">
-            <label className="block font-mono text-[10px] text-white/40 mb-2 uppercase tracking-[0.2em] group-focus-within:text-blue/70">
-              [ CALLSIGN / FULL_NAME ]
-            </label>
-            <input 
-              required
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              className="w-full bg-black/20 border border-white/5 rounded-xl px-5 py-4 text-white text-sm focus:outline-none focus:border-blue/50 transition-all font-mono" 
-              placeholder="John_Doe" 
-            />
-          </div>
-
-          <div className="group">
-            <label className="block font-mono text-[10px] text-white/40 mb-2 uppercase tracking-[0.2em] group-focus-within:text-blue/70">
-              [ SET_ACCESS_KEY ]
-            </label>
-            <input 
-              required
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-black/20 border border-white/5 rounded-xl px-5 py-4 text-white text-sm focus:outline-none focus:border-blue/50 transition-all font-mono" 
-              placeholder="••••••••" 
-            />
-          </div>
-
-          <button 
-            disabled={loading}
-            className="w-full mt-4 bg-blue text-midnight font-bold tracking-widest uppercase py-4 rounded-xl transition-all shadow-blue-glow hover:scale-[1.02] disabled:opacity-50 disabled:scale-100"
-          >
-            {loading ? 'SYNCING...' : 'FINALIZE_ACTIVATION'}
-          </button>
-        </form>
+        <p className="text-center text-[9.5px] text-[#93c5fd]/18 mt-5 font-mono uppercase tracking-[0.22em]">
+          Secure · Invite-only · NomadXE
+        </p>
       </div>
     </div>
   );

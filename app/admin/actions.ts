@@ -118,8 +118,9 @@ export async function inviteNewUser(formData: FormData) {
     if (!email) throw new Error('Email is required');
 
     const adminAuthClient = createAdminClient();
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
     const { data: inviteData, error: inviteError } = await adminAuthClient.auth.admin.inviteUserByEmail(email, {
-       redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/activate-account`
+      redirectTo: `${siteUrl}/auth/confirm?next=/activate-account`,
     });
 
     if (inviteError) throw new Error(inviteError.message);
