@@ -13,23 +13,6 @@ export default async function LoginPage({
 }: {
   searchParams: { error?: string };
 }) {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  // Already authenticated — route to correct portal immediately
-  if (session) {
-    const adminClient = createAdminClient();
-    const { data: profile } = await adminClient
-      .from('profiles')
-      .select('role')
-      .eq('id', session.user.id)
-      .single();
-
-    return redirect(profile?.role === 'admin' ? '/admin' : '/dashboard');
-  }
-
   const signIn = async (formData: FormData) => {
     'use server';
 
