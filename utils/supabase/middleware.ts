@@ -1,5 +1,4 @@
 import { createServerClient } from '@supabase/ssr'
-import { createClient } from '@supabase/supabase-js'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
@@ -9,6 +8,7 @@ export async function updateSession(request: NextRequest) {
     },
   })
 
+  // Standard anon client for session refresh
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -19,9 +19,7 @@ export async function updateSession(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
-          response = NextResponse.next({
-            request,
-          })
+          response = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
           )
@@ -34,50 +32,59 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // PROTECTED ROUTES LOGIC
   const isDashboard = request.nextUrl.pathname.startsWith('/dashboard')
   const isAdmin = request.nextUrl.pathname.startsWith('/admin')
 
+  // Redirect unauthenticated users away from protected routes
   if ((isDashboard || isAdmin) && !user) {
-    console.log(`[MIDDLEWARE] Unauthorized access. Redirecting to /login`);
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  // ROLE-BASED PROTECTION for /admin routes
-  // CRITICAL: Use createClient (not createServerClient) with service_role key.
-  // createServerClient passes cookies which trigger the user's RLS session context,
-  // causing recursive RLS policy evaluation. createClient with service_role bypasses
-  // RLS entirely and avoids infinite recursion.
+  // For /admin routes: verify admin role using a service-role client.
+  // CRITICAL: Use createServerClient with the service role key but pass NO cookies.
+  // Passing an empty cookie handler means the client uses only the service_role key
+  // and does NOT inherit the user's session context, avoiding recursive RLS evaluation.
   if (isAdmin && user) {
-    const adminSupabase = createClient(
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+    if (!serviceKey) {
+      console.error('[MIDDLEWARE] SUPABASE_SERVICE_ROLE_KEY is not set — cannot verify admin role')
+      const url = request.nextUrl.clone()
+      url.pathname = '/dashboard'
+      return NextResponse.redirect(url)
+    }
+
+    // Use createServerClient with service_role key and empty cookie handlers
+    // This keeps us in Edge-compatible territory while bypassing user RLS context
+    const adminCheck = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      serviceKey,
       {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
+        cookies: {
+          getAll() { return [] },   // No cookies — service_role context only
+          setAll() {},
         },
       }
     )
 
-    const { data: profile, error: profileError } = await adminSupabase
+    const { data: profile, error: profileError } = await adminCheck
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
 
-    console.log(`[MIDDLEWARE] RBAC Check: user=${user.email} role=${profile?.role || 'null'} error=${profileError?.message || 'none'}`);
+    console.log(`[MIDDLEWARE] RBAC: user=${user.email} role=${profile?.role ?? 'null'} error=${profileError?.message ?? 'none'}`)
 
     if (profile?.role !== 'admin') {
-      console.warn(`[MIDDLEWARE] Forbidden: ${user.email} is not admin. Bouncing to /dashboard.`);
+      console.warn(`[MIDDLEWARE] Access denied for ${user.email} — not admin`)
       const url = request.nextUrl.clone()
       url.pathname = '/dashboard'
       return NextResponse.redirect(url)
     }
-    
-    console.log(`[MIDDLEWARE] Access granted to Ops_Console for ${user.email}`);
+
+    console.log(`[MIDDLEWARE] Admin access granted to ${user.email}`)
   }
 
   return response
