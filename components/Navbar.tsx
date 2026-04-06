@@ -17,8 +17,8 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const isOps = pathname.startsWith('/admin') || pathname.startsWith('/staff');
-  const accentColor = isOps ? '#00FF41' : '#0ea5e9'; // Volt Green vs Blue
-  const accentGlow = isOps ? 'shadow-[0_0_15px_rgba(0,255,65,0.3)]' : 'shadow-blue-glow';
+  const accentColor = isOps ? '#00FF41' : '#0ea5e9';
+  const accentGlow = isOps ? 'shadow-[0_0_15px_rgba(0,255,65,0.3)]' : 'shadow-[0_0_15px_rgba(14,165,233,0.3)]';
 
   const handleScroll = useCallback(() => {
     requestAnimationFrame(() => setScrolled(window.scrollY > 80));
@@ -43,7 +43,7 @@ export default function Navbar() {
         className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-500 ease-out
           px-6 py-3 rounded-full flex items-center gap-8
           ${scrolled
-            ? `bg-midnight/70 backdrop-blur-xl border border-[${accentColor}]/20 ${accentGlow}`
+            ? `bg-midnight/70 backdrop-blur-xl border ${accentGlow}`
             : 'bg-transparent border border-transparent'
           }`}
         style={scrolled ? { borderColor: `${accentColor}33` } : {}}
@@ -57,24 +57,43 @@ export default function Navbar() {
             <a key={link.label} href={link.href}
               className="relative text-sm text-white/70 hover:text-white transition-colors duration-300 group">
               {link.label}
-              <span 
-                className="absolute -bottom-0.5 left-0 w-full h-px transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out origin-left" 
+              <span
+                className="absolute -bottom-0.5 left-0 w-full h-px transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out origin-left"
                 style={{ backgroundColor: accentColor }}
-                aria-hidden="true" 
+                aria-hidden="true"
               />
             </a>
           ))}
         </nav>
 
-        <div className="hidden md:flex items-center gap-4">
-          <a href={isOps ? "/staff" : "/login"} aria-label="Portal Login" className="text-sm font-mono text-white/50 hover:text-white transition-colors duration-300 uppercase tracking-widest text-[10px]">
-            {isOps ? 'Ops_Terminal' : 'Client_Portal'}
-          </a>
-          <a href="#contact"
-            className={`inline-flex relative overflow-hidden items-center text-midnight text-sm font-semibold rounded-full px-6 py-2 transition-all duration-300 hover:scale-[1.02] hover:-translate-y-px ${accentGlow} active:scale-[0.98]`}
-            style={{ backgroundColor: accentColor }}
+        <div className="hidden md:flex items-center gap-3">
+          {/* CLIENT PORTAL — refined pill button with border */}
+          <a
+            href={isOps ? '/staff' : '/login'}
+            aria-label="Portal Login"
+            className="text-[11px] font-semibold tracking-widest uppercase px-4 py-2 rounded-full border transition-all duration-300 hover:scale-[1.02]"
+            style={{
+              color: accentColor,
+              borderColor: `${accentColor}55`,
+              backgroundColor: `${accentColor}0D`,
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.backgroundColor = `${accentColor}22`;
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.backgroundColor = `${accentColor}0D`;
+            }}
           >
-            {isOps ? 'DEPLOY' : 'Get Started'}
+            {isOps ? 'Staff Terminal' : 'Client Portal'}
+          </a>
+
+          {/* GET STARTED — solid filled pill */}
+          <a
+            href={isOps ? '#' : '#contact'}
+            className="inline-flex items-center gap-1.5 text-midnight text-sm font-bold rounded-full px-5 py-2 transition-all duration-300 hover:scale-[1.03] hover:-translate-y-px hover:brightness-110 active:scale-[0.98]"
+            style={{ backgroundColor: accentColor, boxShadow: `0 0 18px ${accentColor}55` }}
+          >
+            {isOps ? 'Deploy' : 'Get Started'}
           </a>
         </div>
 
@@ -110,20 +129,27 @@ export default function Navbar() {
             {link.label}
           </a>
         ))}
-        <a href={isOps ? "/staff" : "/login"} onClick={() => setMenuOpen(false)}
+        <a href={isOps ? '/staff' : '/login'} onClick={() => setMenuOpen(false)}
           aria-label="Portal Login"
-          className="text-xl font-mono text-white/50 hover:text-white transition-colors uppercase tracking-widest mt-2"
-          style={{ transitionDelay: menuOpen ? `${navLinks.length * 60}ms` : '0ms', opacity: menuOpen ? 1 : 0 }}>
-          {isOps ? 'Ops_Terminal' : 'Client_Portal'}
-        </a>
-        <a href="#contact" onClick={() => setMenuOpen(false)}
-          className={`mt-4 text-midnight text-lg font-semibold rounded-full px-8 py-3 ${accentGlow} transition-all duration-300`}
-          style={{ 
-            transitionDelay: menuOpen ? `${(navLinks.length + 1) * 60}ms` : '0ms', 
+          className="text-base font-semibold uppercase tracking-widest mt-2 px-6 py-2.5 rounded-full border transition-all duration-300"
+          style={{
+            color: accentColor,
+            borderColor: `${accentColor}55`,
+            backgroundColor: `${accentColor}0D`,
+            transitionDelay: menuOpen ? `${navLinks.length * 60}ms` : '0ms',
             opacity: menuOpen ? 1 : 0,
-            backgroundColor: accentColor 
           }}>
-          {isOps ? 'DEPLOY' : 'Get Started'}
+          {isOps ? 'Staff Terminal' : 'Client Portal'}
+        </a>
+        <a href={isOps ? '#' : '#contact'} onClick={() => setMenuOpen(false)}
+          className="mt-2 text-midnight text-lg font-bold rounded-full px-8 py-3 transition-all duration-300"
+          style={{
+            transitionDelay: menuOpen ? `${(navLinks.length + 1) * 60}ms` : '0ms',
+            opacity: menuOpen ? 1 : 0,
+            backgroundColor: accentColor,
+            boxShadow: `0 0 18px ${accentColor}55`,
+          }}>
+          {isOps ? 'Deploy' : 'Get Started'}
         </a>
       </div>
     </>
