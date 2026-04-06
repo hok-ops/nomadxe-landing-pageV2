@@ -1,4 +1,5 @@
 import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 
@@ -10,6 +11,7 @@ export default function LoginPage() {
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
     const supabase = createClient();
+    const adminClient = createAdminClient();
 
     const { data: { user }, error: authError } = await supabase.auth.signInWithPassword({
       email,
@@ -20,19 +22,32 @@ export default function LoginPage() {
       return redirect('/login?error=Invalid credentials');
     }
 
-    // Role-Based Redirection Logic
-    const { data: profile } = await supabase
+    // DEBUG: Log the user details arriving at the gateway
+    console.log(`[AUTH_GATEWAY] Authenticated User: ${user.email} (ID: ${user.id})`);
+
+    // Role-Based Redirection Logic (Using Admin Client to bypass RLS latency)
+    const { data: profile, error: profileError } = await adminClient
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single();
 
+    if (profileError) {
+      console.error(`[AUTH_GATEWAY] Profile Fetch Error: ${profileError.message}`);
+    }
+
+    console.log(`[AUTH_GATEWAY] Detected Role: ${profile?.role || 'null'}`);
+
     if (profile?.role === 'admin') {
+      console.log(`[AUTH_GATEWAY] Routing to OPS_CONSOLE`);
       return redirect('/admin');
     }
     
+    console.log(`[AUTH_GATEWAY] Routing to CLIENT_DASHBOARD`);
     return redirect('/dashboard');
   };
+
+
 
   return (
     <div className="min-h-screen bg-midnight relative overflow-hidden flex items-center justify-center p-6">

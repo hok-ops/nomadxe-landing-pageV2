@@ -38,26 +38,39 @@ export async function updateSession(request: NextRequest) {
   const isAdmin = request.nextUrl.pathname.startsWith('/admin')
 
   if ((isDashboard || isAdmin) && !user) {
-    // No user, potentially redirect to login
+    console.log(`[MIDDLEWARE] Unauthorized access. Redirecting to /login`);
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  // ROLE-BASED PROTECTION
+  // ROLE-BASED PROTECTION (Elevated for /admin routes)
   if (isAdmin && user) {
-    const { data: profile } = await supabase
+    // 🗺️ We use a separate admin check here to bypass RLS latency during initial login
+    const adminSupabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!, // Use service role for definitive check
+      { cookies: { getAll() { return request.cookies.getAll() }, setAll() {} } }
+    )
+
+    const { data: profile } = await adminSupabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
 
+    console.log(`[MIDDLEWARE] RBAC Check: user=${user.email} role=${profile?.role || 'null'}`);
+
     if (profile?.role !== 'admin') {
+      console.warn(`[MIDDLEWARE] Forbidden access attempt to /admin by ${user.email}. Bouncing to /dashboard.`);
       const url = request.nextUrl.clone()
-      url.pathname = '/dashboard' // Send back to client dashboard
+      url.pathname = '/dashboard' 
       return NextResponse.redirect(url)
     }
+    
+    console.log(`[MIDDLEWARE] Access granted to Ops_Console for ${user.email}`);
   }
 
   return response
 }
+
