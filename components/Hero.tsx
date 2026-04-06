@@ -66,10 +66,9 @@ export default function Hero() {
       {/* Actual Nomadxe trailer photo */}
       <Image
         src="/trailer.jpg"
-        alt=""
-        aria-hidden="true"
-        fill
+        alt="NomadXE solar surveillance trailer deploying mobile security infrastructure"
         priority
+        fill
         sizes="100vw"
         className="object-cover object-center"
         placeholder="blur"

@@ -98,7 +98,7 @@ export default function Navbar() {
         <a href="/login" onClick={() => setMenuOpen(false)}
           className="text-xl font-mono text-white/50 hover:text-white transition-colors uppercase tracking-widest mt-2"
           style={{ transitionDelay: menuOpen ? `${navLinks.length * 60}ms` : '0ms', opacity: menuOpen ? 1 : 0 }}>
-          Client Login
+          Client Portal
         </a>
         <a href="#contact" onClick={() => setMenuOpen(false)}
           className="mt-4 bg-blue text-midnight text-lg font-semibold rounded-full px-8 py-3 hover:shadow-blue-glow transition-all duration-300"

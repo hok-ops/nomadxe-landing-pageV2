@@ -21,9 +21,9 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans:    ['Inter', 'system-ui', 'sans-serif'],
-        display: ['Playfair Display', 'Georgia', 'serif'],
-        mono:    ['JetBrains Mono', 'monospace'],
+        sans:    ['var(--font-inter)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-playfair)', 'Georgia', 'serif'],
+        mono:    ['var(--font-jetbrains)', 'monospace'],
       },
       borderRadius: {
         '2xl': '2rem',

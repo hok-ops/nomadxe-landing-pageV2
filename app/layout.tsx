@@ -1,31 +1,74 @@
 import type { Metadata } from 'next';
+import { Inter, Playfair_Display, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import React from 'react';
 
-const DESCRIPTION =
-  'Nomadxe deploys mobile surveillance infrastructure to sites traditional security cannot reach. No cables. No delays. Full visibility.';
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+});
 
-const OG_DESCRIPTION =
-  'Nomadxe deploys mobile surveillance infrastructure to sites traditional security cannot reach.';
+const playfair = Playfair_Display({
+  subsets: ['latin'],
+  variable: '--font-playfair',
+  display: 'swap',
+});
+
+const jetbrains = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains',
+  display: 'swap',
+});
+
+const DESCRIPTION =
+  'NomadXE deploys robust mobile surveillance infrastructure to sites where traditional security cannot reach. Reliable, service-first, and rapidly deployable.';
 
 export const metadata: Metadata = {
-  title: 'Nomadxe | Mobile Surveillance Infrastructure',
+  metadataBase: new URL('https://nomadxe.com'),
+  title: {
+    default: 'NomadXE | Mobile Surveillance Infrastructure',
+    template: '%s | NomadXE',
+  },
   description: DESCRIPTION,
+  keywords: [
+    'mobile surveillance',
+    'site security',
+    'remote monitoring',
+    'surveillance trailers',
+    'NomadXE',
+    'construction site security',
+    'mobile solar security',
+  ],
+  authors: [{ name: 'NomadXE Team' }],
+  creator: 'NomadXE',
   openGraph: {
-    title: 'Nomadxe | Mobile Surveillance Infrastructure',
-    description: OG_DESCRIPTION,
-    type: 'website',
+    title: 'NomadXE | Mobile Surveillance Infrastructure',
+    description: DESCRIPTION,
+    url: 'https://nomadxe.com',
+    siteName: 'NomadXE',
     locale: 'en_US',
-    siteName: 'Nomadxe',
+    type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Nomadxe | Mobile Surveillance Infrastructure',
-    description: OG_DESCRIPTION,
+    title: 'NomadXE | Mobile Surveillance Infrastructure',
+    description: DESCRIPTION,
+    creator: '@nomadxe',
   },
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  alternates: {
+    canonical: '/',
   },
 };
 
@@ -33,16 +76,8 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,400;1,700&family=JetBrains+Mono:wght@400;500;700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="bg-midnight text-white antialiased">
+    <html lang="en" className={`${inter.variable} ${playfair.variable} ${jetbrains.variable}`}>
+      <body className="bg-midnight text-white antialiased font-sans">
         {children}
       </body>
     </html>
