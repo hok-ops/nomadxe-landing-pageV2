@@ -72,3 +72,38 @@ export async function assignDevice(formData: FormData) {
     throw err;
   }
 }
+
+export async function deleteAssignment(formData: FormData) {
+  try {
+    await verifyAdmin();
+    const id = formData.get('id') as string;
+    if (!id) throw new Error('Assignment ID required');
+    
+    const supabase = createClient();
+    const { error } = await supabase.from('device_assignments').delete().eq('id', Number(id));
+    if (error) throw new Error(error.message);
+    revalidatePath('/admin');
+  } catch (err: any) {
+    console.error('Action error:', err.message);
+    throw err;
+  }
+}
+
+export async function updateUserRole(formData: FormData) {
+  try {
+    await verifyAdmin();
+    const userId = formData.get('userId') as string;
+    const role = formData.get('role') as string;
+    
+    if (!userId || !role) throw new Error('User ID and role required');
+    
+    const supabase = createClient();
+    const { error } = await supabase.from('profiles').update({ role }).eq('id', userId);
+    if (error) throw new Error(error.message);
+    revalidatePath('/admin');
+  } catch (err: any) {
+    console.error('Action error:', err.message);
+    throw err;
+  }
+}
+
