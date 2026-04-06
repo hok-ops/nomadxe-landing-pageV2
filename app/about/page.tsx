@@ -23,7 +23,7 @@ export default function AboutPage() {
           <h2 className="font-mono text-xs text-white/40 uppercase tracking-widest mb-6">Our Story</h2>
           <div className="space-y-6 text-lg text-white/70 leading-relaxed font-light">
             <p>
-              With over twenty years of hands-on expertise in the mobile trailer and heavy equipment industry, 
+              With years of hands-on expertise in the mobile trailer and heavy equipment industry, 
               NomadXE wasn&apos;t born in a boardroom—it was built in the field. We understand that in mobile 
               surveillance, reliability isn&apos;t just a feature; it&apos;s the mission.
             </p>
