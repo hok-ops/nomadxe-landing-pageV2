@@ -46,20 +46,22 @@ export async function updateSession(request: NextRequest) {
 
   // ROLE-BASED PROTECTION (Elevated for /admin routes)
   if (isAdmin && user) {
-    // 🗺️ We use a separate admin check here to bypass RLS latency during initial login
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    console.log(`[MIDDLEWARE] Service key present: ${!!serviceKey}, starts with: ${serviceKey?.substring(0, 10)}`);
+
     const adminSupabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!, // Use service role for definitive check
+      serviceKey!,
       { cookies: { getAll() { return request.cookies.getAll() }, setAll() {} } }
     )
 
-    const { data: profile } = await adminSupabase
+    const { data: profile, error: profileError } = await adminSupabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
 
-    console.log(`[MIDDLEWARE] RBAC Check: user=${user.email} role=${profile?.role || 'null'}`);
+    console.log(`[MIDDLEWARE] RBAC Check: user=${user.email} (id=${user.id}) role=${profile?.role || 'null'} error=${profileError?.message || 'none'}`);
 
     if (profile?.role !== 'admin') {
       console.warn(`[MIDDLEWARE] Forbidden access attempt to /admin by ${user.email}. Bouncing to /dashboard.`);
