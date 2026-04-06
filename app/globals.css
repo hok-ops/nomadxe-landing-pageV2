@@ -119,4 +119,21 @@ body::after {
   border-radius: 0 0 8px 8px;
   transition: top 0.2s;
 }
+
 .skip-to-content:focus { top: 0; }
+
+/* ── Tactical Theme Utilities ───────────────────────────────────── */
+.tactical-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.tactical-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 255, 65, 0.05);
+}
+.tactical-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 65, 0.2);
+}
+.tactical-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 255, 65, 0.2) rgba(0, 255, 65, 0.05);
+}
+

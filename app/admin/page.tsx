@@ -205,7 +205,7 @@ export default async function AdminDashboard() {
                    <span>Auth_Profiles</span>
                    <span className="text-[9px] opacity-30">REGISTRY_V1.1</span>
                  </h3>
-                 <div className="max-h-80 overflow-y-auto space-y-3 custom-scrollbar pr-2">
+                 <div className="max-h-80 overflow-y-auto space-y-3 tactical-scrollbar pr-2">
                    {authUsers.map(u => {
                       const p = profiles?.find(prof => prof.id === u.id);
                       return (
@@ -255,21 +255,8 @@ export default async function AdminDashboard() {
           </div>
         </div>
       </div>
-      
-      <style jsx global>{`
-        body {
-          background-color: #050505;
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(0,255,65,0.05);
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(0,255,65,0.2);
-        }
-      `}</style>
     </div>
   );
 }
+
+
