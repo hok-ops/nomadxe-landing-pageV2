@@ -42,7 +42,7 @@ export default async function AdminDashboard() {
   const { data: authUsersResponse } = await adminClient.auth.admin.listUsers();
   const authUsers = authUsersResponse?.users || [];
 
-  const { data: profiles } = await adminClient.from('profiles').select('id, role, full_name, is_active, status');
+  const { data: profiles } = await adminClient.from('profiles').select('*');
   const { data: devices } = await adminClient.from('vrm_devices').select('*');
 
   const { data: assignments } = await adminClient
@@ -56,8 +56,8 @@ export default async function AdminDashboard() {
 
   const totalUsers = authUsers.length;
   const totalDevices = devices?.length || 0;
-  const activeUsers = profiles?.filter(p => p.status === 'active').length || 0;
-  const pendingUsers = profiles?.filter(p => p.status === 'pending').length || 0;
+  const activeUsers = profiles?.filter(p => (p.status ?? (p.is_active ? 'active' : 'pending')) === 'active').length || 0;
+  const pendingUsers = profiles?.filter(p => (p.status ?? (p.is_active ? 'active' : 'pending')) === 'pending').length || 0;
 
   return (
     <div className="min-h-screen bg-[#080c14] text-[#93c5fd] font-mono relative selection:bg-[#3b82f6] selection:text-white pt-28 pb-24">
@@ -255,7 +255,7 @@ export default async function AdminDashboard() {
                       const p = profiles?.find(prof => prof.id === u.id);
                       const a = assignments?.filter((as: any) => as.user_id === u.id);
                       const isAdmin = p?.role === 'admin';
-                      const status = (p?.status ?? 'pending') as 'pending' | 'active' | 'suspended';
+                      const status = (p?.status ?? (p?.is_active ? 'active' : 'pending')) as 'pending' | 'active' | 'suspended';
 
                       const statusMap: Record<'pending' | 'active' | 'suspended', { label: string; className: string }> = {
                         pending: {
