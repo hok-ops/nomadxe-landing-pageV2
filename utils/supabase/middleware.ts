@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
@@ -44,15 +45,21 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // ROLE-BASED PROTECTION (Elevated for /admin routes)
+  // ROLE-BASED PROTECTION for /admin routes
+  // CRITICAL: Use createClient (not createServerClient) with service_role key.
+  // createServerClient passes cookies which trigger the user's RLS session context,
+  // causing recursive RLS policy evaluation. createClient with service_role bypasses
+  // RLS entirely and avoids infinite recursion.
   if (isAdmin && user) {
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    console.log(`[MIDDLEWARE] Service key present: ${!!serviceKey}, starts with: ${serviceKey?.substring(0, 10)}`);
-
-    const adminSupabase = createServerClient(
+    const adminSupabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceKey!,
-      { cookies: { getAll() { return request.cookies.getAll() }, setAll() {} } }
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
     )
 
     const { data: profile, error: profileError } = await adminSupabase
@@ -61,12 +68,12 @@ export async function updateSession(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    console.log(`[MIDDLEWARE] RBAC Check: user=${user.email} (id=${user.id}) role=${profile?.role || 'null'} error=${profileError?.message || 'none'}`);
+    console.log(`[MIDDLEWARE] RBAC Check: user=${user.email} role=${profile?.role || 'null'} error=${profileError?.message || 'none'}`);
 
     if (profile?.role !== 'admin') {
-      console.warn(`[MIDDLEWARE] Forbidden access attempt to /admin by ${user.email}. Bouncing to /dashboard.`);
+      console.warn(`[MIDDLEWARE] Forbidden: ${user.email} is not admin. Bouncing to /dashboard.`);
       const url = request.nextUrl.clone()
-      url.pathname = '/dashboard' 
+      url.pathname = '/dashboard'
       return NextResponse.redirect(url)
     }
     
@@ -75,4 +82,3 @@ export async function updateSession(request: NextRequest) {
 
   return response
 }
-
