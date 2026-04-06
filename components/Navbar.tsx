@@ -69,7 +69,7 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-3">
           {/* CLIENT PORTAL — refined pill button with border */}
           <a
-            href={isOps ? '/staff' : '/login'}
+            href="/login"
             aria-label="Portal Login"
             className="text-[11px] font-semibold tracking-widest uppercase px-4 py-2 rounded-full border transition-all duration-300 hover:scale-[1.02]"
             style={{
@@ -84,7 +84,7 @@ export default function Navbar() {
               (e.currentTarget as HTMLElement).style.backgroundColor = `${accentColor}0D`;
             }}
           >
-            {isOps ? 'Staff Terminal' : 'Client Portal'}
+            {isOps ? 'Portal' : 'Client Portal'}
           </a>
 
           {/* GET STARTED — solid filled pill */}
@@ -129,7 +129,7 @@ export default function Navbar() {
             {link.label}
           </a>
         ))}
-        <a href={isOps ? '/staff' : '/login'} onClick={() => setMenuOpen(false)}
+        <a href="/login" onClick={() => setMenuOpen(false)}
           aria-label="Portal Login"
           className="text-base font-semibold uppercase tracking-widest mt-2 px-6 py-2.5 rounded-full border transition-all duration-300"
           style={{
@@ -139,7 +139,7 @@ export default function Navbar() {
             transitionDelay: menuOpen ? `${navLinks.length * 60}ms` : '0ms',
             opacity: menuOpen ? 1 : 0,
           }}>
-          {isOps ? 'Staff Terminal' : 'Client Portal'}
+          {isOps ? 'Portal' : 'Client Portal'}
         </a>
         <a href={isOps ? '#' : '#contact'} onClick={() => setMenuOpen(false)}
           className="mt-2 text-midnight text-lg font-bold rounded-full px-8 py-3 transition-all duration-300"
