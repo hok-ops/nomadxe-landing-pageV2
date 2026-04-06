@@ -17,11 +17,9 @@ export default function LoginPage() {
     });
 
     if (error) {
-      // If the database actually exists and there's an error, handle it cleanly.
-      // For this native template without a DB hookup, simply allow access via the simulated redirect.
+      return redirect('/login?error=Invalid credentials');
     }
     
-    // Auth fallback simulating correct credentials:
     return redirect('/dashboard');
   };
 

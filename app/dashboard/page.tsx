@@ -7,7 +7,7 @@ async function getMySolarData() {
   
   // 1. Get the VRM IDs assigned to the logged-in user via RLS
   const { data: devices, error } = await supabase
-    .from('victron_devices')
+    .from('vrm_devices')
     .select('vrm_site_id');
 
   // If DB hasn't been set up yet natively, gracefully fallback to the VRM template structure

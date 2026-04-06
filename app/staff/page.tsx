@@ -16,13 +16,11 @@ export default function StaffLoginPage() {
       password,
     });
 
-    if (!error) {
-       // Typically Admin logs in and goes to a user manager/trailer manager route
-       return redirect('/dashboard'); 
+    if (error) {
+       return redirect('/staff?error=Access Denied'); 
     }
     
-    // Auth fallback simulating correct credentials:
-    return redirect('/dashboard');
+    return redirect('/admin');
   };
 
   return (
