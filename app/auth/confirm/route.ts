@@ -1,48 +1,87 @@
 import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
 import { type EmailOtpType } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function GET(request: NextRequest) {
-  console.log("🔥 INCOMING URL TO VERCEL:", request.url);
   const { searchParams } = new URL(request.url);
-  const code = searchParams.get('code');
+  const code       = searchParams.get('code');
   const token_hash = searchParams.get('token_hash');
-  const type = searchParams.get('type') as EmailOtpType | null;
-  
-  // Default to your setup page if no specific 'next' param is provided in the invite
-  const next = searchParams.get('next') ?? '/activate-account'; 
+  const type       = searchParams.get('type') as EmailOtpType | null;
+
   const supabase = createClient();
 
-  // 1. PKCE flow — invite / OAuth / magic-link with code exchange
+  // ── Step 1: Establish a Supabase session from the incoming link ───────────
+
+  let sessionError: string | null = null;
+
   if (code) {
-    console.log("Auth Confirm: Attempting to exchange PKCE code...");
+    // PKCE flow — invite links always arrive as ?code=
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    
-    if (!error) {
-      console.log("Auth Confirm: Session exchange SUCCESS! Redirecting to:", next);
-      return NextResponse.redirect(new URL(next, request.url));
-    } else {
-      console.error("Auth Confirm: PKCE Exchange ERROR:", error.message);
-      // Let's pass the specific error to the login page so you can see it in the UI
-      return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error.message)}`, request.url));
-    }
-  }
+    if (error) sessionError = error.message;
 
-  // 2. OTP token-hash flow — email confirmation, password reset
-  if (token_hash && type) {
-    console.log(`Auth Confirm: Attempting to verify OTP hash of type ${type}...`);
+  } else if (token_hash && type) {
+    // OTP flow — password reset links arrive as ?token_hash=&type=recovery
     const { error } = await supabase.auth.verifyOtp({ type, token_hash });
-    
-    if (!error) {
-      console.log("Auth Confirm: OTP verify SUCCESS! Redirecting to:", next);
-      return NextResponse.redirect(new URL(next, request.url));
-    } else {
-      console.error("Auth Confirm: OTP Verify ERROR:", error.message);
-      return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error.message)}`, request.url));
-    }
+    if (error) sessionError = error.message;
+
+  } else {
+    // Neither present — malformed link
+    return NextResponse.redirect(
+      new URL('/login?error=Invalid+reset+link.+Please+request+a+new+one.', request.url)
+    );
   }
 
-  // 3. Fallback if the URL has neither a code nor a token_hash
-  console.error("Auth Confirm: No code or token_hash found in URL.");
-  return NextResponse.redirect(new URL('/login?error=Invalid_link_structure', request.url));
+  if (sessionError) {
+    console.error('[auth/confirm] session error:', sessionError);
+    return NextResponse.redirect(
+      new URL(`/login?error=${encodeURIComponent(sessionError)}`, request.url)
+    );
+  }
+
+  // ── Step 2: Identify the user now that a session is established ───────────
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.redirect(
+      new URL('/login?error=Session+could+not+be+established', request.url)
+    );
+  }
+
+  // ── Step 3: Look up the matching auth_token to determine destination ───────
+  // Determine which type of token to look for based on the incoming flow.
+  // PKCE code → invite,  token_hash recovery → recovery
+  const tokenType: 'invite' | 'recovery' = type === 'recovery' ? 'recovery' : 'invite';
+
+  const adminClient = createAdminClient();
+  const { data: tokenRecord } = await adminClient
+    .from('auth_tokens')
+    .select('token, type, used_at, expires_at')
+    .eq('user_id', user.id)
+    .eq('type', tokenType)
+    .is('used_at', null)
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  // ── Step 4: Route to the correct page ─────────────────────────────────────
+
+  if (tokenRecord) {
+    const dest = tokenType === 'recovery'
+      ? `/auth/reset/${tokenRecord.token}`
+      : `/auth/setup/${tokenRecord.token}`;
+    return NextResponse.redirect(new URL(dest, request.url));
+  }
+
+  // No valid token in DB — the session is still good, so for recovery we can
+  // still let the user reset their password via a generic fallback page.
+  // For invite, send them to login since their account is already set up.
+  if (tokenType === 'recovery') {
+    // Session established, no custom token — still allow password update
+    return NextResponse.redirect(new URL('/reset-password', request.url));
+  }
+
+  // Invite with no token → account already activated, go to dashboard
+  return NextResponse.redirect(new URL('/dashboard', request.url));
 }
