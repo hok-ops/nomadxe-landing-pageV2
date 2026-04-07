@@ -168,14 +168,25 @@ export async function resendInvite(formData: FormData) {
     if (!email) throw new Error('Email is required');
 
     const adminAuthClient = createAdminClient();
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-    const { error } = await adminAuthClient.auth.admin.inviteUserByEmail(email, {
-      redirectTo: 'https://www.nomadxe.com/auth/confirm',
+    
+    // 🛑 RATE LIMIT BYPASS: Generate the link instead of emailing it
+    const { data, error } = await adminAuthClient.auth.admin.generateLink({
+      type: 'invite',
+      email: email,
+      options: {
+        redirectTo: 'https://www.nomadxe.com/auth/confirm',
+      }
     });
 
     if (error) throw new Error(error.message);
+
+    // 🔥 LOG THE GOLDEN TICKET TO VERCEL 🔥
+    console.log("==================================================");
+    console.log("RAW INVITE URL:", data.properties?.action_link);
+    console.log("==================================================");
+
     revalidatePath('/admin');
-    redirect(`/admin?success=Invitation resent to ${email}`);
+    redirect(`/admin?success=Link generated! Check Vercel logs.`);
   } catch (err: any) {
     if (err.digest) throw err;
     redirect(`/admin?error=${encodeURIComponent(err.message)}`);
