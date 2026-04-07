@@ -178,13 +178,10 @@ export async function resendInvite(formData: FormData) {
 
     if (error) throw new Error(error.message);
 
-    console.log("==================================================");
-    console.log("COPY THIS LINK:");
-    console.log(data.properties?.action_link);
-    console.log("==================================================");
+    // 🔥 INSTEAD OF LOGGING, WE FORCE IT ONTO THE SCREEN AS AN ERROR MESSAGE 🔥
+    const generatedLink = data.properties?.action_link || "Link failed to generate";
+    throw new Error(`COPY THIS LINK: ${generatedLink}`);
 
-    revalidatePath('/admin');
-    redirect(`/admin?success=Link generated! Check Vercel logs.`);
   } catch (err: any) {
     if (err.digest) throw err;
     redirect(`/admin?error=${encodeURIComponent(err.message)}`);
