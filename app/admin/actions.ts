@@ -164,19 +164,51 @@ export async function inviteNewUser(formData: FormData) {
 export async function resendInvite(formData: FormData) {
   try {
     await verifyAdmin();
-    const email = formData.get('email') as string;
-    if (!email) throw new Error('Email is required');
+    // Force a brand new fake email so we don't hit per-user limits
+    const fakeEmail = `testuser_${Date.now()}@nomadxe.com`; 
 
     const adminAuthClient = createAdminClient();
     
-    // 🛑 RATE LIMIT BYPASS: Generate the link instead of emailing it
+    // 🛑 BYPASS THE EMAIL SERVER COMPLETELY
     const { data, error } = await adminAuthClient.auth.admin.generateLink({
       type: 'invite',
-      email: email,
+      email: fakeEmail, 
       options: {
         redirectTo: 'https://www.nomadxe.com/auth/confirm',
       }
     });
+
+    if (error) throw new Error(error.message);
+
+    // 🔥 THIS PRINTS THE LINK TO YOUR VERCEL LOGS 🔥
+    console.log("==================================================");
+    console.log("COPY THIS LINK:");
+    console.log(data.properties?.action_link);
+    console.log("==================================================");
+
+    revalidatePath('/admin');
+    redirect(`/admin?success=Link generated! Check Vercel logs.`);
+  } catch (err: any) {
+    if (err.digest) throw err;
+    redirect(`/admin?error=${encodeURIComponent(err.message)}`);
+  }
+});
+
+    if (error) throw new Error(error.message);
+
+    // 🔥 THIS PRINTS THE LINK TO YOUR TERMINAL 🔥
+    console.log("\n\n==================================================");
+    console.log("COPY THIS LINK:");
+    console.log(data.properties?.action_link);
+    console.log("==================================================\n\n");
+
+    revalidatePath('/admin');
+    redirect(`/admin?success=Check your VS Code Terminal for the link!`);
+  } catch (err: any) {
+    if (err.digest) throw err;
+    redirect(`/admin?error=${encodeURIComponent(err.message)}`);
+  }
+});
 
     if (error) throw new Error(error.message);
 
