@@ -67,6 +67,10 @@ function pick(records: any[], id: number): number {
   return rec ? Number(rec.rawValue ?? 0) : 0;
 }
 
+function hasAttr(records: any[], id: number): boolean {
+  return records.some((r: any) => r.idDataAttribute === id);
+}
+
 function latestTimestamp(records: any[]): number {
   return records.reduce((max: number, r: any) => Math.max(max, Number(r.timestamp ?? 0)), 0);
 }
@@ -136,9 +140,11 @@ export async function GET(
     const solarW   = pick(records, A.SOLAR_W);
     const batteryW = pick(records, A.BATTERY_W);
 
-    // DC System attr 140 is directly available; derive as fallback
-    const directDC = pick(records, A.DC_SYSTEM);
-    const dcLoad   = directDC > 0 ? directDC : deriveDCLoad(solarW, batteryW);
+    // DC System attr 140: trust the value (even 0) when the attribute is present.
+    // Only fall back to the energy-balance formula when attr 140 is absent entirely.
+    const dcLoad = hasAttr(records, A.DC_SYSTEM)
+      ? pick(records, A.DC_SYSTEM)
+      : deriveDCLoad(solarW, batteryW);
 
     const mpptStateRaw = pick(records, A.MPPT_STATE);
 

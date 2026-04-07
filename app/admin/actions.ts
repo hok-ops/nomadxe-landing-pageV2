@@ -153,15 +153,17 @@ export async function sendPasswordReset(formData: FormData) {
 
     if (!userId || !email) throw new Error('User ID and email are required');
 
-    const adminClient = createAdminClient();
+    const supabase = createClient();
     const siteUrl = getSiteUrl();
 
     // Generate a recovery token (24h)
     await createAuthToken(userId, 'recovery', 24);
 
-    // Send reset email via Supabase
-    const { error } = await adminClient.auth.resetPasswordForEmail(email, {
-      redirectTo: `${siteUrl}/auth/confirm`,
+    // resetPasswordForEmail must use the anon/user client, not service_role.
+    // redirectTo → /auth/callback (client page) handles both PKCE ?code= and
+    // implicit flow #access_token= hash fragments.
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${siteUrl}/auth/callback`,
     });
 
     if (error) console.error('Reset email error:', error.message);
@@ -188,13 +190,18 @@ export async function requestPasswordReset(formData: FormData) {
 
     if (user) {
       await createAuthToken(user.id, 'recovery', 24);
-      await adminClient.auth.resetPasswordForEmail(email, {
-        redirectTo: `${siteUrl}/auth/confirm`,
+      // Must use the SSR client (flowType: 'pkce') so the email link arrives
+      // as ?code= (query param, readable server-side) not #access_token= (hash
+      // fragment, invisible to Route Handlers).
+      const supabase = createClient();
+      await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${siteUrl}/auth/callback`,
       });
     }
 
-    // Always redirect success to prevent email enumeration
-    redirect('/forgot-password?sent=1');
+    // Pass email through so the OTP entry form can pre-fill it.
+    // Not a security concern — user just typed it.
+    redirect(`/forgot-password?sent=1&email=${encodeURIComponent(email)}`);
   } catch (err: any) {
     if (err.digest) throw err;
     redirect(`/forgot-password?error=${encodeURIComponent(err.message)}`);

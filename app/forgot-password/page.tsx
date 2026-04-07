@@ -1,4 +1,5 @@
 import { requestPasswordReset } from '@/app/admin/actions';
+import OtpResetForm from './OtpResetForm';
 import Link from 'next/link';
 
 export const metadata = { title: 'Forgot Password | NomadXE' };
@@ -6,9 +7,10 @@ export const metadata = { title: 'Forgot Password | NomadXE' };
 export default function ForgotPasswordPage({
   searchParams,
 }: {
-  searchParams: { sent?: string; error?: string };
+  searchParams: { sent?: string; error?: string; email?: string };
 }) {
-  const sent = searchParams.sent === '1';
+  const sent  = searchParams.sent === '1';
+  const email = searchParams.email ?? '';
 
   return (
     <div className="min-h-screen bg-[#080c14] flex items-center justify-center p-6 relative overflow-hidden">
@@ -37,8 +39,8 @@ export default function ForgotPasswordPage({
                 <h1 className="text-[17px] font-bold text-white">Reset your password</h1>
                 <p className="text-[12px] text-[#93c5fd]/45">
                   {sent
-                    ? 'Check your email for the reset link.'
-                    : "Enter your email and we'll send a reset link."}
+                    ? 'Enter the code from your email below.'
+                    : "Enter your email and we'll send a reset code."}
                 </p>
               </div>
             </div>
@@ -51,23 +53,15 @@ export default function ForgotPasswordPage({
             )}
 
             {sent ? (
-              /* Success state */
-              <div className="space-y-6 text-center">
-                <div className="w-12 h-12 rounded-xl bg-emerald-900/20 border border-emerald-500/20 flex items-center justify-center mx-auto">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </div>
-                <p className="text-sm text-[#93c5fd]/70 leading-relaxed">
-                  If an account exists for that email, a password reset link has been sent. Check your inbox and spam folder.
+              /* OTP entry: email was sent, now collect the code + new password */
+              <div className="space-y-4">
+                <p className="text-[12px] text-[#93c5fd]/45 text-center -mt-2 mb-2">
+                  Check your inbox for a 6-digit code.
                 </p>
-                <Link href="/login"
-                  className="inline-block text-sm text-[#3b82f6]/70 hover:text-[#3b82f6] transition-colors">
-                  ← Back to Sign In
-                </Link>
+                <OtpResetForm prefillEmail={email} />
               </div>
             ) : (
-              /* Request form — server action handles token generation */
+              /* Step 1: collect email and send the OTP */
               <form action={requestPasswordReset} className="space-y-4">
                 <div className="space-y-1.5">
                   <label htmlFor="email"
@@ -90,7 +84,7 @@ export default function ForgotPasswordPage({
                   type="submit"
                   className="w-full mt-2 bg-[#2563eb] hover:bg-[#3b82f6] text-white font-bold py-3.5 rounded-xl text-sm tracking-wide transition-all hover:shadow-[0_0_28px_rgba(59,130,246,0.45)] active:scale-[0.98]"
                 >
-                  Send Reset Link
+                  Send Reset Code
                 </button>
 
                 <div className="text-center pt-1">

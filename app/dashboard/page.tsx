@@ -44,8 +44,10 @@ async function fetchInitialVRMData(siteId: string): Promise<VRMData | null> {
 
     const solarW    = pick(A.SOLAR_W);
     const batteryW  = pick(A.BATTERY_W);
-    const directDC  = pick(A.DC_SYSTEM);
-    const dcLoad    = directDC > 0 ? directDC : Math.max(0, Math.round(solarW - batteryW));
+    // Trust attr 140 (even if 0) when present; only derive via formula when absent
+    const dcLoad    = records.some((r: any) => r.idDataAttribute === A.DC_SYSTEM)
+      ? pick(A.DC_SYSTEM)
+      : Math.max(0, Math.round(solarW - batteryW));
     const mpptRaw   = pick(A.MPPT_STATE);
 
     const sparklineRaw = statsJson?.records?.[String(A.SOLAR_W)]?.avg;

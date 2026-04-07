@@ -391,29 +391,42 @@ export default function NomadXECoreView({ device, initialData }: Props) {
               DC System Load
             </div>
 
-            {/* Solar coverage ratio */}
-            {solarActive && loadActive && (
-              <div className="mt-auto pt-4">
-                <div className="text-[9px] text-[#93c5fd]/25 font-mono uppercase tracking-widest mb-1.5">
-                  Solar Coverage
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 h-1 bg-[#0a0f1e] rounded-full overflow-hidden border border-[#1e3a5f]/40">
-                    <div
-                      className="h-full rounded-full transition-all duration-700"
-                      style={{
-                        width: `${Math.min(100, Math.round(((data?.solar.power ?? 0) / Math.max(data?.dcLoad ?? 1, 1)) * 100))}%`,
-                        backgroundColor: '#22c55e',
-                      }}
-                    />
+            {/* Solar coverage / surplus */}
+            {solarActive && loadActive && (() => {
+              const sW = data?.solar.power ?? 0;
+              const lW = data?.dcLoad ?? 1;
+              const surplus = sW >= lW;
+              const pct = Math.round((sW / Math.max(lW, 1)) * 100);
+              return (
+                <div className="mt-auto pt-4">
+                  <div className="text-[9px] font-mono uppercase tracking-widest mb-1.5"
+                    style={{ color: surplus ? 'rgba(34,197,94,0.4)' : 'rgba(147,197,253,0.25)' }}>
+                    {surplus ? 'Solar Surplus' : 'Solar Coverage'}
                   </div>
-                  <span className="text-[11px] font-black"
-                    style={{ color: (data?.solar.power ?? 0) >= (data?.dcLoad ?? 0) ? '#22c55e' : '#f59e0b' }}>
-                    {Math.min(100, Math.round(((data?.solar.power ?? 0) / Math.max(data?.dcLoad ?? 1, 1)) * 100))}%
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1 bg-[#0a0f1e] rounded-full overflow-hidden border border-[#1e3a5f]/40">
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{
+                          width: surplus ? '100%' : `${pct}%`,
+                          backgroundColor: surplus ? '#22c55e' : '#f59e0b',
+                        }}
+                      />
+                    </div>
+                    <span className="text-[11px] font-black tabular-nums"
+                      style={{ color: surplus ? '#22c55e' : '#f59e0b' }}>
+                      {surplus ? `+${sW - lW}W` : `${pct}%`}
+                    </span>
+                  </div>
+                  <div className="text-[9px] font-mono mt-1"
+                    style={{ color: surplus ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)' }}>
+                    {surplus
+                      ? `${pct}% of load — excess charging battery`
+                      : 'battery supplementing load'}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         </div>
       </div>
