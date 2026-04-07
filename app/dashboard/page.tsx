@@ -12,13 +12,15 @@ async function fetchInitialVRMData(siteId: string): Promise<VRMData | null> {
   if (!token) return null;
 
   try {
-    const A = { BATTERY_SOC: 282, BATTERY_V: 259, BATTERY_A: 261, BATTERY_W: 262,
-                 SOLAR_W: 789, SOLAR_V: 776, SOLAR_TODAY: 784, AC_LOAD: 8, AC_OUTPUT: 9, VEBUS_STATE: 64 };
+    const A = {
+      BATTERY_SOC: 282, BATTERY_V: 259, BATTERY_A: 261, BATTERY_W: 262,
+      SOLAR_W: 789, SOLAR_V: 776, SOLAR_A: 777, SOLAR_TODAY: 784,
+      MPPT_STATE: 775, DC_SYSTEM: 190,
+    };
 
-    const VEBUS_LABELS: Record<number, string> = {
-      0: 'Off', 1: 'Low Power', 2: 'Fault', 3: 'Bulk', 4: 'Absorption',
-      5: 'Float', 6: 'Storage', 7: 'Equalize', 8: 'Passthru',
-      9: 'Inverting', 10: 'Power Assist', 11: 'Power Supply',
+    const MPPT_LABELS: Record<number, string> = {
+      0: 'Off', 2: 'Fault', 3: 'Bulk', 4: 'Absorption',
+      5: 'Float', 6: 'Storage', 7: 'Equalize',
     };
 
     const headers = { 'X-Authorization': `Bearer ${token}` };
@@ -39,7 +41,12 @@ async function fetchInitialVRMData(siteId: string): Promise<VRMData | null> {
     const pick = (id: number) => Number(records.find((r: any) => r.idDataAttribute === id)?.rawValue ?? 0);
     const lastSeen = records.reduce((max: number, r: any) => Math.max(max, Number(r.timestamp ?? 0)), 0) || now;
 
-    const inverterStateRaw = pick(A.VEBUS_STATE);
+    const solarW    = pick(A.SOLAR_W);
+    const batteryW  = pick(A.BATTERY_W);
+    const directDC  = pick(A.DC_SYSTEM);
+    const dcLoad    = directDC > 0 ? directDC : Math.max(0, Math.round(solarW - batteryW));
+    const mpptRaw   = pick(A.MPPT_STATE);
+
     const sparklineRaw = statsJson?.records?.[String(A.SOLAR_W)]?.avg;
     const sparkline = Array.isArray(sparklineRaw)
       ? (sparklineRaw as (number | null)[]).slice(-6).map(v => v ?? 0)
@@ -48,11 +55,13 @@ async function fetchInitialVRMData(siteId: string): Promise<VRMData | null> {
     return {
       siteId,
       lastSeen,
-      battery: { soc: pick(A.BATTERY_SOC), voltage: pick(A.BATTERY_V), current: pick(A.BATTERY_A), power: pick(A.BATTERY_W) },
-      solar:   { power: pick(A.SOLAR_W), voltage: pick(A.SOLAR_V), yieldToday: pick(A.SOLAR_TODAY) },
-      inverterState: inverterStateRaw,
-      inverterStateLabel: VEBUS_LABELS[inverterStateRaw] ?? 'Unknown',
-      acLoad: pick(A.AC_LOAD) || pick(A.AC_OUTPUT),
+      battery: { soc: pick(A.BATTERY_SOC), voltage: pick(A.BATTERY_V), current: pick(A.BATTERY_A), power: batteryW },
+      solar: {
+        power: solarW, voltage: pick(A.SOLAR_V), current: pick(A.SOLAR_A),
+        yieldToday: pick(A.SOLAR_TODAY), mpptState: mpptRaw,
+        mpptStateLabel: MPPT_LABELS[mpptRaw] ?? 'Unknown',
+      },
+      dcLoad,
       sparkline,
     };
   } catch {
