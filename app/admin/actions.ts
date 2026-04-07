@@ -126,7 +126,7 @@ export async function inviteNewUser(formData: FormData) {
     const adminAuthClient = createAdminClient();
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
     const { data: inviteData, error: inviteError } = await adminAuthClient.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${siteUrl}/auth/confirm?next=/activate-account`,
+     redirectTo: 'https://www.nomadxe.com/auth/confirm',
     });
 
     if (inviteError) throw new Error(inviteError.message);
@@ -170,7 +170,7 @@ export async function resendInvite(formData: FormData) {
     const adminAuthClient = createAdminClient();
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
     const { error } = await adminAuthClient.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${siteUrl}/auth/confirm?next=/activate-account`,
+      redirectTo: 'https://www.nomadxe.com/auth/confirm',
     });
 
     if (error) throw new Error(error.message);
