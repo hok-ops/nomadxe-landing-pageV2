@@ -23,7 +23,7 @@ async function fetchInitialVRMData(siteId: string): Promise<VRMData | null> {
       5: 'Float', 6: 'Storage', 7: 'Equalize',
     };
 
-    const headers = { 'X-Authorization': `Bearer ${token}` };
+    const headers = { 'X-Authorization': `Token ${token}` };
     const now = Math.floor(Date.now() / 1000);
     const sixHoursAgo = now - 6 * 3600;
 

@@ -69,7 +69,7 @@ async function fetchVRM(path: string): Promise<any> {
   const token = process.env.VICTRON_ADMIN_TOKEN;
   if (!token) throw new Error('VICTRON_ADMIN_TOKEN not configured');
   const res = await fetch(`https://vrmapi.victronenergy.com/v2${path}`, {
-    headers: { 'X-Authorization': `Bearer ${token}` },
+    headers: { 'X-Authorization': `Token ${token}` },
     next: { revalidate: 0 },
   });
   if (!res.ok) throw new Error(`VRM ${res.status}: ${path}`);
