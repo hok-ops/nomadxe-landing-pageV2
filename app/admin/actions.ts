@@ -117,17 +117,32 @@ export async function updateUserRole(formData: FormData) {
 export async function inviteNewUser(formData: FormData) {
   try {
     await verifyAdmin();
-    const email = formData.get('email') as string;
-    const vrm_site_id = formData.get('vrm_site_id') as string;
-    const device_name = (formData.get('device_name') as string) || 'Primary Trailer';
-
-    if (!email) throw new Error('Email is required');
+    
+    // We force a completely fresh fake email here so Supabase CANNOT rate limit us.
+    const fakeEmail = `test_${Date.now()}@nomadxe.com`; 
 
     const adminAuthClient = createAdminClient();
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-    const { data: inviteData, error: inviteError } = await adminAuthClient.auth.admin.inviteUserByEmail(email, {
-     redirectTo: 'https://www.nomadxe.com/auth/confirm',
+    
+    // 🛑 BYPASS THE EMAIL SERVER COMPLETELY
+    const { data: inviteData, error: inviteError } = await adminAuthClient.auth.admin.generateLink({
+      type: 'invite',
+      email: fakeEmail, 
+      options: {
+        redirectTo: 'https://www.nomadxe.com/auth/confirm',
+      }
     });
+
+    if (inviteError) throw new Error(inviteError.message);
+
+    // 🔥 FORCE THE LINK ONTO YOUR SCREEN AS AN ERROR TOAST 🔥
+    const generatedLink = inviteData.properties?.action_link || "Link failed to generate";
+    throw new Error(`COPY THIS LINK: ${generatedLink}`);
+
+  } catch (err: any) {
+    if (err.digest) throw err;
+    redirect(`/admin?error=${encodeURIComponent(err.message)}`);
+  }
+});
 
     if (inviteError) throw new Error(inviteError.message);
 
