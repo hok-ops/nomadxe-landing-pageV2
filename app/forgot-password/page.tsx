@@ -1,92 +1,106 @@
-'use client';
-
-import { useState } from 'react';
-import { createClient } from '@/utils/supabase/client';
+import { requestPasswordReset } from '@/app/admin/actions';
 import Link from 'next/link';
 
-export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const supabase = createClient();
+export const metadata = { title: 'Forgot Password | NomadXE' };
 
-  const handleResetRequest = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/confirm?type=recovery&next=/reset-password`,
-      });
-
-      if (error) throw error;
-
-      setMessage('RECOVERY_TRANSMITTED // Check your email for instructions.');
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+export default function ForgotPasswordPage({
+  searchParams,
+}: {
+  searchParams: { sent?: string; error?: string };
+}) {
+  const sent = searchParams.sent === '1';
 
   return (
-    <div className="min-h-screen bg-midnight relative overflow-hidden flex items-center justify-center p-6">
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue/10 rounded-full blur-[120px] pointer-events-none" aria-hidden="true" />
-      
-      <div className="relative w-full max-w-md bg-white/[0.02] backdrop-blur-3xl border border-white/10 rounded-3xl p-10 shadow-2xl overflow-hidden">
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-blue/50 to-transparent opacity-70" />
+    <div className="min-h-screen bg-[#080c14] flex items-center justify-center p-6 relative overflow-hidden">
+      <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.025]"
+        style={{ backgroundImage: 'radial-gradient(circle, #3b82f6 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+      <div className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#1e40af] via-[#3b82f6] to-[#1e40af] z-[100]" />
 
-        <div className="text-center mb-10 mt-2">
-          <p className="font-mono text-2xl tracking-[0.3em] uppercase text-white font-bold mb-3">
-            RECOVER_ACCESS
-          </p>
-          <p className="text-xs text-blue/70 font-mono uppercase tracking-widest">
-            Initiate Identity Reset
-          </p>
-        </div>
+      <div className="relative z-10 w-full max-w-[420px]">
+        <div className="bg-[#0d1526] border border-[#1e3a5f]/80 rounded-2xl shadow-[0_32px_80px_rgba(0,0,0,0.7)]">
+          <div className="h-px w-full rounded-t-2xl bg-gradient-to-r from-transparent via-[#3b82f6]/30 to-transparent" />
 
-        <form onSubmit={handleResetRequest} className="flex flex-col gap-6 relative z-10">
-          {error && (
-            <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-mono uppercase tracking-widest text-center">
-              Recovery_Error // {error}
+          <div className="px-8 pt-10 pb-8 sm:px-10 sm:pt-12 sm:pb-10">
+
+            {/* Brand */}
+            <div className="text-center mb-10">
+              <div className="w-12 h-12 rounded-xl bg-[#1e40af]/20 border border-[#3b82f6]/20 flex items-center justify-center mx-auto mb-4">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+              </div>
+              <span className="font-mono text-[22px] font-black tracking-[0.18em] uppercase text-white">
+                NOMAD<span className="text-[#3b82f6]">XE</span>
+              </span>
+              <div className="mt-4 space-y-1">
+                <h1 className="text-[17px] font-bold text-white">Reset your password</h1>
+                <p className="text-[12px] text-[#93c5fd]/45">
+                  {sent
+                    ? 'Check your email for the reset link.'
+                    : "Enter your email and we'll send a reset link."}
+                </p>
+              </div>
             </div>
-          )}
 
-          {message && (
-            <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono uppercase tracking-widest text-center">
-              Success // {message}
-            </div>
-          )}
+            {/* Error from server action */}
+            {searchParams.error && (
+              <div className="mb-5 bg-red-950/25 border border-red-500/35 rounded-xl p-3.5 text-[12.5px] text-red-400">
+                {decodeURIComponent(searchParams.error)}
+              </div>
+            )}
 
-          <div className="group">
-            <label className="block font-mono text-[10px] text-white/40 mb-2 uppercase tracking-[0.2em] group-focus-within:text-blue/70">
-              [ TARGET_EMAIL ]
-            </label>
-            <input 
-              required
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-black/20 border border-white/5 rounded-xl px-5 py-4 text-white text-sm focus:outline-none focus:border-blue/50 transition-all font-mono" 
-              placeholder="operator@nomadxe.com" 
-            />
+            {sent ? (
+              /* Success state */
+              <div className="space-y-6 text-center">
+                <div className="w-12 h-12 rounded-xl bg-emerald-900/20 border border-emerald-500/20 flex items-center justify-center mx-auto">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+                <p className="text-sm text-[#93c5fd]/70 leading-relaxed">
+                  If an account exists for that email, a password reset link has been sent. Check your inbox and spam folder.
+                </p>
+                <Link href="/login"
+                  className="inline-block text-sm text-[#3b82f6]/70 hover:text-[#3b82f6] transition-colors">
+                  ← Back to Sign In
+                </Link>
+              </div>
+            ) : (
+              /* Request form — server action handles token generation */
+              <form action={requestPasswordReset} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="email"
+                    className="block text-[10.5px] font-semibold text-[#93c5fd]/55 uppercase tracking-[0.12em]">
+                    Email address
+                  </label>
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    autoFocus
+                    className="w-full bg-[#080c14] border border-[#1e3a5f] rounded-xl px-4 py-3.5 text-white text-sm placeholder:text-[#93c5fd]/20 outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6]/20 transition-all"
+                    placeholder="you@example.com"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full mt-2 bg-[#2563eb] hover:bg-[#3b82f6] text-white font-bold py-3.5 rounded-xl text-sm tracking-wide transition-all hover:shadow-[0_0_28px_rgba(59,130,246,0.45)] active:scale-[0.98]"
+                >
+                  Send Reset Link
+                </button>
+
+                <div className="text-center pt-1">
+                  <Link href="/login" className="text-[11px] text-[#3b82f6]/50 hover:text-[#3b82f6] transition-colors">
+                    ← Back to Sign In
+                  </Link>
+                </div>
+              </form>
+            )}
           </div>
-
-          <button 
-            disabled={loading || !!message}
-            className="w-full mt-4 bg-blue text-midnight font-bold tracking-widest uppercase py-4 rounded-xl transition-all shadow-blue-glow hover:scale-[1.02] disabled:opacity-50"
-          >
-            {loading ? 'TRANSMITTING...' : 'INITIATE_RECOVERY'}
-          </button>
-        </form>
-
-        <div className="mt-8 text-center pt-8 border-t border-white/5 relative z-10">
-          <Link href="/login" className="text-[10px] font-mono text-white/30 hover:text-white transition-colors uppercase tracking-[0.2em]">
-            &larr; Abort_to_Identity_Gateway
-          </Link>
         </div>
       </div>
     </div>

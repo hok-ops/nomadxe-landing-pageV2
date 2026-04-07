@@ -18,7 +18,7 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           response = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
@@ -34,6 +34,16 @@ export async function updateSession(request: NextRequest) {
 
   const isDashboard = request.nextUrl.pathname.startsWith('/dashboard')
   const isAdmin = request.nextUrl.pathname.startsWith('/admin')
+
+  // Auth callback and password pages are public — never block them.
+  const isPublicAuthRoute =
+    request.nextUrl.pathname.startsWith('/auth/') ||
+    request.nextUrl.pathname === '/activate-account' ||
+    request.nextUrl.pathname === '/reset-password' ||
+    request.nextUrl.pathname === '/forgot-password' ||
+    request.nextUrl.pathname === '/login'
+
+  if (isPublicAuthRoute) return response
 
   // Redirect unauthenticated users away from protected routes
   if ((isDashboard || isAdmin) && !user) {
