@@ -3,22 +3,29 @@ import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 
 // ── VRM attribute ID constants ─────────────────────────────────────────────────
-// NomadXE trailers are DC-only: MPPT solar charger + SmartShunt/BMV + DC loads.
-// No inverter, no AC, no grid, no generator, no tank, no temperature.
+// Verified against live debug response from installation 810801.
+// These IDs are standard Venus OS / Cerbo GX attribute codes.
 const A = {
-  BATTERY_SOC:  282,  // Battery Monitor State of charge (%)
-  BATTERY_V:    259,  // Battery Monitor Voltage (V)
-  BATTERY_A:    261,  // Battery Monitor Current (A) — positive = charging
-  BATTERY_W:    262,  // Battery Monitor Power (W)   — positive = charging
-  SOLAR_W:      789,  // Solar Charger PV power (W)
-  SOLAR_V:      776,  // Solar Charger PV voltage (V)
-  SOLAR_A:      777,  // Solar Charger PV current (A)
-  SOLAR_TODAY:  784,  // Solar Charger Yield today (kWh)
-  MPPT_STATE:   775,  // Solar Charger state enum (Bulk/Absorption/Float/Off)
-  DC_SYSTEM:    190,  // DC System power — loads on DC bus (W), if available
+  // Battery Monitor (SmartShunt/BMV)
+  BATTERY_SOC:   51,   // /Soc  (%)
+  BATTERY_V:     47,   // /Dc/0/Voltage  (V)
+  BATTERY_A:     49,   // /Dc/0/Current  (A)  positive = charging
+
+  // System overview — more reliable for power totals across devices
+  BATTERY_W:     243,  // /Dc/Battery/Power  (W)  positive = charging
+  BATTERY_STATE: 215,  // /Dc/Battery/State  0=Idle 1=Charging 2=Discharging
+
+  // Solar Charger (MPPT)
+  SOLAR_W:       442,  // /Yield/Power  (W)  — PV output power
+  SOLAR_V:       86,   // /Pv/V  (V)         — panel string voltage
+  SOLAR_TODAY:   94,   // /History/Daily/0/Yield  (kWh)
+  MPPT_STATE:    85,   // /State  3=Bulk 4=Absorption 5=Float 6=Storage
+
+  // DC loads on the bus (System overview)
+  DC_SYSTEM:     140,  // /Dc/System/Power  (W)
 } as const;
 
-// MPPT solar charger state enum (Venus OS / SmartSolar)
+// MPPT SmartSolar charge state enum
 const MPPT_LABELS: Record<number, string> = {
   0: 'Off',
   2: 'Fault',
@@ -27,10 +34,9 @@ const MPPT_LABELS: Record<number, string> = {
   5: 'Float',
   6: 'Storage',
   7: 'Equalize',
-  11: 'Power Supply',
-  245: 'Starting Up',
-  247: 'Auto Equalize',
-  252: 'External Control',
+  245: 'Off',
+  247: 'Equalize',
+  252: 'Ext. Control',
 };
 
 export interface VRMData {
@@ -41,13 +47,13 @@ export interface VRMData {
     voltage: number;         // V
     current: number;         // A — positive = charging
     power: number;           // W — positive = charging
+    state: number;           // 0=Idle 1=Charging 2=Discharging
   };
   solar: {
-    power: number;           // W
-    voltage: number;         // V (panel voltage)
-    current: number;         // A
+    power: number;           // W  (PV output)
+    voltage: number;         // V  (panel string voltage)
     yieldToday: number;      // kWh
-    mpptState: number;       // state enum
+    mpptState: number;       // charge state enum
     mpptStateLabel: string;
   };
   dcLoad: number;            // W — DC bus loads
@@ -120,7 +126,7 @@ export async function GET(
       fetchVRM(`/installations/${siteId}/diagnostics`),
       fetchVRM(
         `/installations/${siteId}/stats` +
-        `?type=custom&attributeCodes[]=${A.SOLAR_W}` +
+        `?type=custom&attributeCodes[]=${A.SOLAR_W}` +  // 442 = PV power
         `&interval=hours&start=${sixHrsAgo}&end=${now}`
       ).catch(() => null),
     ]);
@@ -130,9 +136,9 @@ export async function GET(
     const solarW   = pick(records, A.SOLAR_W);
     const batteryW = pick(records, A.BATTERY_W);
 
-    // Use direct DC System attribute if available; derive otherwise
-    const directDC  = pick(records, A.DC_SYSTEM);
-    const dcLoad    = directDC > 0 ? directDC : deriveDCLoad(solarW, batteryW);
+    // DC System attr 140 is directly available; derive as fallback
+    const directDC = pick(records, A.DC_SYSTEM);
+    const dcLoad   = directDC > 0 ? directDC : deriveDCLoad(solarW, batteryW);
 
     const mpptStateRaw = pick(records, A.MPPT_STATE);
 
@@ -144,17 +150,17 @@ export async function GET(
         voltage: pick(records, A.BATTERY_V),
         current: pick(records, A.BATTERY_A),
         power:   batteryW,
+        state:   pick(records, A.BATTERY_STATE), // 0=Idle 1=Charging 2=Discharging
       },
       solar: {
         power:          solarW,
         voltage:        pick(records, A.SOLAR_V),
-        current:        pick(records, A.SOLAR_A),
         yieldToday:     pick(records, A.SOLAR_TODAY),
         mpptState:      mpptStateRaw,
         mpptStateLabel: MPPT_LABELS[mpptStateRaw] ?? 'Unknown',
       },
       dcLoad,
-      sparkline: extractSparkline(statsJson, A.SOLAR_W),
+      sparkline: extractSparkline(statsJson, A.SOLAR_W), // attr 442 for stats API
     };
 
     return NextResponse.json({ data, ok: true });

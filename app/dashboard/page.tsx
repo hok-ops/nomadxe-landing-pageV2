@@ -13,14 +13,15 @@ async function fetchInitialVRMData(siteId: string): Promise<VRMData | null> {
 
   try {
     const A = {
-      BATTERY_SOC: 282, BATTERY_V: 259, BATTERY_A: 261, BATTERY_W: 262,
-      SOLAR_W: 789, SOLAR_V: 776, SOLAR_A: 777, SOLAR_TODAY: 784,
-      MPPT_STATE: 775, DC_SYSTEM: 190,
+      BATTERY_SOC: 51, BATTERY_V: 47, BATTERY_A: 49, BATTERY_W: 243,
+      BATTERY_STATE: 215,
+      SOLAR_W: 442, SOLAR_V: 86, SOLAR_TODAY: 94, MPPT_STATE: 85,
+      DC_SYSTEM: 140,
     };
 
     const MPPT_LABELS: Record<number, string> = {
       0: 'Off', 2: 'Fault', 3: 'Bulk', 4: 'Absorption',
-      5: 'Float', 6: 'Storage', 7: 'Equalize',
+      5: 'Float', 6: 'Storage', 7: 'Equalize', 245: 'Off', 252: 'Ext. Control',
     };
 
     const headers = { 'X-Authorization': `Token ${token}` };
@@ -55,9 +56,9 @@ async function fetchInitialVRMData(siteId: string): Promise<VRMData | null> {
     return {
       siteId,
       lastSeen,
-      battery: { soc: pick(A.BATTERY_SOC), voltage: pick(A.BATTERY_V), current: pick(A.BATTERY_A), power: batteryW },
+      battery: { soc: pick(A.BATTERY_SOC), voltage: pick(A.BATTERY_V), current: pick(A.BATTERY_A), power: batteryW, state: pick(A.BATTERY_STATE) },
       solar: {
-        power: solarW, voltage: pick(A.SOLAR_V), current: pick(A.SOLAR_A),
+        power: solarW, voltage: pick(A.SOLAR_V),
         yieldToday: pick(A.SOLAR_TODAY), mpptState: mpptRaw,
         mpptStateLabel: MPPT_LABELS[mpptRaw] ?? 'Unknown',
       },

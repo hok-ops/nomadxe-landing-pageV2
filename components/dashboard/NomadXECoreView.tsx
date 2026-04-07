@@ -7,9 +7,9 @@ import { useEffect, useState, useCallback } from 'react';
 export interface VRMData {
   siteId: string;
   lastSeen: number;
-  battery: { soc: number; voltage: number; current: number; power: number };
+  battery: { soc: number; voltage: number; current: number; power: number; state: number };
   solar: {
-    power: number; voltage: number; current: number;
+    power: number; voltage: number;
     yieldToday: number; mpptState: number; mpptStateLabel: string;
   };
   dcLoad: number;
@@ -199,8 +199,8 @@ export default function NomadXECoreView({ device, initialData }: Props) {
   const mppt        = getMpptStyle(data?.solar.mpptState ?? 0);
   const solarActive = (data?.solar.power ?? 0) > 5;
   const loadActive  = (data?.dcLoad ?? 0) > 5;
-  const charging    = (data?.battery.current ?? 0) > 0.2;
-  const discharging = (data?.battery.current ?? 0) < -0.2;
+  const charging    = (data?.battery.state ?? 0) === 1;
+  const discharging = (data?.battery.state ?? 0) === 2;
 
   const syncAgo = lastSeenS > 0
     ? staleS < 60    ? `${Math.floor(staleS)}s ago`
@@ -271,8 +271,6 @@ export default function NomadXECoreView({ device, initialData }: Props) {
             {/* Stats row */}
             <div className="flex gap-3 mt-2 mb-1 text-[11px] font-mono">
               <span className="text-[#93c5fd]/40">{(data?.solar.voltage ?? 0).toFixed(1)} V</span>
-              <span className="text-[#93c5fd]/25">·</span>
-              <span className="text-[#93c5fd]/40">{(data?.solar.current ?? 0).toFixed(1)} A</span>
             </div>
 
             {/* Yield today */}
