@@ -196,6 +196,22 @@ export async function resendInvite(formData: FormData) {
 
     if (error) throw new Error(error.message);
 
+    // 🔥 THIS PRINTS THE LINK TO YOUR VERCEL LOGS 🔥
+    console.log("==================================================");
+    console.log("COPY THIS LINK:");
+    console.log(data.properties?.action_link);
+    console.log("==================================================");
+
+    revalidatePath('/admin');
+    redirect(`/admin?success=Link generated! Check Vercel logs.`);
+  } catch (err: any) {
+    if (err.digest) throw err;
+    redirect(`/admin?error=${encodeURIComponent(err.message)}`);
+  }
+});
+
+    if (error) throw new Error(error.message);
+
     // 🔥 THIS PRINTS THE LINK TO YOUR TERMINAL 🔥
     console.log("\n\n==================================================");
     console.log("COPY THIS LINK:");
