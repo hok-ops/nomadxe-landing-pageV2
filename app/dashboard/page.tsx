@@ -1,117 +1,146 @@
 import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import NomadXECoreView, { type VRMData } from '@/components/dashboard/NomadXECoreView';
 
-// Simulates the Server Action fetching pattern per the exact architectural template.
-async function getMySolarData() {
-  const supabase = createClient();
-  
-  // 1. Get the VRM IDs assigned to the logged-in user via RLS
-  const { data: devices, error } = await supabase
-    .from('vrm_devices')
-    .select('vrm_site_id');
+export const metadata = { title: 'Core Diagnostics | NomadXE' };
 
-  // If DB hasn't been set up yet natively, gracefully fallback to the VRM template structure
-  if (error || !devices || devices.length === 0) {
-    return [{
-      battery_level: 84,
-      voltage: '13.8V',
-      solar_yield: '420W',
-      consumption: '145W',
-      status: 'OPTIMAL'
-    }];
-  }
+// Fetch VRM data server-side (keeps VICTRON_ADMIN_TOKEN off the client)
+async function fetchInitialVRMData(siteId: string): Promise<VRMData | null> {
+  const token = process.env.VICTRON_ADMIN_TOKEN;
+  if (!token) return null;
 
-  // 2. Safely call Victron internally, shielding VICTRON_ADMIN_TOKEN from the client
   try {
-    const solarDataPromises = devices.map(async (device) => {
-      // Using standard accepted vrmapi route format: vrmapi.victronenergy.com
-      const res = await fetch(
-        `https://vrmapi.victronenergy.com/v2/installations/${device.vrm_site_id}/diagnostics`,
-        {
-          headers: { 'X-Authorization': `Bearer ${process.env.VICTRON_ADMIN_TOKEN}` }
-        }
-      );
-      if (!res.ok) return null;
-      return res.json();
-    });
-    
-    const results = await Promise.all(solarDataPromises);
-    return results.filter(Boolean); // Clear any unmapped responses natively
-  } catch (err) {
-    console.error('Failed to fetch from Victron API:', err);
-    return [];
+    const A = { BATTERY_SOC: 282, BATTERY_V: 259, BATTERY_A: 261, BATTERY_W: 262,
+                 SOLAR_W: 789, SOLAR_V: 776, SOLAR_TODAY: 784, AC_LOAD: 8, AC_OUTPUT: 9, VEBUS_STATE: 64 };
+
+    const VEBUS_LABELS: Record<number, string> = {
+      0: 'Off', 1: 'Low Power', 2: 'Fault', 3: 'Bulk', 4: 'Absorption',
+      5: 'Float', 6: 'Storage', 7: 'Equalize', 8: 'Passthru',
+      9: 'Inverting', 10: 'Power Assist', 11: 'Power Supply',
+    };
+
+    const headers = { 'X-Authorization': `Bearer ${token}` };
+    const now = Math.floor(Date.now() / 1000);
+    const sixHoursAgo = now - 6 * 3600;
+
+    const [diagRes, statsRes] = await Promise.all([
+      fetch(`https://vrmapi.victronenergy.com/v2/installations/${siteId}/diagnostics`, { headers, cache: 'no-store' }),
+      fetch(`https://vrmapi.victronenergy.com/v2/installations/${siteId}/stats?type=custom&attributeCodes[]=${A.SOLAR_W}&interval=hours&start=${sixHoursAgo}&end=${now}`, { headers, cache: 'no-store' })
+        .catch(() => null),
+    ]);
+
+    if (!diagRes.ok) return null;
+    const diagJson = await diagRes.json();
+    const statsJson = statsRes?.ok ? await statsRes.json() : null;
+
+    const records: any[] = diagJson?.records ?? [];
+    const pick = (id: number) => Number(records.find((r: any) => r.idDataAttribute === id)?.rawValue ?? 0);
+    const lastSeen = records.reduce((max: number, r: any) => Math.max(max, Number(r.timestamp ?? 0)), 0) || now;
+
+    const inverterStateRaw = pick(A.VEBUS_STATE);
+    const sparklineRaw = statsJson?.records?.[String(A.SOLAR_W)]?.avg;
+    const sparkline = Array.isArray(sparklineRaw)
+      ? (sparklineRaw as (number | null)[]).slice(-6).map(v => v ?? 0)
+      : [];
+
+    return {
+      siteId,
+      lastSeen,
+      battery: { soc: pick(A.BATTERY_SOC), voltage: pick(A.BATTERY_V), current: pick(A.BATTERY_A), power: pick(A.BATTERY_W) },
+      solar:   { power: pick(A.SOLAR_W), voltage: pick(A.SOLAR_V), yieldToday: pick(A.SOLAR_TODAY) },
+      inverterState: inverterStateRaw,
+      inverterStateLabel: VEBUS_LABELS[inverterStateRaw] ?? 'Unknown',
+      acLoad: pick(A.AC_LOAD) || pick(A.AC_OUTPUT),
+      sparkline,
+    };
+  } catch {
+    return null;
   }
 }
 
-export const metadata = {
-  title: 'Telemetry Dashboard | NomadXE',
-};
-
 export default async function DashboardPage() {
-  const dataArray = await getMySolarData();
-  const data = dataArray[0] || {}; // Render the first assigned trailer
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const adminClient = createAdminClient();
+  const { data: assignments } = await adminClient
+    .from('device_assignments')
+    .select('device_id, vrm_devices(id, vrm_site_id, name)')
+    .eq('user_id', user.id);
+
+  type Device = { siteId: string; name: string };
+  const devices: Device[] = (assignments ?? [])
+    .map((a: any) => a.vrm_devices)
+    .filter(Boolean)
+    .map((d: any) => ({ siteId: String(d.vrm_site_id), name: String(d.name) }));
+
+  // Fetch initial VRM data for all assigned devices in parallel
+  const initialDataMap = Object.fromEntries(
+    await Promise.all(
+      devices.map(async (d) => [d.siteId, await fetchInitialVRMData(d.siteId)])
+    )
+  );
 
   return (
-    <div className="min-h-screen bg-midnight pt-32 pb-24 px-8 md:px-12">
-      <div className="max-w-6xl mx-auto">
-        <header className="mb-12 flex flex-col md:flex-row justify-between items-start md:items-end border-b border-white/10 pb-6 gap-6">
+    <div className="min-h-screen bg-[#080c14] pt-28 pb-24 relative">
+      {/* Grid texture */}
+      <div
+        className="pointer-events-none fixed inset-0 z-0 opacity-[0.022]"
+        style={{ backgroundImage: 'linear-gradient(#3b82f6 1px,transparent 1px),linear-gradient(to right,#3b82f6 1px,transparent 1px)', backgroundSize: '48px 48px' }}
+      />
+      {/* Top accent bar */}
+      <div className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#1e40af] via-[#3b82f6] to-[#1e40af] z-[100]" />
+
+      <div className="relative z-10 max-w-[1400px] mx-auto px-6 lg:px-12">
+
+        {/* Header */}
+        <header className="flex items-center justify-between mb-10 pb-7 border-b border-[#1e3a5f]/60">
           <div>
-            <h1 className="text-3xl font-bold text-white mb-2">Trailer Alpha-1 Operations</h1>
-            <p className="font-mono text-sm text-blue/70 uppercase tracking-widest">Secure Local VRM API Proxy</p>
-          </div>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="font-mono text-xs text-white/50 uppercase tracking-widest">DB Relay Active</span>
+            <div className="flex items-center gap-2.5 mb-2">
+              <span className="w-2 h-2 rounded-full bg-[#3b82f6] shadow-[0_0_8px_#3b82f6]" />
+              <span className="text-[10px] font-bold text-[#3b82f6]/60 uppercase tracking-[0.5em] font-mono">NomadXE</span>
             </div>
-            <Link href="/" className="text-[10px] font-mono border border-white/10 px-6 py-2.5 rounded-lg text-white/50 hover:bg-white/5 hover:text-white transition-all uppercase tracking-[0.2em] active:scale-[0.98]">
-              Disconnect
-            </Link>
+            <h1 className="text-2xl font-black text-white tracking-tight">Core Diagnostics</h1>
+            <p className="text-xs text-[#93c5fd]/40 mt-1 font-mono uppercase tracking-widest">
+              Power system health · {devices.length} unit{devices.length !== 1 ? 's' : ''} assigned
+            </p>
           </div>
+          <Link
+            href="/"
+            className="text-[10px] font-bold font-mono border border-[#1e3a5f] text-[#93c5fd]/50 hover:text-white hover:border-[#3b82f6]/50 px-5 py-2.5 rounded-lg transition-all uppercase tracking-widest"
+          >
+            ← Disconnect
+          </Link>
         </header>
 
-        {/* Victron Metrics Grid */}
-        <div className="grid md:grid-cols-4 gap-6">
-          <div className="bg-surface border border-white/5 rounded-2xl p-6 transition-all hover:border-blue/30 relative overflow-hidden">
-             <div className="absolute top-0 right-0 p-4 opacity-10 blur-[1px]">⚡</div>
-            <p className="font-mono text-[10px] text-white/40 uppercase mb-4 tracking-[0.2em]">Battery SOC</p>
-            <div className="text-4xl font-bold text-white mb-2">{data.battery_level || 0}%</div>
-            <div className="w-full bg-midnight auto-cols-auto rounded-full h-1 mt-8 border border-white/5">
-              <div className="bg-blue h-1 rounded-full shadow-[0_0_10px_rgba(14,165,233,0.8)]" style={{ width: `${data.battery_level}%` }}></div>
+        {/* Device grid */}
+        {devices.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-32 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-[#1e3a5f]/30 border border-[#1e3a5f] flex items-center justify-center mb-6">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="1.5">
+                <rect x="2" y="7" width="20" height="14" rx="2" />
+                <path d="M16 7V5a2 2 0 0 0-4 0v2" />
+              </svg>
             </div>
+            <h2 className="text-white font-bold text-lg mb-2">No Devices Assigned</h2>
+            <p className="text-[#93c5fd]/40 text-sm max-w-sm">
+              Your account has no Victron units assigned yet. Contact your administrator to link your trailer.
+            </p>
           </div>
-          
-          <div className="bg-surface border border-white/5 rounded-2xl p-6 transition-all hover:border-blue/30">
-            <p className="font-mono text-[10px] text-white/40 uppercase mb-4 tracking-[0.2em]">Array Voltage</p>
-            <div className="text-4xl font-bold text-white mb-2">{data.voltage || '0.0V'}</div>
-            <p className="text-[10px] text-blue/70 font-mono mt-8 uppercase tracking-[0.2em]">Charging State</p>
+        ) : (
+          <div className="space-y-8">
+            {devices.map(device => (
+              <NomadXECoreView
+                key={device.siteId}
+                device={device}
+                initialData={initialDataMap[device.siteId] ?? null}
+              />
+            ))}
           </div>
-
-          <div className="bg-surface border border-white/5 rounded-2xl p-6 transition-all hover:border-blue/30">
-            <p className="font-mono text-[10px] text-white/40 uppercase mb-4 tracking-[0.2em]">Solar Yield</p>
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-sm text-emerald-400">↑</span>
-              <div className="text-4xl font-bold text-emerald-400">{data.solar_yield || '0W'}</div>
-            </div>
-            <p className="text-[10px] text-white/30 mt-8 uppercase tracking-[0.2em] font-mono">Input Status</p>
-          </div>
-
-          <div className="bg-surface border border-white/5 rounded-2xl p-6 transition-all hover:border-blue/30">
-            <p className="font-mono text-[10px] text-white/40 uppercase mb-4 tracking-[0.2em]">Total Load</p>
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-sm text-rose-400">↓</span>
-              <div className="text-4xl font-bold text-rose-400">{data.consumption || '0W'}</div>
-            </div>
-            <p className="text-[10px] text-white/30 mt-8 uppercase tracking-[0.2em] font-mono">Output Status</p>
-          </div>
-        </div>
-
-        {/* Graph Placeholder */}
-        <div className="mt-8 bg-surface border border-white/5 rounded-2xl p-8 h-80 flex flex-col items-center justify-center relative overflow-hidden group">
-          <div className="absolute inset-0 opacity-5 bg-[linear-gradient(rgba(255,255,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.1)_1px,transparent_1px)] bg-[size:32px_32px]"></div>
-          <p className="font-mono text-blue/40 uppercase tracking-[0.3em] text-sm z-10">[ Historical Chart Rendering Zone ]</p>
-          <p className="text-[10px] tracking-[0.2em] text-white/20 mt-4 font-mono z-10">48-Hour Yield vs. Load Trajectory</p>
-        </div>
+        )}
       </div>
     </div>
   );
