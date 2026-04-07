@@ -3,6 +3,7 @@ import { type EmailOtpType } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function GET(request: NextRequest) {
+  console.log("🔥 INCOMING URL TO VERCEL:", request.url);
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
   const token_hash = searchParams.get('token_hash');
