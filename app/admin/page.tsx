@@ -315,6 +315,7 @@ export default async function AdminDashboard({
                               {/* Pending → Resend activation invite */}
                               {isPending && (
                                 <form action={resendInvite}>
+                                  <input type="hidden" name="userId" value={u.id} />
                                   <input type="hidden" name="email" value={u.email ?? ''} />
                                   <button type="submit"
                                     className="text-[10px] font-bold px-3 py-2 rounded-lg border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 transition-all"
@@ -327,6 +328,7 @@ export default async function AdminDashboard({
                               {/* Active → Send password reset */}
                               {!isPending && (
                                 <form action={sendPasswordReset}>
+                                  <input type="hidden" name="userId" value={u.id} />
                                   <input type="hidden" name="email" value={u.email ?? ''} />
                                   <button type="submit"
                                     className="text-[10px] font-bold px-3 py-2 rounded-lg border border-sky-500/30 text-sky-400 hover:bg-sky-500/10 transition-all"

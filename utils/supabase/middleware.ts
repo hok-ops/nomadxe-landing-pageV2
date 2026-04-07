@@ -28,73 +28,81 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch {
+    // If we cannot verify the session, treat as unauthenticated
+  }
 
-  const isDashboard = request.nextUrl.pathname.startsWith('/dashboard')
-  const isAdmin = request.nextUrl.pathname.startsWith('/admin')
+  const { pathname } = request.nextUrl
+  const isDashboard = pathname.startsWith('/dashboard')
+  const isAdmin = pathname.startsWith('/admin')
 
   // Auth callback and password pages are public — never block them.
   const isPublicAuthRoute =
-    request.nextUrl.pathname.startsWith('/auth/') ||
-    request.nextUrl.pathname === '/activate-account' ||
-    request.nextUrl.pathname === '/reset-password' ||
-    request.nextUrl.pathname === '/forgot-password' ||
-    request.nextUrl.pathname === '/login'
+    pathname.startsWith('/auth/') ||
+    pathname === '/activate-account' ||
+    pathname === '/reset-password' ||
+    pathname === '/forgot-password' ||
+    pathname === '/login'
 
   if (isPublicAuthRoute) return response
 
-  // Redirect unauthenticated users away from protected routes
+  // Redirect unauthenticated users to login — hard block, no fallback.
   if ((isDashboard || isAdmin) && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
+    url.search = ''
     return NextResponse.redirect(url)
   }
 
-  // For /admin routes: verify admin role using a service-role client.
-  // CRITICAL: Use createServerClient with the service role key but pass NO cookies.
-  // Passing an empty cookie handler means the client uses only the service_role key
-  // and does NOT inherit the user's session context, avoiding recursive RLS evaluation.
+  // For /admin routes: verify admin role using service-role client.
+  // Empty cookie handlers: uses service_role key only, bypasses user RLS context.
   if (isAdmin && user) {
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
     if (!serviceKey) {
-      console.error('[MIDDLEWARE] SUPABASE_SERVICE_ROLE_KEY is not set — cannot verify admin role')
+      // Without the service key we cannot verify role — deny access to /admin.
+      console.error('[MIDDLEWARE] SUPABASE_SERVICE_ROLE_KEY not set — denying /admin access')
       const url = request.nextUrl.clone()
-      url.pathname = '/dashboard'
+      url.pathname = '/login'
+      url.search = '?error=Server+misconfiguration'
       return NextResponse.redirect(url)
     }
 
-    // Use createServerClient with service_role key and empty cookie handlers
-    // This keeps us in Edge-compatible territory while bypassing user RLS context
-    const adminCheck = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceKey,
-      {
-        cookies: {
-          getAll() { return [] },   // No cookies — service_role context only
-          setAll() {},
-        },
+    try {
+      const adminCheck = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        serviceKey,
+        {
+          cookies: {
+            getAll() { return [] },
+            setAll() {},
+          },
+        }
+      )
+
+      const { data: profile } = await adminCheck
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      if (profile?.role !== 'admin') {
+        const url = request.nextUrl.clone()
+        url.pathname = '/dashboard'
+        url.search = ''
+        return NextResponse.redirect(url)
       }
-    )
-
-    const { data: profile, error: profileError } = await adminCheck
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    console.log(`[MIDDLEWARE] RBAC: user=${user.email} role=${profile?.role ?? 'null'} error=${profileError?.message ?? 'none'}`)
-
-    if (profile?.role !== 'admin') {
-      console.warn(`[MIDDLEWARE] Access denied for ${user.email} — not admin`)
+    } catch {
+      // Any error during role check: deny /admin access
       const url = request.nextUrl.clone()
-      url.pathname = '/dashboard'
+      url.pathname = '/login'
+      url.search = ''
       return NextResponse.redirect(url)
     }
-
-    console.log(`[MIDDLEWARE] Admin access granted to ${user.email}`)
   }
 
   return response
