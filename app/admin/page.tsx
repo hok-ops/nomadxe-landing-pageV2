@@ -1,18 +1,10 @@
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { redirect } from 'next/navigation';
-import {
-  inviteNewUser,
-  registerDevice,
-  updateUserRole,
-  resendInvite,
-  updateUserStatus,
-  sendPasswordReset,
-} from './actions';
-import { DeleteUserButton } from './DeleteUserButton';
+import { inviteNewUser, registerDevice } from './actions';
 import { AssignDeviceForm } from './AssignDeviceForm';
 import GenerateLinkTool from './GenerateLinkTool';
-import { DevicesCell } from './DevicesCell';
+import { RosterTable } from './RosterTable';
 import Link from 'next/link';
 
 export const metadata = {
@@ -57,6 +49,18 @@ export default async function AdminDashboard({
     name: d.name as string,
     vrm_site_id: d.vrm_site_id as string,
   }));
+
+  const rosterUsers = authUsers.map(u => {
+    const p = profiles?.find(prof => prof.id === u.id);
+    return {
+      id: u.id,
+      email: u.email,
+      last_sign_in_at: u.last_sign_in_at ?? null,
+      role: (p?.role as string | null) ?? null,
+      status: (p?.status as string | null) ?? null,
+      assignments: (assignments ?? []).filter((a: any) => a.user_id === u.id),
+    };
+  });
 
   return (
     <div className="min-h-screen bg-[#080c14] text-[#93c5fd] font-mono relative selection:bg-[#3b82f6] selection:text-white pt-28 pb-24">
@@ -228,153 +232,7 @@ export default async function AdminDashboard({
 
           {/* ── Right Panel: Roster ── */}
           <div className="xl:col-span-3">
-            <div className="bg-[#0d1526] border border-[#1e3a5f] rounded-xl shadow-2xl overflow-hidden">
-              <div className="flex justify-between items-center px-7 py-5 border-b border-[#1e3a5f]">
-                <div>
-                  <h3 className="text-base font-bold text-white">Client & Device Roster</h3>
-                  <p className="text-[11px] text-[#93c5fd]/65 mt-0.5">All accounts and their assigned Victron units</p>
-                </div>
-                <span className="text-xs font-bold text-[#93c5fd]/75 bg-[#1e40af]/20 px-3 py-1 rounded-full border border-[#1e40af]/30">
-                  {totalDevices} Devices
-                </span>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="text-[10px] font-bold text-[#93c5fd]/65 uppercase tracking-widest border-b border-[#1e3a5f] bg-[#080c14]/60">
-                      <th className="px-7 py-4">Account</th>
-                      <th className="px-7 py-4">Role</th>
-                      <th className="px-7 py-4">Assigned Devices</th>
-                      <th className="px-7 py-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {authUsers.map((u) => {
-                      const p = profiles?.find(prof => prof.id === u.id);
-                      const userAssignments = assignments?.filter((a: any) => a.user_id === u.id) ?? [];
-                      const isAdmin = p?.role === 'admin';
-                      const isPending = !u.last_sign_in_at;
-                      const isSuspended = p?.status === 'suspended';
-
-                      return (
-                        <tr key={u.id} className="group border-b border-[#1e3a5f]/50 hover:bg-[#1e3a5f]/10 transition-colors">
-
-                          {/* Account */}
-                          <td className="px-7 py-5 max-w-[200px]">
-                            <div className="text-sm font-semibold text-white truncate">{u.email}</div>
-                            {isPending ? (
-                              <div className="text-[10px] text-amber-400/70 mt-1 flex items-center gap-1.5">
-                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                                Awaiting activation
-                              </div>
-                            ) : isSuspended ? (
-                              <div className="text-[10px] text-red-400/70 mt-1 flex items-center gap-1.5">
-                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500" />
-                                Suspended
-                              </div>
-                            ) : (
-                              <div className="text-[10px] text-[#93c5fd]/60 mt-1">
-                                Last active {new Date(u.last_sign_in_at!).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                              </div>
-                            )}
-                          </td>
-
-                          {/* Role */}
-                          <td className="px-7 py-5">
-                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold border ${
-                              isAdmin
-                                ? 'bg-violet-900/20 text-violet-300 border-violet-500/30'
-                                : 'bg-[#1e40af]/10 text-[#93c5fd]/70 border-[#1e40af]/20'
-                            }`}>
-                              {isAdmin ? '⬡ Admin' : '◯ Client'}
-                            </span>
-                          </td>
-
-                          {/* Devices — collapsed count badge, expand on click */}
-                          <td className="px-7 py-5">
-                            <DevicesCell assignments={userAssignments} />
-                          </td>
-
-                          {/* Actions */}
-                          <td className="px-7 py-5 text-right">
-                            <div className="flex justify-end gap-2 flex-wrap">
-
-                              {/* Pending → Resend activation invite */}
-                              {isPending && (
-                                <form action={resendInvite}>
-                                  <input type="hidden" name="userId" value={u.id} />
-                                  <input type="hidden" name="email" value={u.email ?? ''} />
-                                  <button type="submit"
-                                    className="text-[10px] font-bold px-3 py-2 rounded-lg border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 transition-all"
-                                  >
-                                    Resend Invite
-                                  </button>
-                                </form>
-                              )}
-
-                              {/* Active → Send password reset */}
-                              {!isPending && (
-                                <form action={sendPasswordReset}>
-                                  <input type="hidden" name="userId" value={u.id} />
-                                  <input type="hidden" name="email" value={u.email ?? ''} />
-                                  <button type="submit"
-                                    className="text-[10px] font-bold px-3 py-2 rounded-lg border border-sky-500/30 text-sky-400 hover:bg-sky-500/10 transition-all"
-                                  >
-                                    Reset Password
-                                  </button>
-                                </form>
-                              )}
-
-                              {/* Suspend / Reactivate */}
-                              {!isPending && (
-                                <form action={updateUserStatus}>
-                                  <input type="hidden" name="userId" value={u.id} />
-                                  <input type="hidden" name="status" value={isSuspended ? 'active' : 'suspended'} />
-                                  <button type="submit"
-                                    className={`text-[10px] font-bold px-3 py-2 rounded-lg border transition-all ${
-                                      isSuspended
-                                        ? 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10'
-                                        : 'border-orange-500/30 text-orange-400 hover:bg-orange-500/10'
-                                    }`}
-                                  >
-                                    {isSuspended ? 'Reactivate' : 'Suspend'}
-                                  </button>
-                                </form>
-                              )}
-
-                              {/* Toggle Role */}
-                              <form action={updateUserRole}>
-                                <input type="hidden" name="userId" value={u.id} />
-                                <input type="hidden" name="role" value={isAdmin ? 'user' : 'admin'} />
-                                <button type="submit"
-                                  className={`text-[10px] font-bold px-3 py-2 rounded-lg border transition-all ${
-                                    isAdmin
-                                      ? 'border-slate-500/30 text-slate-400 hover:bg-slate-500/10'
-                                      : 'border-violet-500/30 text-violet-400 hover:bg-violet-500/10'
-                                  }`}
-                                >
-                                  {isAdmin ? 'Revoke Admin' : 'Make Admin'}
-                                </button>
-                              </form>
-
-                              {/* Delete — client component with inline error display */}
-                              <DeleteUserButton userId={u.id} email={u.email ?? ''} />
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-
-                {authUsers.length === 0 && (
-                  <div className="text-center py-16 text-[#93c5fd]/60 text-sm">
-                    No clients yet. Invite your first client using the panel on the left.
-                  </div>
-                )}
-              </div>
-            </div>
+            <RosterTable users={rosterUsers} totalDevices={totalDevices} />
           </div>
 
         </div>
