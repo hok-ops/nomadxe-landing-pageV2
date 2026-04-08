@@ -31,7 +31,7 @@ export default function Manifesto() {
       import('gsap/ScrollTrigger').then(({ ScrollTrigger }) => {
         gsap.registerPlugin(ScrollTrigger);
         ctx = gsap.context(() => {
-          wordsRef.current.forEach((el, i) => {
+          wordsRef.current.forEach((el) => {
             if (!el) return;
             gsap.fromTo(
               el,
@@ -75,12 +75,6 @@ export default function Manifesto() {
       />
 
       <div className="relative z-10 max-w-4xl mx-auto text-center">
-        {/* Setup text */}
-        <p className="text-white/50 text-sm md:text-base max-w-2xl mx-auto mb-16 leading-relaxed tracking-wide">
-          Most site security relies on fixed infrastructure — cables, conduit, permits, and months of lead time.
-          We built Nomadxe for the job sites, construction zones, and remote facilities that cannot afford to wait.
-        </p>
-
         {/* Word-by-word reveal */}
         <blockquote
           className="text-4xl md:text-6xl font-display italic text-white leading-tight"

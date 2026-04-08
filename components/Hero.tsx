@@ -113,16 +113,16 @@ export default function Hero() {
         {/* CTAs */}
         <div data-hero-animate className="flex flex-wrap gap-4">
           <a
-            href="#solutions"
+            href="#contact"
             className="inline-flex items-center bg-blue text-midnight font-semibold rounded-full px-8 py-3 transition-all duration-300 hover:scale-[1.02] hover:-translate-y-px hover:shadow-blue-glow active:scale-[0.98]"
           >
-            See How It Works
+            Talk to Sales
           </a>
           <a
-            href="#contact"
+            href="#how-it-works"
             className="inline-flex items-center border border-white/30 text-white font-semibold rounded-full px-8 py-3 transition-all duration-300 hover:border-blue hover:text-blue active:scale-[0.98]"
           >
-            Talk to Sales
+            See How It Works
           </a>
         </div>
       </div>

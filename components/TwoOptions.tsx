@@ -53,7 +53,7 @@ export default function TwoOptions() {
   return (
     <section
       ref={sectionRef}
-      id="solutions"
+      id="deployment"
       className="bg-midnight py-24 px-8"
       aria-label="Deployment options"
     >
