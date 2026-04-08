@@ -20,6 +20,7 @@ export interface VRMData {
 interface Props {
   device: { siteId: string; name: string };
   initialData: VRMData | null;
+  refreshKey?: number;
 }
 
 // ── MPPT state → visual config ────────────────────────────────────────────────
@@ -178,7 +179,7 @@ function StatPill({
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-export default function NomadXECoreView({ device, initialData }: Props) {
+export default function NomadXECoreView({ device, initialData, refreshKey }: Props) {
   const { theme } = useTheme();
   const isLight = theme === 'light';
 
@@ -198,9 +199,15 @@ export default function NomadXECoreView({ device, initialData }: Props) {
   }, [device.siteId]);
 
   useEffect(() => {
-    const id = setInterval(poll, 30_000);
+    const id = setInterval(poll, 300_000);
     return () => clearInterval(id);
   }, [poll]);
+
+  // Trigger immediate poll when parent requests a manual refresh
+  useEffect(() => {
+    if (refreshKey && refreshKey > 0) poll();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
 
   // 1 s clock tick for elapsed time display
   useEffect(() => {
