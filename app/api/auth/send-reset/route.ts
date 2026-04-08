@@ -19,6 +19,8 @@ export async function POST(request: NextRequest) {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  // redirectTo is the page where users enter their OTP code after clicking the email link.
+  // /reset-otp renders the OtpResetForm which accepts the code from the email directly.
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${site}/reset-otp`,
   });

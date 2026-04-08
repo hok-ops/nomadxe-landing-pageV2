@@ -26,10 +26,11 @@ export async function GET(request: NextRequest) {
     if (error) sessionError = error.message;
 
   } else {
-    // Neither present — malformed link
-    return NextResponse.redirect(
-      new URL('/login?error=Invalid+reset+link.+Please+request+a+new+one.', request.url)
-    );
+    // Neither present — possible fragment-based redirect (#access_token=...)
+    // or an old link. Fallback to client-side callback page to process hash.
+    const callbackUrl = new URL('/auth/callback', request.url);
+    searchParams.forEach((val, key) => callbackUrl.searchParams.set(key, val));
+    return NextResponse.redirect(callbackUrl);
   }
 
   if (sessionError) {

@@ -4,6 +4,22 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 
+/**
+ * Looks up the auth token for the current user via the server API.
+ * The server route uses adminClient (service_role) to bypass the RESTRICTIVE
+ * deny RLS policy on auth_tokens that blocks authenticated/anon queries.
+ */
+async function fetchAuthToken(type: 'invite' | 'recovery'): Promise<string | null> {
+  try {
+    const res = await fetch(`/api/auth/invite-token?type=${type}`);
+    if (!res.ok) return null;
+    const { token } = await res.json();
+    return token ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function AuthCallbackInner() {
   const [status, setStatus] = useState('Verifying…');
   const router       = useRouter();
@@ -13,9 +29,9 @@ function AuthCallbackInner() {
   useEffect(() => {
     let handled = false;
 
-    const hash       = window.location.hash.substring(1);
-    const hashParams = new URLSearchParams(hash);
-    const type       = hashParams.get('type');
+    const hash        = window.location.hash.substring(1);
+    const hashParams  = new URLSearchParams(hash);
+    const type        = hashParams.get('type');
     const inviteToken = searchParams.get('invite_token');
 
     async function route(session: { user: { id: string } } | null) {
@@ -24,36 +40,32 @@ function AuthCallbackInner() {
 
       if (type === 'recovery') {
         setStatus('Redirecting to password reset…');
-        router.replace('/reset-otp');
+        const token = await fetchAuthToken('recovery');
+        if (token) {
+          router.replace(`/auth/reset/${token}`);
+        } else {
+          router.replace('/reset-password');
+        }
         return;
       }
 
       if (type === 'invite') {
         setStatus('Setting up your account…');
 
+        // Fast path: invite_token was embedded in the redirect URL by generate-link
         if (inviteToken) {
-          console.log('[auth/callback] invite_token from URL, going to activate-account');
-          router.replace('/activate-account');
+          console.log('[auth/callback] invite_token from URL, going to setup');
+          router.replace(`/auth/setup/${inviteToken}`);
           return;
         }
 
-        const { data: tokenRow, error: tokenErr } = await supabase
-          .from('auth_tokens')
-          .select('token')
-          .eq('user_id', session.user.id)
-          .eq('type', 'invite')
-          .is('used_at', null)
-          .gt('expires_at', new Date().toISOString())
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        // Fallback: look up via server API (bypasses RLS)
+        const token = await fetchAuthToken('invite');
+        console.log('[auth/callback] invite server-API lookup:', { userId: session.user.id, token });
 
-        console.log('[auth/callback] invite DB lookup:', { userId: session.user.id, tokenRow, tokenErr });
-
-        if (tokenRow?.token) {
-          router.replace('/activate-account');
+        if (token) {
+          router.replace(`/auth/setup/${token}`);
         } else {
-          console.warn('[auth/callback] No invite token found for user', session.user.id, tokenErr);
           router.replace('/login?error=Invite+link+expired.+Ask+your+admin+to+resend+the+invite.');
         }
         return;
