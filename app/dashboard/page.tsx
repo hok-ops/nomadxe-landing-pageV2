@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import DashboardClient from './DashboardClient';
 import type { VRMData } from '@/components/dashboard/NomadXECoreView';
 
-export const metadata = { title: 'Core Diagnostics | NomadXE' };
+export const metadata = { title: 'Power Base Readings | NomadXE' };
 
 async function fetchInitialVRMData(siteId: string): Promise<VRMData | null> {
   const token = process.env.VICTRON_ADMIN_TOKEN;

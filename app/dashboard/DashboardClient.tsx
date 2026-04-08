@@ -85,7 +85,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
               <span className="w-2 h-2 rounded-full bg-[#3b82f6] shadow-[0_0_8px_#3b82f6]" />
               <span className="text-[10px] font-bold text-[#3b82f6]/60 group-hover:text-[#3b82f6] uppercase tracking-[0.5em] font-mono transition-colors">NomadXE</span>
             </Link>
-            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Core Diagnostics</h1>
+            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Power Base Readings</h1>
             <p className="text-xs text-[#93c5fd]/40 mt-1 font-mono uppercase tracking-widest">
               <span className="text-[#93c5fd]/75">{onlineCount}/{devices.length} online · {devices.length} unit{devices.length !== 1 ? 's' : ''} assigned</span>
             </p>
