@@ -51,18 +51,21 @@ export async function POST(request: NextRequest) {
 
   let inviteToken: string | null = null;
 
+  // redirectTo points to the server-side route handler (/auth/confirm).
+  // That route exchanges the PKCE code using adminClient (service_role), looks
+  // up the auth_token in DB (bypassing RLS), and routes to /auth/setup/[token].
   const { data, error } = await adminClient.auth.admin.generateLink({
     type,
     email,
-    options: { redirectTo: `${siteUrl}/auth/callback` },
+    options: { redirectTo: `${siteUrl}/auth/confirm` },
   });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
   const invitedUserId = data.user?.id;
-  console.log('[generate-link] generateLink result:', { invitedUserId, email, type, actionLink: data.properties.action_link });
+  console.log('[generate-link] generateLink result:', { invitedUserId, email, type });
 
-  // Create the auth_tokens row
+  // Create the auth_tokens row so /auth/confirm can route to the correct page
   if (invitedUserId && (type === 'invite' || type === 'recovery')) {
     try {
       inviteToken = await createAuthToken(
@@ -79,22 +82,5 @@ export async function POST(request: NextRequest) {
     console.warn('[generate-link] skipping createAuthToken — invitedUserId missing:', { invitedUserId, type });
   }
 
-  // For invite links, rebuild the action_link with the token embedded in redirectTo.
-  // Supabase puts redirectTo as the `redirect_to` query param in the action link.
-  // Replacing it ensures /auth/callback receives invite_token in the URL and can
-  // route directly to /activate-account without a session-based DB lookup.
-  let actionLink = data.properties.action_link;
-  if (type === 'invite' && inviteToken) {
-    try {
-      const url = new URL(actionLink);
-      const newRedirectTo = `${siteUrl}/auth/callback?invite_token=${inviteToken}`;
-      url.searchParams.set('redirect_to', newRedirectTo);
-      actionLink = url.toString();
-      console.log('[generate-link] patched action_link with invite_token in redirect_to');
-    } catch {
-      // If URL parsing fails, fall back to original link
-    }
-  }
-
-  return NextResponse.json({ link: actionLink });
+  return NextResponse.json({ link: data.properties.action_link });
 }
