@@ -55,7 +55,7 @@ function SolarSparkline({ data }: { data: number[] }) {
       </div>
     );
   }
-  const W = 160, H = 36;
+  const W = 200, H = 36;
   const max = Math.max(...data, 1);
   const step = W / (data.length - 1);
   const pts = data.map((v, i) => ({ x: +(i * step).toFixed(1), y: +(H - (v / max) * (H - 4)).toFixed(1) }));
@@ -64,7 +64,7 @@ function SolarSparkline({ data }: { data: number[] }) {
   const uid = data.slice(0, 3).join('-');
 
   return (
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="overflow-visible">
+    <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="overflow-visible">
       <defs>
         <linearGradient id={`sg-${uid}`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#22c55e" stopOpacity="0.30" />
@@ -84,17 +84,32 @@ function SolarSparkline({ data }: { data: number[] }) {
 function FlowArrow({ active, color = '#3b82f6' }: { active: boolean; color?: string }) {
   const c = active ? color : '#1e3a5f';
   return (
-    <div className="flex items-center justify-center flex-shrink-0 w-12">
-      <svg width="48" height="14" viewBox="0 0 48 14">
-        {active && (
-          <style>{`@keyframes fa{from{stroke-dashoffset:12}to{stroke-dashoffset:0}}.fa{animation:fa .65s linear infinite}`}</style>
-        )}
-        <line x1="2" y1="7" x2="38" y2="7" stroke={c} strokeWidth="1.5"
-          strokeDasharray={active ? '5 3.5' : 'none'}
-          className={active ? 'fa' : ''} />
-        <polygon points="38,3 48,7 38,11" fill={c} />
-      </svg>
-    </div>
+    <>
+      {/* Mobile: vertical down arrow */}
+      <div className="lg:hidden flex justify-center py-1 flex-shrink-0">
+        <svg width="14" height="30" viewBox="0 0 14 30">
+          {active && (
+            <style>{`@keyframes fav{from{stroke-dashoffset:12}to{stroke-dashoffset:0}}.fav{animation:fav .65s linear infinite}`}</style>
+          )}
+          <line x1="7" y1="2" x2="7" y2="20" stroke={c} strokeWidth="1.5"
+            strokeDasharray={active ? '5 3.5' : 'none'}
+            className={active ? 'fav' : ''} />
+          <polygon points="3,18 7,30 11,18" fill={c} />
+        </svg>
+      </div>
+      {/* Desktop: horizontal right arrow */}
+      <div className="hidden lg:flex items-center justify-center flex-shrink-0 w-12">
+        <svg width="48" height="14" viewBox="0 0 48 14">
+          {active && (
+            <style>{`@keyframes fa{from{stroke-dashoffset:12}to{stroke-dashoffset:0}}.fa{animation:fa .65s linear infinite}`}</style>
+          )}
+          <line x1="2" y1="7" x2="38" y2="7" stroke={c} strokeWidth="1.5"
+            strokeDasharray={active ? '5 3.5' : 'none'}
+            className={active ? 'fa' : ''} />
+          <polygon points="38,3 48,7 38,11" fill={c} />
+        </svg>
+      </div>
+    </>
   );
 }
 
@@ -217,18 +232,18 @@ export default function NomadXECoreView({ device, initialData }: Props) {
       <div className="h-px bg-gradient-to-r from-transparent via-[#3b82f6]/20 to-transparent" />
 
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e3a5f]/50">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-y-2 px-4 sm:px-6 py-4 border-b border-[#1e3a5f]/50">
+        <div className="flex items-center gap-2.5 min-w-0">
           <span
-            className={`w-2 h-2 rounded-full ${isOffline ? 'bg-red-500' : 'bg-emerald-400 animate-pulse'}`}
+            className={`flex-shrink-0 w-2 h-2 rounded-full ${isOffline ? 'bg-red-500' : 'bg-emerald-400 animate-pulse'}`}
             style={isOffline ? {} : { boxShadow: '0 0 7px #4ade80' }}
           />
-          <span className="text-white font-bold text-sm">{device.name}</span>
-          <span className="text-[10px] font-mono text-[#93c5fd]/60 uppercase tracking-widest">
+          <span className="text-white font-bold text-sm truncate">{device.name}</span>
+          <span className="hidden sm:inline text-[10px] font-mono text-[#93c5fd]/60 uppercase tracking-widest flex-shrink-0">
             Site {device.siteId}
           </span>
         </div>
-        <div className="flex items-center gap-4 text-[10px] font-mono text-[#93c5fd]/60 uppercase tracking-widest">
+        <div className="flex items-center gap-3 text-[10px] font-mono text-[#93c5fd]/60 uppercase tracking-widest flex-shrink-0">
           <span>Sync {syncAgo}</span>
           {isOffline
             ? <span className="text-red-400 font-bold">Offline</span>
@@ -239,10 +254,10 @@ export default function NomadXECoreView({ device, initialData }: Props) {
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
 
-        {/* ── Power Flow Row: Solar → Battery Hub → DC Loads ── */}
-        <div className="flex items-stretch gap-0">
+        {/* ── Power Flow: Solar → Battery → DC Loads (row on desktop, column on mobile) ── */}
+        <div className="flex flex-col lg:flex-row lg:items-stretch gap-3 lg:gap-0">
 
           {/* Solar Card */}
           <div className="flex-1 min-w-0 bg-[#080c14] border border-[#1e3a5f]/50 rounded-xl p-5">

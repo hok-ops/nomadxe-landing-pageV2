@@ -13,10 +13,11 @@ interface Props {
 
 export default function DashboardClient({ devices, initialDataMap }: Props) {
   const [dataMap, setDataMap] = useState<Record<string, VRMData | null>>(initialDataMap);
-  // Multi-select: ordered array so cards render in selection order
   const [selectedIds, setSelectedIds] = useState<string[]>(
     devices.length === 1 ? [devices[0].siteId] : []
   );
+  // Mobile-only: 'fleet' shows the tile grid, 'detail' shows selected cards full-width
+  const [mobileView, setMobileView] = useState<'fleet' | 'detail'>('fleet');
   const detailPanelRef = useRef<HTMLDivElement>(null);
   const prevSelectedRef = useRef<string[]>(selectedIds);
 
@@ -35,7 +36,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
     return () => clearInterval(id);
   }, [devices, pollDevice]);
 
-  // Auto-scroll newly added card into view in the right panel
+  // Auto-scroll newly added card into view in the right panel (desktop)
   useEffect(() => {
     const prev = prevSelectedRef.current;
     const added = selectedIds.find(id => !prev.includes(id));
@@ -44,15 +45,21 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
     if (!added || !detailPanelRef.current) return;
     const card = detailPanelRef.current.querySelector(`[data-site-id="${added}"]`);
     if (card) {
-      // Small delay so the card has rendered before scrolling
       setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
     }
   }, [selectedIds]);
 
   const toggleSite = (siteId: string) => {
-    setSelectedIds(prev =>
-      prev.includes(siteId) ? prev.filter(id => id !== siteId) : [...prev, siteId]
-    );
+    setSelectedIds(prev => {
+      const next = prev.includes(siteId) ? prev.filter(id => id !== siteId) : [...prev, siteId];
+      setMobileView(next.length > 0 ? 'detail' : 'fleet');
+      return next;
+    });
+  };
+
+  const closeAll = () => {
+    setSelectedIds([]);
+    setMobileView('fleet');
   };
 
   const onlineCount = devices.filter(d => {
@@ -69,22 +76,22 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
         style={{ backgroundImage: 'linear-gradient(#3b82f6 1px,transparent 1px),linear-gradient(to right,#3b82f6 1px,transparent 1px)', backgroundSize: '48px 48px' }} />
       <div className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#1e40af] via-[#3b82f6] to-[#1e40af] z-[100]" />
 
-      <div className="relative z-10 max-w-[1400px] mx-auto px-6 lg:px-12 pt-6">
+      <div className="relative z-10 max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-12 pt-6">
 
-        {/* Header — fixed height so panels below can use calc() */}
+        {/* Header */}
         <header className="flex items-center justify-between py-5 border-b border-[#1e3a5f]/60 mb-6 mt-16">
           <div>
             <Link href="/" className="flex items-center gap-2.5 mb-1.5 group w-fit">
               <span className="w-2 h-2 rounded-full bg-[#3b82f6] shadow-[0_0_8px_#3b82f6]" />
               <span className="text-[10px] font-bold text-[#3b82f6]/60 group-hover:text-[#3b82f6] uppercase tracking-[0.5em] font-mono transition-colors">NomadXE</span>
             </Link>
-            <h1 className="text-2xl font-black text-white tracking-tight">Core Diagnostics</h1>
+            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Core Diagnostics</h1>
             <p className="text-xs text-[#93c5fd]/40 mt-1 font-mono uppercase tracking-widest">
               <span className="text-[#93c5fd]/75">{onlineCount}/{devices.length} online · {devices.length} unit{devices.length !== 1 ? 's' : ''} assigned</span>
             </p>
           </div>
           <Link href="/"
-            className="text-[10px] font-bold font-mono border border-[#1e3a5f] text-[#93c5fd]/50 hover:text-white hover:border-[#3b82f6]/50 px-5 py-2.5 rounded-lg transition-all uppercase tracking-widest">
+            className="text-[10px] font-bold font-mono border border-[#1e3a5f] text-[#93c5fd]/50 hover:text-white hover:border-[#3b82f6]/50 px-4 sm:px-5 py-2.5 rounded-lg transition-all uppercase tracking-widest">
             ← Home
           </Link>
         </header>
@@ -104,14 +111,14 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
           </div>
         )}
 
-        {/* ── 1 device — full card, no fleet chrome ── */}
+        {/* ── 1 device — full card ── */}
         {devices.length === 1 && (
           <div className="pb-10">
             <NomadXECoreView device={devices[0]} initialData={dataMap[devices[0].siteId] ?? null} />
           </div>
         )}
 
-        {/* ── 2–3 devices — simple stack ── */}
+        {/* ── 2–3 devices — stacked ── */}
         {devices.length > 1 && !hasMany && (
           <div className="space-y-8 pb-10">
             {devices.map(d => (
@@ -120,90 +127,146 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
           </div>
         )}
 
-        {/* ── 4+ devices — dual-panel fleet view ── */}
+        {/* ── 4+ devices ── */}
         {hasMany && (
-          <div className="flex gap-5 items-start">
+          <>
+            {/* ══ MOBILE (< lg): single-panel — fleet grid or full-width detail ══ */}
+            <div className="lg:hidden pb-10">
 
-            {/* ── LEFT: fleet panel — grid when nothing selected, narrow list when detail open ── */}
-            <div
-              className="flex-shrink-0 flex flex-col"
-              style={{ width: hasSelection ? '300px' : '100%' }}
-            >
-              {/* Toolbar */}
-              <div className="flex items-center justify-between mb-4 flex-shrink-0">
-                <span className="text-[10px] font-bold text-[#93c5fd]/65 uppercase tracking-widest font-mono">
-                  Fleet · {devices.length} units
-                </span>
-                {hasSelection && (
-                  <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-mono text-[#93c5fd]/65">
-                      {selectedIds.length} open
-                    </span>
-                    <button
-                      onClick={() => setSelectedIds([])}
-                      className="text-[10px] text-[#93c5fd]/65 hover:text-white font-mono uppercase tracking-widest transition-colors"
-                    >
-                      ✕ Close all
-                    </button>
-                  </div>
-                )}
-              </div>
+              {/* Mobile detail view header */}
+              {mobileView === 'detail' && (
+                <div className="flex items-center justify-between mb-4">
+                  <button
+                    onClick={closeAll}
+                    className="flex items-center gap-2 text-[10px] font-bold text-[#93c5fd]/65 hover:text-white font-mono uppercase tracking-widest transition-colors"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                    Fleet · {devices.length} units
+                  </button>
+                  <span className="text-[10px] font-mono text-[#93c5fd]/50">
+                    {selectedIds.length} open
+                  </span>
+                </div>
+              )}
 
-              {/* Tile grid (unselected) / list (selected) — both independently scrollable */}
-              <div
-                className={`overflow-y-auto pr-1 ${
-                  hasSelection
-                    ? 'space-y-2.5'
-                    : 'grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3'
-                }`}
-                style={{ height: 'calc(100vh - 14rem)' }}
-              >
-                {devices.map(d => (
-                  <FleetTile
-                    key={d.siteId}
-                    device={d}
-                    data={dataMap[d.siteId] ?? null}
-                    selected={selectedIds.includes(d.siteId)}
-                    onClick={() => toggleSite(d.siteId)}
-                  />
-                ))}
-              </div>
+              {/* Mobile fleet grid */}
+              {mobileView === 'fleet' && (
+                <div className="grid grid-cols-2 gap-3">
+                  {devices.map(d => (
+                    <FleetTile
+                      key={d.siteId}
+                      device={d}
+                      data={dataMap[d.siteId] ?? null}
+                      selected={selectedIds.includes(d.siteId)}
+                      onClick={() => toggleSite(d.siteId)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Mobile detail stack */}
+              {mobileView === 'detail' && (
+                <div className="space-y-6">
+                  {selectedIds.map(siteId => {
+                    const device = devices.find(d => d.siteId === siteId);
+                    if (!device) return null;
+                    return (
+                      <div key={siteId} className="relative">
+                        <button
+                          onClick={() => toggleSite(siteId)}
+                          className="absolute top-3 right-3 z-10 w-6 h-6 rounded-md bg-[#080c14]/80 border border-[#1e3a5f] text-[#93c5fd]/40 hover:text-white hover:border-[#3b82f6]/50 text-xs flex items-center justify-center transition-all"
+                          title="Close"
+                        >
+                          ✕
+                        </button>
+                        <NomadXECoreView device={device} initialData={dataMap[siteId] ?? null} />
+                      </div>
+                    );
+                  })}
+                  <div className="h-4" />
+                </div>
+              )}
             </div>
 
-            {/* ── RIGHT: independently scrollable detail stack ── */}
-            {hasSelection && (
+            {/* ══ DESKTOP (≥ lg): dual-panel ══ */}
+            <div className="hidden lg:flex gap-5 items-start">
+
+              {/* LEFT: fleet sidebar */}
               <div
-                ref={detailPanelRef}
-                className="flex-1 min-w-0 overflow-y-auto space-y-6 pr-1"
-                style={{ height: 'calc(100vh - 14rem)' }}
+                className="flex-shrink-0 flex flex-col"
+                style={{ width: hasSelection ? '300px' : '100%' }}
               >
-                {selectedIds.map(siteId => {
-                  const device = devices.find(d => d.siteId === siteId);
-                  if (!device) return null;
-                  return (
-                    <div key={siteId} data-site-id={siteId} className="relative">
-                      {/* Per-card close button */}
+                {/* Toolbar */}
+                <div className="flex items-center justify-between mb-4 flex-shrink-0">
+                  <span className="text-[10px] font-bold text-[#93c5fd]/65 uppercase tracking-widest font-mono">
+                    Fleet · {devices.length} units
+                  </span>
+                  {hasSelection && (
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] font-mono text-[#93c5fd]/65">
+                        {selectedIds.length} open
+                      </span>
                       <button
-                        onClick={() => toggleSite(siteId)}
-                        className="absolute top-3 right-3 z-10 w-6 h-6 rounded-md bg-[#080c14]/80 border border-[#1e3a5f] text-[#93c5fd]/40 hover:text-white hover:border-[#3b82f6]/50 text-xs flex items-center justify-center transition-all"
-                        title="Close"
+                        onClick={closeAll}
+                        className="text-[10px] text-[#93c5fd]/65 hover:text-white font-mono uppercase tracking-widest transition-colors"
                       >
-                        ✕
+                        ✕ Close all
                       </button>
-                      <NomadXECoreView
-                        device={device}
-                        initialData={dataMap[siteId] ?? null}
-                      />
                     </div>
-                  );
-                })}
+                  )}
+                </div>
 
-                {/* Bottom padding so last card isn't flush against viewport edge */}
-                <div className="h-8" />
+                {/* Tile grid (unselected) / list (selected) */}
+                <div
+                  className={`overflow-y-auto pr-1 ${
+                    hasSelection
+                      ? 'space-y-2.5'
+                      : 'grid grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3'
+                  }`}
+                  style={{ height: 'calc(100vh - 14rem)' }}
+                >
+                  {devices.map(d => (
+                    <FleetTile
+                      key={d.siteId}
+                      device={d}
+                      data={dataMap[d.siteId] ?? null}
+                      selected={selectedIds.includes(d.siteId)}
+                      onClick={() => toggleSite(d.siteId)}
+                    />
+                  ))}
+                </div>
               </div>
-            )}
 
-          </div>
+              {/* RIGHT: detail stack */}
+              {hasSelection && (
+                <div
+                  ref={detailPanelRef}
+                  className="flex-1 min-w-0 overflow-y-auto space-y-6 pr-1"
+                  style={{ height: 'calc(100vh - 14rem)' }}
+                >
+                  {selectedIds.map(siteId => {
+                    const device = devices.find(d => d.siteId === siteId);
+                    if (!device) return null;
+                    return (
+                      <div key={siteId} data-site-id={siteId} className="relative">
+                        <button
+                          onClick={() => toggleSite(siteId)}
+                          className="absolute top-3 right-3 z-10 w-6 h-6 rounded-md bg-[#080c14]/80 border border-[#1e3a5f] text-[#93c5fd]/40 hover:text-white hover:border-[#3b82f6]/50 text-xs flex items-center justify-center transition-all"
+                          title="Close"
+                        >
+                          ✕
+                        </button>
+                        <NomadXECoreView device={device} initialData={dataMap[siteId] ?? null} />
+                      </div>
+                    );
+                  })}
+                  <div className="h-8" />
+                </div>
+              )}
+            </div>
+          </>
         )}
       </div>
     </div>
