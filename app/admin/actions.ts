@@ -162,13 +162,16 @@ export async function sendPasswordReset(formData: FormData) {
     // Generate a recovery token (24h)
     await createAuthToken(userId, 'recovery', 24);
 
-    // Use plain anon client — PKCE flow requires browser-side code generation
-    // and silently fails to send email when called from a server action.
-    const { error } = await createAdminClient().auth.resetPasswordForEmail(email, {
-      redirectTo: `${siteUrl}/reset-otp`,
+    // Call the dedicated API route — anon client in a Route Handler is reliable
+    const res = await fetch(`${siteUrl}/api/auth/send-reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
     });
-
-    if (error) console.error('Reset email error:', error.message);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      console.error('[sendPasswordReset] send-reset error:', body.error);
+    }
 
     revalidatePath('/admin');
     redirect(`/admin?success=Password reset sent to ${email}`);
@@ -186,19 +189,24 @@ export async function requestPasswordReset(formData: FormData) {
     const adminClient = createAdminClient();
     const siteUrl = getSiteUrl();
 
-    // Look up user by email (don't reveal if they exist)
+    // Look up user by email — create auth token if found (don't reveal if they don't exist)
     const { data: users } = await adminClient.auth.admin.listUsers();
     const user = users?.users?.find(u => u.email === email);
+    if (user) await createAuthToken(user.id, 'recovery', 24);
 
-    if (user) {
-      await createAuthToken(user.id, 'recovery', 24);
-      await createAdminClient().auth.resetPasswordForEmail(email, {
-        redirectTo: `${siteUrl}/reset-otp`,
-      });
+    // Call the dedicated API route which uses a plain anon client.
+    // Server actions can't reliably call resetPasswordForEmail directly.
+    const res = await fetch(`${siteUrl}/api/auth/send-reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      console.error('[requestPasswordReset] send-reset error:', body.error);
+      // Still redirect to "sent" to avoid email enumeration
     }
 
-    // Pass email through so the OTP entry form can pre-fill it.
-    // Not a security concern — user just typed it.
     redirect(`/forgot-password?sent=1&email=${encodeURIComponent(email)}`);
   } catch (err: any) {
     if (err.digest) throw err;
