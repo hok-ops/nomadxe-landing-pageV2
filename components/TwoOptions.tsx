@@ -81,8 +81,8 @@ export default function TwoOptions() {
                 Trailer &amp; Power Base
               </h3>
               <p className="text-white/60 leading-relaxed text-sm">
-                You bring your own cameras and NVR. We provide the mobile trailer, power infrastructure,
-                and platform connectivity — your existing investment, newly mobile.
+                You bring your own cameras and NVR. We provide the mobile trailer and solar power
+                infrastructure — your existing investment, deployed anywhere.
               </p>
             </div>
 
