@@ -111,10 +111,10 @@ export default async function DashboardPage() {
         {/* Header */}
         <header className="flex items-center justify-between mb-10 pb-7 border-b border-[#1e3a5f]/60">
           <div>
-            <div className="flex items-center gap-2.5 mb-2">
+            <Link href="/" className="flex items-center gap-2.5 mb-2 group w-fit">
               <span className="w-2 h-2 rounded-full bg-[#3b82f6] shadow-[0_0_8px_#3b82f6]" />
-              <span className="text-[10px] font-bold text-[#3b82f6]/60 uppercase tracking-[0.5em] font-mono">NomadXE</span>
-            </div>
+              <span className="text-[10px] font-bold text-[#3b82f6]/60 group-hover:text-[#3b82f6] uppercase tracking-[0.5em] font-mono transition-colors">NomadXE</span>
+            </Link>
             <h1 className="text-2xl font-black text-white tracking-tight">Core Diagnostics</h1>
             <p className="text-xs text-[#93c5fd]/40 mt-1 font-mono uppercase tracking-widest">
               Power system health · {devices.length} unit{devices.length !== 1 ? 's' : ''} assigned
@@ -124,7 +124,7 @@ export default async function DashboardPage() {
             href="/"
             className="text-[10px] font-bold font-mono border border-[#1e3a5f] text-[#93c5fd]/50 hover:text-white hover:border-[#3b82f6]/50 px-5 py-2.5 rounded-lg transition-all uppercase tracking-widest"
           >
-            ← Disconnect
+            ← Home
           </Link>
         </header>
 

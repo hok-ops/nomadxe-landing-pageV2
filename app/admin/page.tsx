@@ -83,19 +83,27 @@ export default async function AdminDashboard({
         {/* ── Header ── */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 pb-8 border-b border-[#1e3a5f] gap-6">
           <div>
-            <div className="flex items-center gap-3 mb-2">
+            <Link href="/" className="flex items-center gap-3 mb-2 group w-fit">
               <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#3b82f6] shadow-[0_0_10px_#3b82f6]" />
-              <span className="text-[10px] text-[#3b82f6]/60 uppercase tracking-[0.5em] font-bold">NomadXE Admin</span>
-            </div>
+              <span className="text-[10px] text-[#3b82f6]/60 group-hover:text-[#3b82f6] uppercase tracking-[0.5em] font-bold transition-colors">NomadXE Admin</span>
+            </Link>
             <h1 className="text-3xl font-black tracking-tight text-white">Operations Console</h1>
             <p className="text-sm text-[#93c5fd]/50 mt-1">Manage clients, Victron devices, and access control</p>
           </div>
-          <Link
-            href="/dashboard"
-            className="text-xs font-semibold border border-[#1e3a5f] text-[#93c5fd]/70 hover:text-white hover:border-[#3b82f6]/60 px-5 py-2.5 rounded-lg transition-all"
-          >
-            ← Client Dashboard
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="text-xs font-semibold border border-[#1e3a5f] text-[#93c5fd]/50 hover:text-white hover:border-[#3b82f6]/60 px-5 py-2.5 rounded-lg transition-all"
+            >
+              ← Home
+            </Link>
+            <Link
+              href="/dashboard"
+              className="text-xs font-semibold border border-[#1e3a5f] text-[#93c5fd]/70 hover:text-white hover:border-[#3b82f6]/60 px-5 py-2.5 rounded-lg transition-all"
+            >
+              My Dashboard
+            </Link>
+          </div>
         </header>
 
         {/* ── Stats ── */}
@@ -311,7 +319,7 @@ export default async function AdminDashboard({
 
                           {/* Actions */}
                           <td className="px-7 py-5 text-right">
-                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex-wrap">
+                            <div className="flex justify-end gap-2 flex-wrap">
 
                               {/* Pending → Resend activation invite */}
                               {isPending && (
@@ -390,11 +398,11 @@ export default async function AdminDashboard({
             </div>
           </div>
 
-          {/* Dev tool — generate auth links without sending email */}
-          <div className="mt-8">
-            <GenerateLinkTool users={userList} />
-          </div>
+        </div>
 
+        {/* Dev tool — full-width below the main grid */}
+        <div className="mt-8">
+          <GenerateLinkTool users={userList} />
         </div>
       </div>
     </div>
