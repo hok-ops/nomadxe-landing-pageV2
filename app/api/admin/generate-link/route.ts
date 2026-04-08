@@ -58,19 +58,23 @@ export async function POST(request: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
   const invitedUserId = data.user?.id;
+  console.log('[generate-link] generateLink result:', { invitedUserId, email, type, actionLink: data.properties.action_link });
 
   // Create the auth_tokens row so /auth/callback can route to the right page
   if (invitedUserId && (type === 'invite' || type === 'recovery')) {
     try {
-      await createAuthToken(
+      const token = await createAuthToken(
         adminClient,
         invitedUserId,
         type as 'invite' | 'recovery',
         type === 'invite' ? 48 : 24
       );
+      console.log('[generate-link] auth_token created:', { invitedUserId, type, token });
     } catch (e: any) {
-      console.error('[generate-link] createAuthToken failed:', e.message);
+      console.error('[generate-link] createAuthToken failed:', e.message, e);
     }
+  } else {
+    console.warn('[generate-link] skipping createAuthToken — invitedUserId missing:', { invitedUserId, type });
   }
 
   return NextResponse.json({ link: data.properties.action_link });
