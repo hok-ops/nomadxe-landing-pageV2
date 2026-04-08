@@ -1,70 +1,43 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import Link from 'next/link';
 
 export default function OtpResetForm({ prefillEmail }: { prefillEmail: string }) {
   const [email, setEmail]       = useState(prefillEmail);
-  const [digits, setDigits]     = useState(['', '', '', '', '', '']);
+  const [code, setCode]         = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm]   = useState('');
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
-  const inputRefs               = useRef<(HTMLInputElement | null)[]>([]);
-  const router = useRouter();
+  const router   = useRouter();
   const supabase = createClient();
-
-  // Handle digit input — auto-advance on entry, auto-retreat on backspace
-  const handleDigit = (i: number, val: string) => {
-    const char = val.replace(/\D/g, '').slice(-1);
-    const next = [...digits];
-    next[i] = char;
-    setDigits(next);
-    if (char && i < 5) inputRefs.current[i + 1]?.focus();
-  };
-
-  const handleKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !digits[i] && i > 0) {
-      inputRefs.current[i - 1]?.focus();
-    }
-  };
-
-  // Handle paste of full 6-digit code
-  const handlePaste = (e: React.ClipboardEvent) => {
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    if (pasted.length === 6) {
-      setDigits(pasted.split(''));
-      inputRefs.current[5]?.focus();
-      e.preventDefault();
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const code = digits.join('');
-    if (code.length < 6)     { setError('Enter the full 6-digit code from your email'); return; }
-    if (!email)              { setError('Email is required'); return; }
-    if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
-    if (password !== confirm) { setError('Passwords do not match'); return; }
+    const trimmedCode = code.trim();
+    if (!trimmedCode)            { setError('Enter the code from your email'); return; }
+    if (!email)                  { setError('Email is required'); return; }
+    if (password.length < 8)     { setError('Password must be at least 8 characters'); return; }
+    if (password !== confirm)    { setError('Passwords do not match'); return; }
 
     setLoading(true);
     setError(null);
 
     try {
-      // 1. Exchange OTP code for a session
       const { error: otpErr } = await supabase.auth.verifyOtp({
         email,
-        token: code,
+        token: trimmedCode,
         type: 'recovery',
       });
-      if (otpErr) throw new Error(otpErr.message === 'Token has expired or is invalid'
-        ? 'That code is incorrect or has expired. Request a new one.'
-        : otpErr.message
+      if (otpErr) throw new Error(
+        otpErr.message.includes('expired') || otpErr.message.includes('invalid')
+          ? 'That code is incorrect or has expired. Request a new one.'
+          : otpErr.message
       );
 
-      // 2. Update password (session is now active)
       const { error: pwErr } = await supabase.auth.updateUser({ password });
       if (pwErr) throw new Error(pwErr.message);
 
@@ -84,7 +57,7 @@ export default function OtpResetForm({ prefillEmail }: { prefillEmail: string })
         </div>
       )}
 
-      {/* Email (editable in case user needs to correct it) */}
+      {/* Email */}
       <div className="space-y-1.5">
         <label className="block text-[10.5px] font-semibold text-[#93c5fd]/55 uppercase tracking-[0.12em]">
           Email address
@@ -95,29 +68,25 @@ export default function OtpResetForm({ prefillEmail }: { prefillEmail: string })
           value={email}
           onChange={e => setEmail(e.target.value)}
           className="w-full bg-[#080c14] border border-[#1e3a5f] rounded-xl px-4 py-3.5 text-white text-sm placeholder:text-[#93c5fd]/20 outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6]/20 transition-all"
+          placeholder="you@example.com"
         />
       </div>
 
-      {/* 6-digit OTP boxes */}
+      {/* Code — single input, accepts any length */}
       <div className="space-y-1.5">
         <label className="block text-[10.5px] font-semibold text-[#93c5fd]/55 uppercase tracking-[0.12em]">
-          6-digit code from email
+          Code from email
         </label>
-        <div className="flex gap-2 justify-between" onPaste={handlePaste}>
-          {digits.map((d, i) => (
-            <input
-              key={i}
-              ref={el => { inputRefs.current[i] = el; }}
-              type="text"
-              inputMode="numeric"
-              maxLength={1}
-              value={d}
-              onChange={e => handleDigit(i, e.target.value)}
-              onKeyDown={e => handleKeyDown(i, e)}
-              className="w-12 h-14 text-center text-xl font-black text-white bg-[#080c14] border border-[#1e3a5f] rounded-xl outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6]/20 transition-all tabular-nums"
-            />
-          ))}
-        </div>
+        <input
+          type="text"
+          inputMode="numeric"
+          required
+          autoFocus
+          value={code}
+          onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
+          className="w-full bg-[#080c14] border border-[#1e3a5f] rounded-xl px-4 py-3.5 text-white text-2xl font-black tabular-nums tracking-[0.35em] text-center placeholder:text-[#93c5fd]/20 placeholder:text-sm placeholder:font-normal placeholder:tracking-normal outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6]/20 transition-all"
+          placeholder="Enter code"
+        />
       </div>
 
       {/* New password */}
