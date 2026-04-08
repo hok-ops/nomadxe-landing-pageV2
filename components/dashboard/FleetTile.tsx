@@ -12,7 +12,7 @@ const MPPT_LABEL_COLOR: Record<string, string> = {
   Float: '#22c55e', Storage: '#22c55e',
   Bulk: '#f59e0b', Absorption: '#f59e0b',
   Fault: '#ef4444',
-  Off: '#4b5563',
+  Off: '#9ca3af',  // raised from #4b5563 (2.8:1) to #9ca3af (6.1:1) — passes WCAG AA
 };
 
 interface Props {
@@ -82,21 +82,21 @@ export default function FleetTile({ device, data, selected, onClick }: Props) {
       {/* Row 3: Solar + Load + charge direction */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={solarActive ? '#22c55e' : '#374151'} strokeWidth="2">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={solarActive ? '#22c55e' : '#6b7280'} strokeWidth="2">
             <circle cx="12" cy="12" r="5" />
             <line x1="12" y1="2" x2="12" y2="4" /><line x1="12" y1="20" x2="12" y2="22" />
             <line x1="2" y1="12" x2="4" y2="12" /><line x1="20" y1="12" x2="22" y2="12" />
             <line x1="4.93" y1="4.93" x2="6.34" y2="6.34" /><line x1="17.66" y1="17.66" x2="19.07" y2="19.07" />
           </svg>
-          <span className="text-[11px] font-mono font-bold" style={{ color: solarActive ? '#22c55e' : '#374151' }}>
+          <span className="text-[11px] font-mono font-bold" style={{ color: solarActive ? '#22c55e' : '#6b7280' }}>
             {solarW}W
           </span>
         </div>
         <span className="text-[9px] font-mono uppercase tracking-widest"
-          style={{ color: charging ? '#22c55e80' : discharging ? '#f59e0b80' : '#93c5fd30' }}>
+          style={{ color: charging ? '#22c55ecc' : discharging ? '#f59e0bcc' : '#93c5fd80' }}>
           {charging ? '↑ chg' : discharging ? '↓ bat' : noData ? '—' : 'stby'}
         </span>
-        <span className="text-[9px] font-mono text-[#3b82f6]/30 uppercase tracking-wider">
+        <span className="text-[9px] font-mono text-[#93c5fd]/60 uppercase tracking-wider">
           {device.siteId}
         </span>
       </div>

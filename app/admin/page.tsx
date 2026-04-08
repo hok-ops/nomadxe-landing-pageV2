@@ -85,10 +85,10 @@ export default async function AdminDashboard({
           <div>
             <Link href="/" className="flex items-center gap-3 mb-2 group w-fit">
               <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#3b82f6] shadow-[0_0_10px_#3b82f6]" />
-              <span className="text-[10px] text-[#3b82f6]/60 group-hover:text-[#3b82f6] uppercase tracking-[0.5em] font-bold transition-colors">NomadXE Admin</span>
+              <span className="text-[10px] text-[#93c5fd]/70 group-hover:text-[#3b82f6] uppercase tracking-[0.5em] font-bold transition-colors">NomadXE Admin</span>
             </Link>
             <h1 className="text-3xl font-black tracking-tight text-white">Operations Console</h1>
-            <p className="text-sm text-[#93c5fd]/50 mt-1">Manage clients, Victron devices, and access control</p>
+            <p className="text-sm text-[#93c5fd]/70 mt-1">Manage clients, Victron devices, and access control</p>
           </div>
           <div className="flex items-center gap-3">
             <Link
@@ -116,7 +116,7 @@ export default async function AdminDashboard({
             <div key={stat.label} className="bg-[#0d1526] border border-[#1e3a5f] rounded-xl p-5">
               <div className="text-2xl font-black text-white">{stat.value}</div>
               <div className="text-xs font-semibold text-[#93c5fd]/80 mt-1">{stat.label}</div>
-              <div className="text-[10px] text-[#3b82f6]/40 mt-1">{stat.note}</div>
+              <div className="text-[10px] text-[#93c5fd]/65 mt-1">{stat.note}</div>
             </div>
           ))}
         </div>
@@ -130,21 +130,21 @@ export default async function AdminDashboard({
             <section className="bg-[#0d1526] border border-[#1e3a5f] rounded-xl p-6 space-y-5">
               <div>
                 <h2 className="text-sm font-bold text-white mb-1">Invite New Client</h2>
-                <p className="text-[11px] text-[#93c5fd]/50 leading-relaxed">
+                <p className="text-[11px] text-[#93c5fd]/70 leading-relaxed">
                   Sends a secure invite email. Client sets their own password on first login.
                 </p>
               </div>
               <form action={inviteNewUser} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] uppercase tracking-widest text-[#3b82f6]/60 font-bold">Client Email</label>
+                  <label className="text-[10px] uppercase tracking-widest text-[#93c5fd]/75 font-bold">Client Email</label>
                   <input name="email" type="email" required
                     className="w-full bg-[#080c14] border border-[#1e3a5f] rounded-lg px-4 py-3 text-sm text-white placeholder:text-[#93c5fd]/20 outline-none focus:border-[#3b82f6] transition-colors"
                     placeholder="client@example.com"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] uppercase tracking-widest text-[#3b82f6]/60 font-bold">
-                    Victron Site ID <span className="normal-case text-[#93c5fd]/30 font-normal">(optional)</span>
+                  <label className="text-[10px] uppercase tracking-widest text-[#93c5fd]/75 font-bold">
+                    Victron Site ID <span className="normal-case text-[#93c5fd]/60 font-normal">(optional)</span>
                   </label>
                   <input name="vrm_site_id"
                     className="w-full bg-[#080c14] border border-[#1e3a5f] rounded-lg px-4 py-3 text-sm text-white placeholder:text-[#93c5fd]/20 outline-none focus:border-[#3b82f6] transition-colors"
@@ -152,8 +152,8 @@ export default async function AdminDashboard({
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] uppercase tracking-widest text-[#3b82f6]/60 font-bold">
-                    Device Name <span className="normal-case text-[#93c5fd]/30 font-normal">(optional)</span>
+                  <label className="text-[10px] uppercase tracking-widest text-[#93c5fd]/75 font-bold">
+                    Device Name <span className="normal-case text-[#93c5fd]/60 font-normal">(optional)</span>
                   </label>
                   <input name="device_name"
                     className="w-full bg-[#080c14] border border-[#1e3a5f] rounded-lg px-4 py-3 text-sm text-white placeholder:text-[#93c5fd]/20 outline-none focus:border-[#3b82f6] transition-colors"
@@ -172,7 +172,7 @@ export default async function AdminDashboard({
             <section className="bg-[#0d1526] border border-[#1e3a5f] rounded-xl p-6 space-y-5">
               <div>
                 <h2 className="text-sm font-bold text-white mb-1">Assign Device to User</h2>
-                <p className="text-[11px] text-[#93c5fd]/50 leading-relaxed">
+                <p className="text-[11px] text-[#93c5fd]/70 leading-relaxed">
                   Link an additional Victron unit to an existing client. Each user can have multiple units.
                 </p>
               </div>
@@ -183,7 +183,7 @@ export default async function AdminDashboard({
             <section className="bg-[#0d1526] border border-[#1e3a5f] rounded-xl p-6 space-y-5">
               <div>
                 <h2 className="text-sm font-bold text-white mb-1">Register Victron Device</h2>
-                <p className="text-[11px] text-[#93c5fd]/50 leading-relaxed">
+                <p className="text-[11px] text-[#93c5fd]/70 leading-relaxed">
                   Add a device to the fleet. Find the Site ID in VRM → Installation Settings.
                 </p>
               </div>
@@ -220,7 +220,7 @@ export default async function AdminDashboard({
                   </li>
                 ))}
               </ol>
-              <div className="pt-3 border-t border-[#1e3a5f]/40 text-[10px] text-amber-400/60">
+              <div className="pt-3 border-t border-[#1e3a5f]/40 text-[10px] text-amber-400/80">
                 ⚠ Set <code className="text-amber-300">NEXT_PUBLIC_SITE_URL=https://www.nomadxe.com</code> in Vercel so invite/reset emails link correctly.
               </div>
             </section>
@@ -232,9 +232,9 @@ export default async function AdminDashboard({
               <div className="flex justify-between items-center px-7 py-5 border-b border-[#1e3a5f]">
                 <div>
                   <h3 className="text-base font-bold text-white">Client & Device Roster</h3>
-                  <p className="text-[11px] text-[#93c5fd]/40 mt-0.5">All accounts and their assigned Victron units</p>
+                  <p className="text-[11px] text-[#93c5fd]/65 mt-0.5">All accounts and their assigned Victron units</p>
                 </div>
-                <span className="text-xs font-bold text-[#3b82f6]/60 bg-[#1e40af]/20 px-3 py-1 rounded-full border border-[#1e40af]/30">
+                <span className="text-xs font-bold text-[#93c5fd]/75 bg-[#1e40af]/20 px-3 py-1 rounded-full border border-[#1e40af]/30">
                   {totalDevices} Devices
                 </span>
               </div>
@@ -242,7 +242,7 @@ export default async function AdminDashboard({
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="text-[10px] font-bold text-[#3b82f6]/50 uppercase tracking-widest border-b border-[#1e3a5f] bg-[#080c14]/60">
+                    <tr className="text-[10px] font-bold text-[#93c5fd]/65 uppercase tracking-widest border-b border-[#1e3a5f] bg-[#080c14]/60">
                       <th className="px-7 py-4">Account</th>
                       <th className="px-7 py-4">Role</th>
                       <th className="px-7 py-4">Assigned Devices</th>
@@ -274,7 +274,7 @@ export default async function AdminDashboard({
                                 Suspended
                               </div>
                             ) : (
-                              <div className="text-[10px] text-[#93c5fd]/30 mt-1">
+                              <div className="text-[10px] text-[#93c5fd]/60 mt-1">
                                 Last active {new Date(u.last_sign_in_at!).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                               </div>
                             )}
@@ -369,7 +369,7 @@ export default async function AdminDashboard({
                 </table>
 
                 {authUsers.length === 0 && (
-                  <div className="text-center py-16 text-[#93c5fd]/30 text-sm">
+                  <div className="text-center py-16 text-[#93c5fd]/60 text-sm">
                     No clients yet. Invite your first client using the panel on the left.
                   </div>
                 )}

@@ -151,10 +151,10 @@ function StatPill({
 }: { label: string; value: string; unit: string; color?: string }) {
   return (
     <div className="bg-[#080c14] rounded-lg px-3 py-2.5 border border-[#1e3a5f]/50">
-      <div className="text-[9px] text-[#93c5fd]/30 font-mono uppercase tracking-widest mb-1">{label}</div>
+      <div className="text-[9px] text-[#93c5fd]/60 font-mono uppercase tracking-widest mb-1">{label}</div>
       <div className="flex items-baseline gap-0.5">
         <span className="text-sm font-black tabular-nums" style={{ color }}>{value}</span>
-        <span className="text-[10px] font-bold" style={{ color: color + '60' }}>{unit}</span>
+        <span className="text-[10px] font-bold" style={{ color: color + 'b3' }}>{unit}</span>
       </div>
     </div>
   );
@@ -224,15 +224,15 @@ export default function NomadXECoreView({ device, initialData }: Props) {
             style={isOffline ? {} : { boxShadow: '0 0 7px #4ade80' }}
           />
           <span className="text-white font-bold text-sm">{device.name}</span>
-          <span className="text-[10px] font-mono text-[#3b82f6]/45 uppercase tracking-widest">
+          <span className="text-[10px] font-mono text-[#93c5fd]/60 uppercase tracking-widest">
             Site {device.siteId}
           </span>
         </div>
-        <div className="flex items-center gap-4 text-[10px] font-mono text-[#93c5fd]/35 uppercase tracking-widest">
+        <div className="flex items-center gap-4 text-[10px] font-mono text-[#93c5fd]/60 uppercase tracking-widest">
           <span>Sync {syncAgo}</span>
           {isOffline
-            ? <span className="text-red-400/80 font-bold">Offline</span>
-            : <span className="text-[#3b82f6]/45">
+            ? <span className="text-red-400 font-bold">Offline</span>
+            : <span className="text-[#93c5fd]/65">
                 {lastPoll.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
               </span>
           }
@@ -256,7 +256,7 @@ export default function NomadXECoreView({ device, initialData }: Props) {
                 <line x1="4.93" y1="4.93" x2="6.34" y2="6.34" /><line x1="17.66" y1="17.66" x2="19.07" y2="19.07" />
                 <line x1="4.93" y1="19.07" x2="6.34" y2="17.66" /><line x1="17.66" y1="6.34" x2="19.07" y2="4.93" />
               </svg>
-              <span className="text-[10px] font-bold text-[#22c55e]/65 uppercase tracking-[0.3em] font-mono">Solar</span>
+              <span className="text-[10px] font-bold text-[#22c55e]/85 uppercase tracking-[0.3em] font-mono">Solar</span>
             </div>
 
             {/* Primary wattage */}
@@ -265,22 +265,22 @@ export default function NomadXECoreView({ device, initialData }: Props) {
                 style={{ color: solarActive ? '#22c55e' : '#374151' }}>
                 {data?.solar.power ?? 0}
               </span>
-              <span className="text-sm font-bold text-[#22c55e]/40 ml-1">W</span>
+              <span className="text-sm font-bold text-[#22c55e]/70 ml-1">W</span>
             </div>
 
             {/* Stats row */}
             <div className="flex gap-3 mt-2 mb-1 text-[11px] font-mono">
-              <span className="text-[#93c5fd]/40">{(data?.solar.voltage ?? 0).toFixed(1)} V</span>
+              <span className="text-[#93c5fd]/65">{(data?.solar.voltage ?? 0).toFixed(1)} V</span>
             </div>
 
             {/* Yield today */}
-            <div className="text-[10px] font-mono text-[#22c55e]/40 uppercase tracking-widest mt-2 mb-3">
+            <div className="text-[10px] font-mono text-[#22c55e]/70 uppercase tracking-widest mt-2 mb-3">
               Today: {(data?.solar.yieldToday ?? 0).toFixed(2)} kWh
             </div>
 
             {/* Sparkline */}
             <div>
-              <div className="text-[9px] text-[#93c5fd]/20 font-mono uppercase tracking-widest mb-1.5">
+              <div className="text-[9px] text-[#93c5fd]/60 font-mono uppercase tracking-widest mb-1.5">
                 6h Harvest Trend
               </div>
               <SolarSparkline data={data?.sparkline ?? []} />
@@ -305,7 +305,7 @@ export default function NomadXECoreView({ device, initialData }: Props) {
                   <rect x="2" y="7" width="18" height="10" rx="2" />
                   <path d="M22 11v2" />
                 </svg>
-                <span className="text-[10px] font-bold uppercase tracking-[0.3em] font-mono" style={{ color: batColor + '80' }}>
+                <span className="text-[10px] font-bold uppercase tracking-[0.3em] font-mono" style={{ color: batColor + 'cc' }}>
                   Battery
                 </span>
               </div>
@@ -328,7 +328,7 @@ export default function NomadXECoreView({ device, initialData }: Props) {
             {/* SOC — primary number */}
             <div className="flex items-baseline gap-1 mb-3">
               <span className="text-5xl font-black tabular-nums text-white leading-none">{soc}</span>
-              <span className="text-xl font-bold text-[#93c5fd]/40">%</span>
+              <span className="text-xl font-bold text-[#93c5fd]/65">%</span>
             </div>
 
             {/* SOC bar */}
@@ -336,7 +336,7 @@ export default function NomadXECoreView({ device, initialData }: Props) {
 
             {/* Charge direction label */}
             <div className="mt-2 mb-4 text-[10px] font-mono uppercase tracking-widest"
-              style={{ color: charging ? '#22c55e80' : discharging ? '#f59e0b80' : '#93c5fd30' }}>
+              style={{ color: charging ? '#22c55ecc' : discharging ? '#f59e0bcc' : '#93c5fd80' }}>
               {charging ? '↑ Charging' : discharging ? '↓ On Battery' : 'Standby'}
             </div>
 
@@ -375,7 +375,7 @@ export default function NomadXECoreView({ device, initialData }: Props) {
                 <line x1="10" y1="1" x2="10" y2="4" />
                 <line x1="14" y1="1" x2="14" y2="4" />
               </svg>
-              <span className="text-[10px] font-bold text-[#f59e0b]/65 uppercase tracking-[0.3em] font-mono">DC Loads</span>
+              <span className="text-[10px] font-bold text-[#f59e0b]/85 uppercase tracking-[0.3em] font-mono">DC Loads</span>
             </div>
 
             {/* Primary wattage */}
@@ -384,10 +384,10 @@ export default function NomadXECoreView({ device, initialData }: Props) {
                 style={{ color: loadActive ? '#f59e0b' : '#374151' }}>
                 {data?.dcLoad ?? 0}
               </span>
-              <span className="text-sm font-bold text-[#f59e0b]/40 ml-1">W</span>
+              <span className="text-sm font-bold text-[#f59e0b]/70 ml-1">W</span>
             </div>
 
-            <div className="text-[10px] font-mono text-[#93c5fd]/30 mt-2 uppercase tracking-widest">
+            <div className="text-[10px] font-mono text-[#93c5fd]/65 mt-2 uppercase tracking-widest">
               DC System Load
             </div>
 
@@ -400,7 +400,7 @@ export default function NomadXECoreView({ device, initialData }: Props) {
               return (
                 <div className="mt-auto pt-4">
                   <div className="text-[9px] font-mono uppercase tracking-widest mb-1.5"
-                    style={{ color: surplus ? 'rgba(34,197,94,0.4)' : 'rgba(147,197,253,0.25)' }}>
+                    style={{ color: surplus ? 'rgba(34,197,94,0.75)' : 'rgba(147,197,253,0.65)' }}>
                     {surplus ? 'Solar Surplus' : 'Solar Coverage'}
                   </div>
                   <div className="flex items-center gap-2">
@@ -419,7 +419,7 @@ export default function NomadXECoreView({ device, initialData }: Props) {
                     </span>
                   </div>
                   <div className="text-[9px] font-mono mt-1"
-                    style={{ color: surplus ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)' }}>
+                    style={{ color: surplus ? 'rgba(34,197,94,0.7)' : 'rgba(245,158,11,0.7)' }}>
                     {surplus
                       ? `${pct}% of load — excess charging battery`
                       : 'battery supplementing load'}

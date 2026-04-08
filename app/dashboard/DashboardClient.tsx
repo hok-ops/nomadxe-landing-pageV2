@@ -80,7 +80,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
             </Link>
             <h1 className="text-2xl font-black text-white tracking-tight">Core Diagnostics</h1>
             <p className="text-xs text-[#93c5fd]/40 mt-1 font-mono uppercase tracking-widest">
-              {onlineCount}/{devices.length} online · {devices.length} unit{devices.length !== 1 ? 's' : ''} assigned
+              <span className="text-[#93c5fd]/75">{onlineCount}/{devices.length} online · {devices.length} unit{devices.length !== 1 ? 's' : ''} assigned</span>
             </p>
           </div>
           <Link href="/"
@@ -131,17 +131,17 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
             >
               {/* Sidebar toolbar */}
               <div className="flex items-center justify-between mb-3 flex-shrink-0">
-                <span className="text-[10px] font-bold text-[#93c5fd]/40 uppercase tracking-widest font-mono">
+                <span className="text-[10px] font-bold text-[#93c5fd]/65 uppercase tracking-widest font-mono">
                   Fleet · {devices.length} units
                 </span>
                 {hasSelection && (
                   <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-mono text-[#3b82f6]/50">
+                    <span className="text-[10px] font-mono text-[#93c5fd]/65">
                       {selectedIds.length} open
                     </span>
                     <button
                       onClick={() => setSelectedIds([])}
-                      className="text-[10px] text-[#93c5fd]/40 hover:text-white font-mono uppercase tracking-widest transition-colors"
+                      className="text-[10px] text-[#93c5fd]/65 hover:text-white font-mono uppercase tracking-widest transition-colors"
                     >
                       ✕ Close all
                     </button>
