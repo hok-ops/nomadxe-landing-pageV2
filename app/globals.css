@@ -122,66 +122,162 @@ body::after {
 
 .skip-to-content:focus { top: 0; }
 
-/* ── Light Theme (data-theme="light", scoped to .nx-page) ────────── */
+/* ─────────────────────────────────────────────────────────────────
+   NomadXE Light Theme
+   Scope: [data-theme="light"] .nx-page
+   Design tokens
+     Page bg     #f1f5f9   slate-100 — cool, brand-aligned canvas
+     Surface     #ffffff   pure white + elevation shadow
+     Inner panel #f8fafc   slate-50  — stat pills, table headers
+     Border      #e2e8f0   slate-200 (default)
+     Border-mid  #cbd5e1   slate-300 (separators)
+     Text/primary #0f172a  slate-900
+     Text/secondary #475569 slate-600
+     Text/muted   #64748b  slate-500 — replaces blue-tinted labels
+     Accent       #2563eb  blue-600
+     Hover text   #1d4ed8  blue-700
+───────────────────────────────────────────────────────────────── */
 
-/* Page & card backgrounds */
+/* Body edge protection — prevents dark seams on wide viewports */
+[data-theme="light"] body { background-color: #f1f5f9; }
+
+/* ── Backgrounds ────────────────────────────────────────────────── */
+
+/* Page root */
 [data-theme="light"] .nx-page.bg-\[\#080c14\],
-[data-theme="light"] .nx-page .bg-\[\#080c14\] { background-color: #f8fafc !important; }
-[data-theme="light"] .nx-page .bg-\[\#0d1526\] { background-color: #ffffff !important; }
-[data-theme="light"] .nx-page .bg-\[\#0a0f1e\] { background-color: #f1f5f9 !important; }
-[data-theme="light"] .nx-page .bg-\[\#1e3a5f\]\/30 { background-color: rgba(203,213,225,0.45) !important; }
-[data-theme="light"] .nx-page .bg-\[\#080c14\]\/80 { background-color: rgba(248,250,252,0.92) !important; }
-[data-theme="light"] .nx-page .bg-\[\#1e40af\]\/10 { background-color: rgba(37,99,235,0.07) !important; }
+[data-theme="light"] .nx-page .bg-\[\#080c14\] {
+  background-color: #f1f5f9 !important;
+}
 
-/* Primary text */
+/* Cards / modals — white with soft elevation */
+[data-theme="light"] .nx-page .bg-\[\#0d1526\] {
+  background-color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(15,23,42,0.06), 0 8px 24px rgba(15,23,42,0.07) !important;
+}
+
+/* Inner panels: stat pills, table headers, inner card sections */
+[data-theme="light"] .nx-page .bg-\[\#0a0f1e\] {
+  background-color: #f8fafc !important;
+}
+
+/* Table header tint */
+[data-theme="light"] .nx-page .bg-\[\#080c14\]\/60 {
+  background-color: rgba(241,245,249,0.8) !important;
+}
+
+/* Semi-transparent close/overlay buttons */
+[data-theme="light"] .nx-page .bg-\[\#080c14\]\/80 {
+  background-color: rgba(248,250,252,0.94) !important;
+}
+
+/* Icon chip in empty state */
+[data-theme="light"] .nx-page .bg-\[\#1e3a5f\]\/30 {
+  background-color: rgba(226,232,240,0.6) !important;
+}
+
+/* FleetTile selected tint */
+[data-theme="light"] .nx-page .bg-\[\#1e40af\]\/10 {
+  background-color: rgba(37,99,235,0.06) !important;
+}
+
+/* Device badge in roster */
+[data-theme="light"] .nx-page .bg-\[\#1e40af\]\/20 {
+  background-color: rgba(37,99,235,0.08) !important;
+}
+
+/* FleetTile / table row hover */
+[data-theme="light"] .nx-page .hover\:bg-\[\#0d1526\]:hover {
+  background-color: #eff6ff !important;
+}
+[data-theme="light"] .nx-page .hover\:bg-\[\#1e3a5f\]\/10:hover {
+  background-color: rgba(239,246,255,0.7) !important;
+}
+
+/* ── Text ───────────────────────────────────────────────────────── */
+
+/* Primary text: white → slate-900 */
 [data-theme="light"] .nx-page .text-white { color: #0f172a !important; }
 
-/* Muted accent text: #93c5fd → #1e40af family */
-[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/20 { color: rgb(30 64 175 / 0.2) !important; }
-[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/30 { color: rgb(30 64 175 / 0.3) !important; }
-[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/40 { color: rgb(30 64 175 / 0.4) !important; }
-[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/45 { color: rgb(30 64 175 / 0.45) !important; }
-[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/50 { color: rgb(30 64 175 / 0.5) !important; }
-[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/55 { color: rgb(30 64 175 / 0.55) !important; }
-[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/60 { color: rgb(30 64 175 / 0.6) !important; }
-[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/65 { color: rgb(30 64 175 / 0.65) !important; }
-[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/70 { color: rgb(30 64 175 / 0.7) !important; }
-[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/75 { color: rgb(30 64 175 / 0.75) !important; }
-[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/80 { color: rgb(30 64 175 / 0.8) !important; }
-[data-theme="light"] .nx-page .text-\[\#93c5fd\] { color: #1e40af !important; }
+/* hover:text-white → blue-700 (crisp, visible on light bg) */
+[data-theme="light"] .nx-page .hover\:text-white:hover  { color: #1d4ed8 !important; }
+[data-theme="light"] .nx-page .group:hover .group-hover\:text-white { color: #1d4ed8 !important; }
 
-/* Input / form backgrounds */
-[data-theme="light"] .nx-page input.bg-\[\#080c14\],
-[data-theme="light"] .nx-page .bg-\[\#080c14\] input,
-[data-theme="light"] .nx-page input { background-color: #f8fafc; }
+/* Accent blue — deepen slightly for white-bg contrast */
+[data-theme="light"] .nx-page .text-\[\#3b82f6\]      { color: #2563eb !important; }
+[data-theme="light"] .nx-page .text-\[\#3b82f6\]\/60  { color: rgb(37 99 235 / 0.65) !important; }
+[data-theme="light"] .nx-page .group-hover\:text-\[\#3b82f6\] { color: #2563eb !important; }
 
-/* Borders */
-[data-theme="light"] .nx-page .border-\[\#1e3a5f\] { border-color: #cbd5e1 !important; }
-[data-theme="light"] .nx-page .border-\[\#1e3a5f\]\/30 { border-color: rgba(203,213,225,0.5) !important; }
-[data-theme="light"] .nx-page .border-\[\#1e3a5f\]\/40 { border-color: rgba(203,213,225,0.65) !important; }
-[data-theme="light"] .nx-page .border-\[\#1e3a5f\]\/50 { border-color: rgba(203,213,225,0.8) !important; }
-[data-theme="light"] .nx-page .border-\[\#1e3a5f\]\/60 { border-color: rgba(203,213,225,0.9) !important; }
-[data-theme="light"] .nx-page .border-\[\#1e3a5f\]\/80 { border-color: #cbd5e1 !important; }
+/* Muted labels: #93c5fd → slate-500 (#64748b) family
+   Opacities are bumped ~0.15 to match perceived weight on white vs dark bg */
+[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/20  { color: rgb(100 116 139 / 0.3)  !important; }
+[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/25  { color: rgb(100 116 139 / 0.35) !important; }
+[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/30  { color: rgb(100 116 139 / 0.4)  !important; }
+[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/40  { color: rgb(100 116 139 / 0.55) !important; }
+[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/45  { color: rgb(100 116 139 / 0.6)  !important; }
+[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/50  { color: rgb(100 116 139 / 0.65) !important; }
+[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/55  { color: rgb(100 116 139 / 0.7)  !important; }
+[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/60  { color: rgb(71 85 105 / 0.7)    !important; }
+[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/65  { color: rgb(71 85 105 / 0.75)   !important; }
+[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/70  { color: rgb(71 85 105 / 0.8)    !important; }
+[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/75  { color: rgb(71 85 105 / 0.85)   !important; }
+[data-theme="light"] .nx-page .text-\[\#93c5fd\]\/80  { color: #475569                 !important; }
+[data-theme="light"] .nx-page .text-\[\#93c5fd\]      { color: #475569                 !important; }
 
-/* Shadow softening */
-[data-theme="light"] .nx-page .shadow-\[0_20px_56px_rgba\(0\2c0\2c0\2c0\.55\)\] {
-  box-shadow: 0 4px 24px rgba(0,0,0,0.09) !important;
+/* Role / device badge text in roster */
+[data-theme="light"] .nx-page .border-\[\#1e40af\]\/20 { border-color: rgba(37,99,235,0.2) !important; }
+[data-theme="light"] .nx-page .border-\[\#1e40af\]\/30 { border-color: rgba(37,99,235,0.25) !important; }
+
+/* ── Borders ────────────────────────────────────────────────────── */
+[data-theme="light"] .nx-page .border-\[\#1e3a5f\]      { border-color: #e2e8f0 !important; }
+[data-theme="light"] .nx-page .border-\[\#1e3a5f\]\/30  { border-color: rgba(226,232,240,0.45) !important; }
+[data-theme="light"] .nx-page .border-\[\#1e3a5f\]\/40  { border-color: rgba(226,232,240,0.6)  !important; }
+[data-theme="light"] .nx-page .border-\[\#1e3a5f\]\/50  { border-color: rgba(226,232,240,0.75) !important; }
+[data-theme="light"] .nx-page .border-\[\#1e3a5f\]\/60  { border-color: rgba(226,232,240,0.85) !important; }
+[data-theme="light"] .nx-page .border-\[\#1e3a5f\]\/80  { border-color: #e2e8f0 !important; }
+[data-theme="light"] .nx-page .hover\:border-\[\#1e3a5f\]\/80:hover { border-color: #cbd5e1 !important; }
+[data-theme="light"] .nx-page .hover\:border-\[\#3b82f6\]\/50:hover { border-color: rgba(37,99,235,0.45) !important; }
+[data-theme="light"] .nx-page .hover\:border-\[\#3b82f6\]\/60:hover { border-color: rgba(37,99,235,0.5)  !important; }
+[data-theme="light"] .nx-page .focus\:border-\[\#3b82f6\]:focus      { border-color: #3b82f6 !important; }
+[data-theme="light"] .nx-page .focus\:border-\[\#3b82f6\]\/60:focus  { border-color: rgba(59,130,246,0.6) !important; }
+
+/* FleetTile selected ring */
+[data-theme="light"] .nx-page .border-\[\#3b82f6\]\/60  { border-color: rgba(37,99,235,0.35) !important; }
+
+/* ── Inputs ─────────────────────────────────────────────────────── */
+[data-theme="light"] .nx-page input,
+[data-theme="light"] .nx-page textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+[data-theme="light"] .nx-page input:focus,
+[data-theme="light"] .nx-page textarea:focus { border-color: #3b82f6 !important; }
+[data-theme="light"] .nx-page .placeholder\:text-\[\#93c5fd\]\/20::placeholder,
+[data-theme="light"] .nx-page .placeholder\:text-\[\#93c5fd\]\/25::placeholder { color: #94a3b8 !important; }
+
+/* ── Glow / shadow refinements ──────────────────────────────────── */
+
+/* Brand dot glows — replace harsh spread with a tight ring */
+[data-theme="light"] .nx-page .shadow-\[0_0_6px_\#3b82f6\]  { box-shadow: 0 0 0 2px rgba(37,99,235,0.18) !important; }
+[data-theme="light"] .nx-page .shadow-\[0_0_8px_\#3b82f6\]  { box-shadow: 0 0 0 2px rgba(37,99,235,0.20) !important; }
+[data-theme="light"] .nx-page .shadow-\[0_0_10px_\#3b82f6\] { box-shadow: 0 0 0 3px rgba(37,99,235,0.16) !important; }
+
+/* Card depth shadow (deep dark shadow → soft) */
+[data-theme="light"] .nx-page .shadow-2xl,
+[data-theme="light"] .nx-page .shadow-\[0_20px_56px_rgba\(0\,0\,0\,0\.55\)\] {
+  box-shadow: 0 2px 8px rgba(15,23,42,0.06), 0 8px 24px rgba(15,23,42,0.08) !important;
 }
 
-/* Grid overlay — slightly more visible on light bg */
-[data-theme="light"] .nx-page .opacity-\[0\.022\] { opacity: 0.035 !important; }
-[data-theme="light"] .nx-page .opacity-\[0\.03\]  { opacity: 0.045 !important; }
-
-/* Placeholder text */
-[data-theme="light"] .nx-page .placeholder\:text-\[\#93c5fd\]\/20::placeholder {
-  color: rgb(30 64 175 / 0.25) !important;
+/* FleetTile selected outer ring */
+[data-theme="light"] .nx-page .shadow-\[0_0_0_1px_rgba\(59\,130\,246\,0\.3\)\] {
+  box-shadow: 0 0 0 2px rgba(37,99,235,0.22) !important;
 }
 
-/* ThemeToggle button adapts in light mode */
-[data-theme="light"] .nx-page .border-\[\#1e3a5f\].text-\[\#93c5fd\]\/50 {
-  border-color: #cbd5e1;
-  color: rgb(30 64 175 / 0.6);
-}
+/* ── Decorative ─────────────────────────────────────────────────── */
+
+/* Reduce grid overlay — less visual noise on light bg */
+[data-theme="light"] .nx-page .opacity-\[0\.022\] { opacity: 0.018 !important; }
+[data-theme="light"] .nx-page .opacity-\[0\.03\]  { opacity: 0.02  !important; }
 
 /* ── Tactical Theme Utilities ───────────────────────────────────── */
 .tactical-scrollbar::-webkit-scrollbar {
