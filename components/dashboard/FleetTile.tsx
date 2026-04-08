@@ -1,11 +1,12 @@
 'use client';
 
 import type { VRMData } from './NomadXECoreView';
+import { useTheme } from '@/components/ThemeProvider';
 
-function getBatteryColor(soc: number) {
-  if (soc >= 75) return '#22c55e';
-  if (soc >= 25) return '#3b82f6';
-  return '#ef4444';
+function getBatteryColor(soc: number, light: boolean) {
+  if (soc >= 75) return light ? '#16a34a' : '#22c55e';  // green-600 / green-500
+  if (soc >= 25) return light ? '#2563eb' : '#3b82f6';  // blue-600  / blue-500
+  return               light ? '#dc2626' : '#ef4444';   // red-600   / red-500
 }
 
 const MPPT_LABEL_COLOR: Record<string, string> = {
@@ -23,13 +24,16 @@ interface Props {
 }
 
 export default function FleetTile({ device, data, selected, onClick }: Props) {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
+
   const nowS     = Date.now() / 1000;
   const lastSeenS = data?.lastSeen ?? 0;
   const isOffline = lastSeenS > 0 && (nowS - lastSeenS) > 15 * 60;
   const noData    = lastSeenS === 0;
 
   const soc        = data?.battery.soc ?? 0;
-  const batColor   = getBatteryColor(soc);
+  const batColor   = getBatteryColor(soc, isLight);
   const solarW     = data?.solar.power ?? 0;
   const solarActive = solarW > 5;
   const mpptLabel  = data?.solar.mpptStateLabel ?? 'Off';
@@ -72,7 +76,7 @@ export default function FleetTile({ device, data, selected, onClick }: Props) {
         </svg>
         <div className="flex-1 h-1.5 bg-[#0a0f1e] rounded-full overflow-hidden border border-[#1e3a5f]/60">
           <div className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${Math.max(0, Math.min(100, soc))}%`, backgroundColor: batColor, boxShadow: `0 0 4px ${batColor}` }} />
+            style={{ width: `${Math.max(0, Math.min(100, soc))}%`, backgroundColor: batColor, boxShadow: isLight ? 'none' : `0 0 4px ${batColor}` }} />
         </div>
         <span className="text-[12px] font-black tabular-nums flex-shrink-0" style={{ color: batColor }}>
           {soc}<span className="text-[9px] font-bold opacity-50">%</span>
@@ -82,18 +86,25 @@ export default function FleetTile({ device, data, selected, onClick }: Props) {
       {/* Row 3: Solar + charge direction */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={solarActive ? '#22c55e' : '#6b7280'} strokeWidth="2">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+            stroke={solarActive ? (isLight ? '#16a34a' : '#22c55e') : (isLight ? '#94a3b8' : '#6b7280')} strokeWidth="2">
             <circle cx="12" cy="12" r="5" />
             <line x1="12" y1="2" x2="12" y2="4" /><line x1="12" y1="20" x2="12" y2="22" />
             <line x1="2" y1="12" x2="4" y2="12" /><line x1="20" y1="12" x2="22" y2="12" />
             <line x1="4.93" y1="4.93" x2="6.34" y2="6.34" /><line x1="17.66" y1="17.66" x2="19.07" y2="19.07" />
           </svg>
-          <span className="text-[11px] font-mono font-bold" style={{ color: solarActive ? '#22c55e' : '#6b7280' }}>
+          <span className="text-[11px] font-mono font-bold"
+            style={{ color: solarActive ? (isLight ? '#16a34a' : '#22c55e') : (isLight ? '#94a3b8' : '#6b7280') }}>
             {solarW}W
           </span>
         </div>
-        <span className="text-[9px] font-mono uppercase tracking-widest"
-          style={{ color: charging ? '#22c55ecc' : discharging ? '#f59e0bcc' : '#93c5fd80' }}>
+        <span className="text-[9px] font-mono uppercase tracking-widest" style={{
+          color: charging
+            ? (isLight ? '#16a34a' : '#22c55ecc')
+            : discharging
+              ? (isLight ? '#d97706' : '#f59e0bcc')
+              : (isLight ? '#64748b'  : '#93c5fd80'),
+        }}>
           {charging ? '↑ chg' : discharging ? '↓ bat' : noData ? '—' : 'stby'}
         </span>
       </div>

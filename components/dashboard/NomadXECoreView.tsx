@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useTheme } from '@/components/ThemeProvider';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -39,10 +40,10 @@ function getMpptStyle(state: number) {
   return MPPT_STYLE[state] ?? MPPT_STYLE[0];
 }
 
-function getBatteryColor(soc: number) {
-  if (soc >= 75) return '#22c55e';
-  if (soc >= 25) return '#3b82f6';
-  return '#ef4444';
+function getBatteryColor(soc: number, light = false) {
+  if (soc >= 75) return light ? '#16a34a' : '#22c55e';
+  if (soc >= 25) return light ? '#2563eb' : '#3b82f6';
+  return               light ? '#dc2626' : '#ef4444';
 }
 
 // ── Solar Sparkline ───────────────────────────────────────────────────────────
@@ -115,14 +116,14 @@ function FlowArrow({ active, color = '#3b82f6' }: { active: boolean; color?: str
 
 // ── Battery SOC bar ───────────────────────────────────────────────────────────
 
-function SocBar({ soc }: { soc: number }) {
-  const color = getBatteryColor(soc);
+function SocBar({ soc, light }: { soc: number; light: boolean }) {
+  const color = getBatteryColor(soc, light);
   const pct   = Math.max(0, Math.min(100, soc));
   return (
     <div className="w-full h-1.5 bg-[#0a0f1e] rounded-full overflow-hidden border border-[#1e3a5f]/60">
       <div
         className="h-full rounded-full transition-all duration-1000"
-        style={{ width: `${pct}%`, backgroundColor: color, boxShadow: `0 0 6px ${color}` }}
+        style={{ width: `${pct}%`, backgroundColor: color, boxShadow: light ? 'none' : `0 0 6px ${color}` }}
       />
     </div>
   );
@@ -178,6 +179,9 @@ function StatPill({
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function NomadXECoreView({ device, initialData }: Props) {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
+
   const [data, setData]       = useState<VRMData | null>(initialData);
   const [lastPoll, setLastPoll] = useState(new Date());
   const [, setTick]           = useState(0);
@@ -210,7 +214,7 @@ export default function NomadXECoreView({ device, initialData }: Props) {
   const isOffline = lastSeenS > 0 && staleS > 15 * 60;
 
   const soc         = data?.battery.soc ?? 0;
-  const batColor    = getBatteryColor(soc);
+  const batColor    = getBatteryColor(soc, isLight);
   const mppt        = getMpptStyle(data?.solar.mpptState ?? 0);
   const solarActive = (data?.solar.power ?? 0) > 5;
   const loadActive  = (data?.dcLoad ?? 0) > 5;
@@ -277,7 +281,7 @@ export default function NomadXECoreView({ device, initialData }: Props) {
             {/* Primary wattage */}
             <div className="mb-0.5">
               <span className="text-4xl font-black tabular-nums leading-none"
-                style={{ color: solarActive ? '#22c55e' : '#374151' }}>
+                style={{ color: solarActive ? (isLight ? '#16a34a' : '#22c55e') : (isLight ? '#94a3b8' : '#374151') }}>
                 {data?.solar.power ?? 0}
               </span>
               <span className="text-sm font-bold text-[#22c55e]/70 ml-1">W</span>
@@ -347,11 +351,16 @@ export default function NomadXECoreView({ device, initialData }: Props) {
             </div>
 
             {/* SOC bar */}
-            <SocBar soc={soc} />
+            <SocBar soc={soc} light={isLight} />
 
             {/* Charge direction label */}
-            <div className="mt-2 mb-4 text-[10px] font-mono uppercase tracking-widest"
-              style={{ color: charging ? '#22c55ecc' : discharging ? '#f59e0bcc' : '#93c5fd80' }}>
+            <div className="mt-2 mb-4 text-[10px] font-mono uppercase tracking-widest" style={{
+              color: charging
+                ? (isLight ? '#16a34a' : '#22c55ecc')
+                : discharging
+                  ? (isLight ? '#d97706' : '#f59e0bcc')
+                  : (isLight ? '#64748b'  : '#93c5fd80'),
+            }}>
               {charging ? '↑ Charging' : discharging ? '↓ On Battery' : 'Standby'}
             </div>
 
@@ -360,17 +369,17 @@ export default function NomadXECoreView({ device, initialData }: Props) {
               <StatPill
                 label="Voltage" unit="V"
                 value={(data?.battery.voltage ?? 0).toFixed(2)}
-                color="#93c5fd"
+                color={isLight ? '#2563eb' : '#93c5fd'}
               />
               <StatPill
                 label="Current" unit="A"
                 value={`${(data?.battery.current ?? 0) >= 0 ? '+' : ''}${(data?.battery.current ?? 0).toFixed(1)}`}
-                color={charging ? '#22c55e' : discharging ? '#f59e0b' : '#93c5fd'}
+                color={charging ? (isLight ? '#16a34a' : '#22c55e') : discharging ? (isLight ? '#d97706' : '#f59e0b') : (isLight ? '#2563eb' : '#93c5fd')}
               />
               <StatPill
                 label="Power" unit="W"
                 value={String(Math.abs(data?.battery.power ?? 0))}
-                color="#93c5fd"
+                color={isLight ? '#2563eb' : '#93c5fd'}
               />
             </div>
           </div>
@@ -396,7 +405,7 @@ export default function NomadXECoreView({ device, initialData }: Props) {
             {/* Primary wattage */}
             <div className="mb-0.5">
               <span className="text-4xl font-black tabular-nums leading-none"
-                style={{ color: loadActive ? '#f59e0b' : '#374151' }}>
+                style={{ color: loadActive ? (isLight ? '#d97706' : '#f59e0b') : (isLight ? '#94a3b8' : '#374151') }}>
                 {data?.dcLoad ?? 0}
               </span>
               <span className="text-sm font-bold text-[#f59e0b]/70 ml-1">W</span>
