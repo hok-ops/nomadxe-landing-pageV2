@@ -1,17 +1,15 @@
 'use client';
 
 /**
- * /auth/callback — client-side auth handler for implicit flow.
+ * /auth/callback — client-side handler for implicit flow auth events.
  *
- * Supabase's implicit flow (non-PKCE) redirects here with the session
- * embedded as a URL hash fragment: #access_token=xxx&type=recovery
+ * Supabase implicit flow embeds tokens in the URL hash (#access_token=...)
+ * which servers can never read. This page lets the browser client pick up
+ * the session, then routes to the correct destination:
  *
- * Hash fragments are never sent to the server, so this MUST be a client
- * component. The Supabase browser client automatically reads the hash on
- * init, then onAuthStateChange fires with the appropriate event.
- *
- * PKCE flow (?code=) is handled by /auth/confirm (server Route Handler).
- * This page is only hit when the project is on implicit flow.
+ *   PASSWORD_RECOVERY  → /reset-otp   (password reset)
+ *   SIGNED_IN (invite) → /auth/setup/[token]
+ *   SIGNED_IN (normal) → /dashboard
  */
 
 import { useEffect, useState } from 'react';
@@ -20,29 +18,51 @@ import { createClient } from '@/utils/supabase/client';
 
 export default function AuthCallbackPage() {
   const [status, setStatus] = useState('Verifying…');
-  const router  = useRouter();
+  const router   = useRouter();
   const supabase = createClient();
 
   useEffect(() => {
     let handled = false;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         if (handled) return;
+
         if (event === 'PASSWORD_RECOVERY') {
           handled = true;
           setStatus('Redirecting to password reset…');
-          router.replace('/reset-password');
-        } else if (event === 'SIGNED_IN' && session) {
+          router.replace('/reset-otp');
+          return;
+        }
+
+        if (event === 'SIGNED_IN' && session) {
           handled = true;
-          setStatus('Signed in, redirecting…');
-          router.replace('/dashboard');
+          setStatus('Checking account…');
+
+          // Look for an unused invite token — if found this is a new user invite
+          const { data: tokenRow } = await supabase
+            .from('auth_tokens')
+            .select('token')
+            .eq('user_id', session.user.id)
+            .eq('type', 'invite')
+            .is('used_at', null)
+            .gt('expires_at', new Date().toISOString())
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (tokenRow?.token) {
+            setStatus('Redirecting to account setup…');
+            router.replace(`/auth/setup/${tokenRow.token}`);
+          } else {
+            setStatus('Signed in, redirecting…');
+            router.replace('/dashboard');
+          }
         }
       }
     );
 
-    // PKCE flow: ?code= is present as a query param, not a hash fragment.
-    // Exchange it manually — onAuthStateChange fires after this resolves.
+    // PKCE: exchange ?code= for a session — onAuthStateChange fires after
     const code = new URLSearchParams(window.location.search).get('code');
     if (code) {
       supabase.auth.exchangeCodeForSession(code).catch(() => {
@@ -52,7 +72,7 @@ export default function AuthCallbackPage() {
       });
     }
 
-    // Fallback: if no auth event fires within 6 s the link is broken.
+    // Fallback timeout
     const timeout = setTimeout(() => {
       if (!handled) {
         router.replace('/login?error=Invalid+or+expired+link.+Please+request+a+new+one.');

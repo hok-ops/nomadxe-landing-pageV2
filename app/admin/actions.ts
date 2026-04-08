@@ -83,7 +83,7 @@ export async function inviteNewUser(formData: FormData) {
 
     // Create the auth user and send the invite email
     const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${siteUrl}/auth/confirm`,
+      redirectTo: `${siteUrl}/auth/callback`,
     });
 
     if (inviteError) throw new Error(inviteError.message);
@@ -132,7 +132,7 @@ export async function resendInvite(formData: FormData) {
 
     // Re-send the Supabase invite email
     const { error } = await adminClient.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${siteUrl}/auth/confirm`,
+      redirectTo: `${siteUrl}/auth/callback`,
     });
 
     if (error) throw new Error(error.message);
