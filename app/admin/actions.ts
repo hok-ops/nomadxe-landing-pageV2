@@ -81,19 +81,32 @@ export async function inviteNewUser(formData: FormData) {
     const adminClient = createAdminClient();
     const siteUrl = getSiteUrl();
 
-    // Create the auth user and send the invite email
+    // Create the auth user and send the invite email.
+    // We first do a dry-run with generateLink to get the user ID, create the token,
+    // then send the invite with the token embedded in redirectTo so /auth/callback
+    // never needs a session-based DB lookup (which fails when admin tests in own browser).
+    const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
+      type: 'invite',
+      email,
+      options: { redirectTo: `${siteUrl}/auth/callback` },
+    });
+    if (linkError) throw new Error(linkError.message);
+    if (!linkData.user?.id) throw new Error('User creation failed');
+
+    // Create the 48-hour invite token
+    const inviteToken = await createAuthToken(linkData.user.id, 'invite', 48);
+
+    // Re-send via inviteUserByEmail with token embedded in redirectTo
     const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${siteUrl}/auth/callback`,
+      redirectTo: `${siteUrl}/auth/callback?invite_token=${inviteToken}`,
     });
 
     if (inviteError) throw new Error(inviteError.message);
     if (!inviteData.user) throw new Error('User creation failed');
 
-    // Create a single-use invite token (48h) for the setup page
-    await createAuthToken(inviteData.user.id, 'invite', 48);
-
     // If a device was provided, register it and assign it to the new user
-    if (vrm_site_id && device_name && inviteData.user) {
+    const userId = inviteData.user?.id ?? linkData.user.id;
+    if (vrm_site_id && device_name && userId) {
       const { data: device, error: deviceError } = await adminClient
         .from('vrm_devices')
         .upsert([{ vrm_site_id, name: device_name }], { onConflict: 'vrm_site_id' })
@@ -104,7 +117,7 @@ export async function inviteNewUser(formData: FormData) {
 
       if (device) {
         await adminClient.from('device_assignments').insert([{
-          user_id: inviteData.user.id,
+          user_id: userId,
           device_id: device.id,
         }]);
       }
@@ -130,15 +143,15 @@ export async function resendInvite(formData: FormData) {
     const adminClient = createAdminClient();
     const siteUrl = getSiteUrl();
 
-    // Re-send the Supabase invite email
+    // Create fresh invite token first so we can embed it in redirectTo
+    const inviteToken = await createAuthToken(userId, 'invite', 48);
+
+    // Re-send the Supabase invite email with token in redirectTo
     const { error } = await adminClient.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${siteUrl}/auth/callback`,
+      redirectTo: `${siteUrl}/auth/callback?invite_token=${inviteToken}`,
     });
 
     if (error) throw new Error(error.message);
-
-    // Refresh the invite token
-    await createAuthToken(userId, 'invite', 48);
 
     revalidatePath('/admin');
     redirect(`/admin?success=Invitation resent to ${email}`);

@@ -6,32 +6,38 @@
  * Supabase implicit flow redirects here after token verification with:
  *   #access_token=xxx&refresh_token=xxx&type=invite|recovery|signup
  *
- * @supabase/ssr createBrowserClient processes the hash automatically.
- * Auth events can fire as SIGNED_IN or INITIAL_SESSION depending on
- * whether a prior session existed — we handle both.
+ * The invite_token query param may be present when the invite email was
+ * generated with it embedded in redirectTo. If present, we skip the DB
+ * lookup entirely and go straight to /activate-account.
  *
  * Routing:
- *   type=recovery  → /reset-otp
- *   type=invite    → check auth_tokens → /auth/setup/[token] or /dashboard
- *   anything else  → /dashboard
+ *   type=recovery              → /reset-otp
+ *   type=invite + invite_token → /activate-account (token known from URL)
+ *   type=invite (no token)     → DB lookup fallback → /activate-account or error
+ *   anything else              → /dashboard
  */
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 
 export default function AuthCallbackPage() {
   const [status, setStatus] = useState('Verifying…');
-  const router   = useRouter();
-  const supabase = createClient();
+  const router       = useRouter();
+  const searchParams = useSearchParams();
+  const supabase     = createClient();
 
   useEffect(() => {
     let handled = false;
 
     // Read type from hash fragment BEFORE the client may clear it
-    const hash   = window.location.hash.substring(1);
-    const params = new URLSearchParams(hash);
-    const type   = params.get('type'); // 'invite' | 'recovery' | 'signup' | null
+    const hash       = window.location.hash.substring(1);
+    const hashParams = new URLSearchParams(hash);
+    const type       = hashParams.get('type'); // 'invite' | 'recovery' | 'signup' | null
+
+    // invite_token is in the URL query string (not the hash) — embedded by generate-link
+    // and inviteUserByEmail redirectTo so we never rely on session user ID for routing.
+    const inviteToken = searchParams.get('invite_token');
 
     async function route(session: { user: { id: string } } | null) {
       if (handled || !session) return;
@@ -45,6 +51,18 @@ export default function AuthCallbackPage() {
 
       if (type === 'invite') {
         setStatus('Setting up your account…');
+
+        // Fast path: invite_token is in the URL — skip DB lookup entirely.
+        // This prevents the session user-ID mismatch that occurs when an admin
+        // tests the invite link in their own logged-in browser.
+        if (inviteToken) {
+          console.log('[auth/callback] invite_token from URL, going to activate-account');
+          router.replace('/activate-account');
+          return;
+        }
+
+        // Fallback for older invite links (no token in URL): look up by session user ID.
+        // Works correctly when the invited user opens the link in a fresh browser.
         const { data: tokenRow, error: tokenErr } = await supabase
           .from('auth_tokens')
           .select('token')
@@ -56,17 +74,15 @@ export default function AuthCallbackPage() {
           .limit(1)
           .maybeSingle();
 
-        console.log('[auth/callback] invite lookup:', {
+        console.log('[auth/callback] invite DB lookup:', {
           userId: session.user.id,
           tokenRow,
           tokenErr,
         });
 
         if (tokenRow?.token) {
-          router.replace(`/auth/setup/${tokenRow.token}`);
+          router.replace('/activate-account');
         } else {
-          // No token found — likely RLS policy missing on auth_tokens table
-          // or generateLink was called without createAuthToken
           console.warn('[auth/callback] No invite token found for user', session.user.id, tokenErr);
           router.replace('/login?error=Invite+link+expired.+Ask+your+admin+to+resend+the+invite.');
         }
@@ -81,8 +97,6 @@ export default function AuthCallbackPage() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (handled) return;
-        // Handle both SIGNED_IN (new session) and INITIAL_SESSION (restored session)
-        // INITIAL_SESSION can fire with a new session from the hash on some Supabase versions
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
           if (session) route(session);
         }
@@ -90,8 +104,6 @@ export default function AuthCallbackPage() {
     );
 
     // 2. Immediate getSession() check — in case the event already fired
-    //    before the subscription was set up, or the client is already
-    //    processing the hash synchronously
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session && !handled) route(session);
     });
@@ -107,7 +119,7 @@ export default function AuthCallbackPage() {
       subscription.unsubscribe();
       clearTimeout(timeout);
     };
-  }, [router, supabase]);
+  }, [router, supabase, searchParams]);
 
   return (
     <div className="min-h-screen bg-[#080c14] flex items-center justify-center">

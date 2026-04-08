@@ -49,6 +49,8 @@ export async function POST(request: NextRequest) {
 
   const siteUrl = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.nomadxe.com';
 
+  let inviteToken: string | null = null;
+
   const { data, error } = await adminClient.auth.admin.generateLink({
     type,
     email,
@@ -60,16 +62,16 @@ export async function POST(request: NextRequest) {
   const invitedUserId = data.user?.id;
   console.log('[generate-link] generateLink result:', { invitedUserId, email, type, actionLink: data.properties.action_link });
 
-  // Create the auth_tokens row so /auth/callback can route to the right page
+  // Create the auth_tokens row
   if (invitedUserId && (type === 'invite' || type === 'recovery')) {
     try {
-      const token = await createAuthToken(
+      inviteToken = await createAuthToken(
         adminClient,
         invitedUserId,
         type as 'invite' | 'recovery',
         type === 'invite' ? 48 : 24
       );
-      console.log('[generate-link] auth_token created:', { invitedUserId, type, token });
+      console.log('[generate-link] auth_token created:', { invitedUserId, type, token: inviteToken });
     } catch (e: any) {
       console.error('[generate-link] createAuthToken failed:', e.message, e);
     }
@@ -77,5 +79,22 @@ export async function POST(request: NextRequest) {
     console.warn('[generate-link] skipping createAuthToken — invitedUserId missing:', { invitedUserId, type });
   }
 
-  return NextResponse.json({ link: data.properties.action_link });
+  // For invite links, rebuild the action_link with the token embedded in redirectTo.
+  // Supabase puts redirectTo as the `redirect_to` query param in the action link.
+  // Replacing it ensures /auth/callback receives invite_token in the URL and can
+  // route directly to /activate-account without a session-based DB lookup.
+  let actionLink = data.properties.action_link;
+  if (type === 'invite' && inviteToken) {
+    try {
+      const url = new URL(actionLink);
+      const newRedirectTo = `${siteUrl}/auth/callback?invite_token=${inviteToken}`;
+      url.searchParams.set('redirect_to', newRedirectTo);
+      actionLink = url.toString();
+      console.log('[generate-link] patched action_link with invite_token in redirect_to');
+    } catch {
+      // If URL parsing fails, fall back to original link
+    }
+  }
+
+  return NextResponse.json({ link: actionLink });
 }
