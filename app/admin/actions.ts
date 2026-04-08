@@ -2,21 +2,9 @@
 
 import { createAdminClient } from '@/utils/supabase/admin';
 import { createClient } from '@/utils/supabase/server';
-import { createClient as createBrowserClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
-
-// Plain non-PKCE client used only for resetPasswordForEmail.
-// PKCE requires browser-side code generation — calling the SSR client
-// (flowType: 'pkce') from a server action silently fails to send the email.
-function createAnonClient() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -176,7 +164,7 @@ export async function sendPasswordReset(formData: FormData) {
 
     // Use plain anon client — PKCE flow requires browser-side code generation
     // and silently fails to send email when called from a server action.
-    const { error } = await createAnonClient().auth.resetPasswordForEmail(email, {
+    const { error } = await createAdminClient().auth.resetPasswordForEmail(email, {
       redirectTo: `${siteUrl}/reset-otp`,
     });
 
@@ -204,7 +192,7 @@ export async function requestPasswordReset(formData: FormData) {
 
     if (user) {
       await createAuthToken(user.id, 'recovery', 24);
-      await createAnonClient().auth.resetPasswordForEmail(email, {
+      await createAdminClient().auth.resetPasswordForEmail(email, {
         redirectTo: `${siteUrl}/reset-otp`,
       });
     }
