@@ -12,6 +12,7 @@ import {
 import { DeleteUserButton } from './DeleteUserButton';
 import { AssignDeviceForm } from './AssignDeviceForm';
 import { RemoveDeviceButton } from './RemoveDeviceButton';
+import GenerateLinkTool from './GenerateLinkTool';
 import Link from 'next/link';
 
 export const metadata = {
@@ -388,6 +389,12 @@ export default async function AdminDashboard({
               </div>
             </div>
           </div>
+
+          {/* Dev tool — generate auth links without sending email */}
+          <div className="mt-8">
+            <GenerateLinkTool users={userList} />
+          </div>
+
         </div>
       </div>
     </div>
