@@ -1,15 +1,20 @@
 'use client';
 
 /**
- * /auth/callback — client-side handler for implicit flow auth events.
+ * /auth/callback — implicit flow client-side handler.
  *
- * Supabase implicit flow embeds tokens in the URL hash (#access_token=...)
- * which servers can never read. This page lets the browser client pick up
- * the session, then routes to the correct destination:
+ * Supabase implicit flow redirects here with tokens in the URL hash:
+ *   #access_token=xxx&refresh_token=xxx&type=invite
+ *   #access_token=xxx&refresh_token=xxx&type=recovery
  *
- *   PASSWORD_RECOVERY  → /reset-otp   (password reset)
- *   SIGNED_IN (invite) → /auth/setup/[token]
- *   SIGNED_IN (normal) → /dashboard
+ * The hash is never sent to the server, so this MUST be a client component.
+ * The Supabase browser client automatically reads the hash and establishes
+ * the session. We read `type` from the hash to decide where to route.
+ *
+ * Routing:
+ *   type=invite   → check auth_tokens DB → /auth/setup/[token]
+ *   type=recovery → /reset-otp
+ *   anything else → /dashboard
  */
 
 import { useEffect, useState } from 'react';
@@ -24,11 +29,17 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     let handled = false;
 
+    // Read `type` from the hash fragment before the client clears it.
+    // Supabase sets: #access_token=...&type=invite|recovery|signup|...
+    const hash  = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash);
+    const type  = params.get('type'); // 'invite', 'recovery', 'signup', etc.
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (handled) return;
 
-        if (event === 'PASSWORD_RECOVERY') {
+        if (event === 'PASSWORD_RECOVERY' || type === 'recovery') {
           handled = true;
           setStatus('Redirecting to password reset…');
           router.replace('/reset-otp');
@@ -37,23 +48,27 @@ export default function AuthCallbackPage() {
 
         if (event === 'SIGNED_IN' && session) {
           handled = true;
-          setStatus('Checking account…');
 
-          // Look for an unused invite token — if found this is a new user invite
-          const { data: tokenRow } = await supabase
-            .from('auth_tokens')
-            .select('token')
-            .eq('user_id', session.user.id)
-            .eq('type', 'invite')
-            .is('used_at', null)
-            .gt('expires_at', new Date().toISOString())
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+          if (type === 'invite') {
+            setStatus('Setting up your account…');
+            // Look up the invite token to send user to the right setup page
+            const { data: tokenRow } = await supabase
+              .from('auth_tokens')
+              .select('token')
+              .eq('user_id', session.user.id)
+              .eq('type', 'invite')
+              .is('used_at', null)
+              .gt('expires_at', new Date().toISOString())
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
 
-          if (tokenRow?.token) {
-            setStatus('Redirecting to account setup…');
-            router.replace(`/auth/setup/${tokenRow.token}`);
+            if (tokenRow?.token) {
+              router.replace(`/auth/setup/${tokenRow.token}`);
+            } else {
+              // Token missing or expired — account may already be set up
+              router.replace('/dashboard');
+            }
           } else {
             setStatus('Signed in, redirecting…');
             router.replace('/dashboard');
@@ -62,17 +77,7 @@ export default function AuthCallbackPage() {
       }
     );
 
-    // PKCE: exchange ?code= for a session — onAuthStateChange fires after
-    const code = new URLSearchParams(window.location.search).get('code');
-    if (code) {
-      supabase.auth.exchangeCodeForSession(code).catch(() => {
-        if (!handled) {
-          router.replace('/login?error=Invalid+or+expired+link.+Please+request+a+new+one.');
-        }
-      });
-    }
-
-    // Fallback timeout
+    // Fallback timeout — if no event fires the link is broken/expired
     const timeout = setTimeout(() => {
       if (!handled) {
         router.replace('/login?error=Invalid+or+expired+link.+Please+request+a+new+one.');
