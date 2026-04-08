@@ -2,6 +2,11 @@ import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { NextRequest, NextResponse } from 'next/server';
 
+// Whitelist of profile fields that a user is allowed to set through the
+// invite activation flow. Prevents privilege escalation via injected keys
+// such as { role: 'admin' } — only these three fields are ever written.
+const ALLOWED_PROFILE_FIELDS = new Set<string>(['full_name', 'is_active', 'status']);
+
 export async function POST(request: NextRequest) {
   try {
     const { token, type, profileUpdate } = await request.json();
@@ -11,6 +16,10 @@ export async function POST(request: NextRequest) {
     }
     if (!['invite', 'recovery'].includes(type)) {
       return NextResponse.json({ error: 'Invalid token type' }, { status: 400 });
+    }
+    // profileUpdate is only valid for the invite (account activation) flow
+    if (profileUpdate && type !== 'invite') {
+      return NextResponse.json({ error: 'profileUpdate only allowed for invite tokens' }, { status: 400 });
     }
 
     // Verify caller has an active session
@@ -55,16 +64,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to invalidate token' }, { status: 500 });
     }
 
-    // Apply profile updates if provided (invite flow: set name + active status)
+    // Apply profile updates if provided (invite flow: set name + active status).
+    // Only whitelisted keys are written — all others are silently dropped to
+    // prevent privilege escalation (e.g. a caller sending { role: 'admin' }).
     if (profileUpdate && Object.keys(profileUpdate).length > 0) {
-      const { error: profileError } = await adminClient
-        .from('profiles')
-        .update(profileUpdate)
-        .eq('id', user.id);
+      const safeUpdate: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(profileUpdate)) {
+        if (ALLOWED_PROFILE_FIELDS.has(key)) {
+          safeUpdate[key] = value;
+        }
+      }
 
-      if (profileError) {
-        console.error('[use-token] profile update:', profileError.message);
-        return NextResponse.json({ error: `Profile update failed: ${profileError.message}` }, { status: 500 });
+      if (Object.keys(safeUpdate).length > 0) {
+        const { error: profileError } = await adminClient
+          .from('profiles')
+          .update(safeUpdate)
+          .eq('id', user.id);
+
+        if (profileError) {
+          console.error('[use-token] profile update:', profileError.message);
+          return NextResponse.json({ error: `Profile update failed: ${profileError.message}` }, { status: 500 });
+        }
       }
     }
 

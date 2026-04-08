@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
         type as 'invite' | 'recovery',
         type === 'invite' ? 48 : 24
       );
-      console.log('[generate-link] auth_token created:', { invitedUserId, type, token: inviteToken });
+      console.log('[generate-link] auth_token created for user:', invitedUserId, 'type:', type);
     } catch (e: any) {
       console.error('[generate-link] createAuthToken failed:', e.message, e);
     }
