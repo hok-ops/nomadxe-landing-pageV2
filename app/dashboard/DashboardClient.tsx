@@ -124,13 +124,13 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
         {hasMany && (
           <div className="flex gap-5 items-start">
 
-            {/* ── LEFT: scrollable fleet sidebar ── */}
+            {/* ── LEFT: fleet panel — grid when nothing selected, narrow list when detail open ── */}
             <div
               className="flex-shrink-0 flex flex-col"
-              style={{ width: hasSelection ? '288px' : '100%' }}
+              style={{ width: hasSelection ? '300px' : '100%' }}
             >
-              {/* Sidebar toolbar */}
-              <div className="flex items-center justify-between mb-3 flex-shrink-0">
+              {/* Toolbar */}
+              <div className="flex items-center justify-between mb-4 flex-shrink-0">
                 <span className="text-[10px] font-bold text-[#93c5fd]/65 uppercase tracking-widest font-mono">
                   Fleet · {devices.length} units
                 </span>
@@ -149,9 +149,13 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
                 )}
               </div>
 
-              {/* Tile list — independently scrollable */}
+              {/* Tile grid (unselected) / list (selected) — both independently scrollable */}
               <div
-                className="overflow-y-auto pr-1 space-y-2.5"
+                className={`overflow-y-auto pr-1 ${
+                  hasSelection
+                    ? 'space-y-2.5'
+                    : 'grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3'
+                }`}
                 style={{ height: 'calc(100vh - 14rem)' }}
               >
                 {devices.map(d => (

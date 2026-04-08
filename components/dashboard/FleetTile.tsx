@@ -79,7 +79,7 @@ export default function FleetTile({ device, data, selected, onClick }: Props) {
         </span>
       </div>
 
-      {/* Row 3: Solar + Load + charge direction */}
+      {/* Row 3: Solar + charge direction */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={solarActive ? '#22c55e' : '#6b7280'} strokeWidth="2">
@@ -96,9 +96,11 @@ export default function FleetTile({ device, data, selected, onClick }: Props) {
           style={{ color: charging ? '#22c55ecc' : discharging ? '#f59e0bcc' : '#93c5fd80' }}>
           {charging ? '↑ chg' : discharging ? '↓ bat' : noData ? '—' : 'stby'}
         </span>
-        <span className="text-[9px] font-mono text-[#93c5fd]/60 uppercase tracking-wider">
-          {device.siteId}
-        </span>
+      </div>
+
+      {/* Row 4: Site ID — small, bottom of card */}
+      <div className="mt-1.5 text-[9px] font-mono text-[#93c5fd]/50 truncate">
+        {device.siteId}
       </div>
     </button>
   );
