@@ -21,40 +21,63 @@ const jetbrains = JetBrains_Mono({
   display: 'swap',
 });
 
+// Primary description targets actual search intent, not internal brand language
 const DESCRIPTION =
-  'NomadXE deploys robust mobile surveillance infrastructure to sites where traditional security cannot reach. Reliable, service-first, and rapidly deployable.';
+  'Solar-powered mobile security trailers deployed to construction sites, events, and remote locations. Operational within hours — no grid power or fixed infrastructure required. 24/7 remote monitoring included.';
+
+const OG_IMAGE = 'https://nomadxe.com/trailer.jpg';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://nomadxe.com'),
   title: {
-    default: 'NomadXE | Mobile Surveillance Infrastructure',
+    default: 'Mobile Security Trailers | NomadXE Surveillance Solutions',
     template: '%s | NomadXE',
   },
   description: DESCRIPTION,
+  // Keywords ordered by search volume — primary terms first
   keywords: [
-    'mobile surveillance',
-    'site security',
-    'remote monitoring',
-    'surveillance trailers',
+    'mobile security trailers',
+    'mobile surveillance trailer',
+    'security camera trailer',
+    'solar security trailer',
+    'construction site security trailer',
+    'temporary surveillance trailer',
+    'mobile security trailer rental',
+    'solar powered surveillance trailer',
+    'construction site security cameras',
+    'remote site security monitoring',
+    'off-grid surveillance system',
+    'rapid deploy security trailer',
+    'trailer mounted security cameras',
+    'mobile security infrastructure',
     'NomadXE',
-    'construction site security',
-    'mobile solar security',
   ],
-  authors: [{ name: 'NomadXE Team' }],
+  authors: [{ name: 'NomadXE' }],
   creator: 'NomadXE',
+  publisher: 'NomadXE',
+  category: 'Security Services',
   openGraph: {
-    title: 'NomadXE | Mobile Surveillance Infrastructure',
+    title: 'Mobile Security Trailers | NomadXE Surveillance Solutions',
     description: DESCRIPTION,
     url: 'https://nomadxe.com',
     siteName: 'NomadXE',
     locale: 'en_US',
     type: 'website',
+    images: [
+      {
+        url: OG_IMAGE,
+        width: 1200,
+        height: 630,
+        alt: 'NomadXE solar-powered mobile security trailer deployed on site',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'NomadXE | Mobile Surveillance Infrastructure',
+    title: 'Mobile Security Trailers | NomadXE',
     description: DESCRIPTION,
     creator: '@nomadxe',
+    images: [OG_IMAGE],
   },
   robots: {
     index: true,
@@ -68,7 +91,7 @@ export const metadata: Metadata = {
     },
   },
   alternates: {
-    canonical: '/',
+    canonical: 'https://nomadxe.com',
   },
 };
 

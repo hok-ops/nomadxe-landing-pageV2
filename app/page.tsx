@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import AuthHashProcessor from '../components/AuthHashProcessor';
+import JsonLd from '../components/JsonLd';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
 import Features from '../components/Features';
@@ -35,6 +36,7 @@ export default function Home({
 
   return (
     <>
+      <JsonLd />
       <AuthHashProcessor />
       <Navbar />
       <main id="main">
