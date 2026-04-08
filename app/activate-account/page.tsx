@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
+import { activateAccount } from './actions';
 
 export default function ActivateAccountPage() {
   const [fullName, setFullName] = useState('');
@@ -14,8 +15,6 @@ export default function ActivateAccountPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  // Verify session exists before showing the form — if none, the invite
-  // link was not completed via /auth/confirm and we can't activate.
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) setSessionError(true);
@@ -29,19 +28,7 @@ export default function ActivateAccountPage() {
     setError(null);
 
     try {
-      const { error: authError } = await supabase.auth.updateUser({ password });
-      if (authError) throw authError;
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({ full_name: fullName, is_active: true, status: 'active' })
-          .eq('id', user.id);
-
-        if (profileError) throw profileError;
-      }
-
+      await activateAccount(fullName, password);
       router.push('/dashboard');
     } catch (err: any) {
       setError(err.message);
@@ -77,10 +64,7 @@ export default function ActivateAccountPage() {
               This activation link is invalid or has already been used. Please ask your administrator to send a new invite.
             </p>
           </div>
-          <a
-            href="/login"
-            className="inline-block text-sm text-[#3b82f6]/70 hover:text-[#3b82f6] transition-colors"
-          >
+          <a href="/login" className="inline-block text-sm text-[#3b82f6]/70 hover:text-[#3b82f6] transition-colors">
             ← Back to Sign In
           </a>
         </div>
@@ -90,8 +74,6 @@ export default function ActivateAccountPage() {
 
   return (
     <div className="min-h-screen bg-[#080c14] flex items-center justify-center p-6 relative overflow-hidden">
-
-      {/* Dot-grid background */}
       <div
         className="pointer-events-none fixed inset-0 z-0 opacity-[0.025]"
         style={{ backgroundImage: 'radial-gradient(circle, #3b82f6 1px, transparent 1px)', backgroundSize: '32px 32px' }}
@@ -103,8 +85,6 @@ export default function ActivateAccountPage() {
           <div className="h-px w-full rounded-t-2xl bg-gradient-to-r from-transparent via-[#3b82f6]/30 to-transparent" />
 
           <div className="px-8 pt-10 pb-8 sm:px-10 sm:pt-12 sm:pb-10">
-
-            {/* Brand */}
             <div className="text-center mb-10">
               <div className="w-12 h-12 rounded-xl bg-[#1e40af]/20 border border-[#3b82f6]/20 flex items-center justify-center mx-auto mb-4">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -121,7 +101,6 @@ export default function ActivateAccountPage() {
               </div>
             </div>
 
-            {/* Error */}
             {error && (
               <div className="mb-5 bg-red-950/25 border border-red-500/35 rounded-xl p-3.5 text-[12.5px] text-red-400">
                 {error}
