@@ -3,18 +3,17 @@
 /**
  * /auth/callback — implicit flow client-side handler.
  *
- * Supabase implicit flow redirects here with tokens in the URL hash:
- *   #access_token=xxx&refresh_token=xxx&type=invite
- *   #access_token=xxx&refresh_token=xxx&type=recovery
+ * Supabase implicit flow redirects here after token verification with:
+ *   #access_token=xxx&refresh_token=xxx&type=invite|recovery|signup
  *
- * The hash is never sent to the server, so this MUST be a client component.
- * The Supabase browser client automatically reads the hash and establishes
- * the session. We read `type` from the hash to decide where to route.
+ * @supabase/ssr createBrowserClient processes the hash automatically.
+ * Auth events can fire as SIGNED_IN or INITIAL_SESSION depending on
+ * whether a prior session existed — we handle both.
  *
  * Routing:
- *   type=invite   → check auth_tokens DB → /auth/setup/[token]
- *   type=recovery → /reset-otp
- *   anything else → /dashboard
+ *   type=recovery  → /reset-otp
+ *   type=invite    → check auth_tokens → /auth/setup/[token] or /dashboard
+ *   anything else  → /dashboard
  */
 
 import { useEffect, useState } from 'react';
@@ -29,60 +28,72 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     let handled = false;
 
-    // Read `type` from the hash fragment before the client clears it.
-    // Supabase sets: #access_token=...&type=invite|recovery|signup|...
-    const hash  = window.location.hash.substring(1);
+    // Read type from hash fragment BEFORE the client may clear it
+    const hash   = window.location.hash.substring(1);
     const params = new URLSearchParams(hash);
-    const type  = params.get('type'); // 'invite', 'recovery', 'signup', etc.
+    const type   = params.get('type'); // 'invite' | 'recovery' | 'signup' | null
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (handled) return;
+    async function route(session: { user: { id: string } } | null) {
+      if (handled || !session) return;
+      handled = true;
 
-        if (event === 'PASSWORD_RECOVERY' || type === 'recovery') {
-          handled = true;
-          setStatus('Redirecting to password reset…');
-          router.replace('/reset-otp');
-          return;
+      if (type === 'recovery') {
+        setStatus('Redirecting to password reset…');
+        router.replace('/reset-otp');
+        return;
+      }
+
+      if (type === 'invite') {
+        setStatus('Setting up your account…');
+        const { data: tokenRow } = await supabase
+          .from('auth_tokens')
+          .select('token')
+          .eq('user_id', session.user.id)
+          .eq('type', 'invite')
+          .is('used_at', null)
+          .gt('expires_at', new Date().toISOString())
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (tokenRow?.token) {
+          router.replace(`/auth/setup/${tokenRow.token}`);
+        } else {
+          // Token missing/expired — account may already be set up
+          router.replace('/dashboard');
         }
+        return;
+      }
 
-        if (event === 'SIGNED_IN' && session) {
-          handled = true;
+      setStatus('Signed in, redirecting…');
+      router.replace('/dashboard');
+    }
 
-          if (type === 'invite') {
-            setStatus('Setting up your account…');
-            // Look up the invite token to send user to the right setup page
-            const { data: tokenRow } = await supabase
-              .from('auth_tokens')
-              .select('token')
-              .eq('user_id', session.user.id)
-              .eq('type', 'invite')
-              .is('used_at', null)
-              .gt('expires_at', new Date().toISOString())
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .maybeSingle();
-
-            if (tokenRow?.token) {
-              router.replace(`/auth/setup/${tokenRow.token}`);
-            } else {
-              // Token missing or expired — account may already be set up
-              router.replace('/dashboard');
-            }
-          } else {
-            setStatus('Signed in, redirecting…');
-            router.replace('/dashboard');
-          }
+    // 1. Subscribe to auth state changes — catches SIGNED_IN and INITIAL_SESSION
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (handled) return;
+        // Handle both SIGNED_IN (new session) and INITIAL_SESSION (restored session)
+        // INITIAL_SESSION can fire with a new session from the hash on some Supabase versions
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          if (session) route(session);
         }
       }
     );
 
-    // Fallback timeout — if no event fires the link is broken/expired
+    // 2. Immediate getSession() check — in case the event already fired
+    //    before the subscription was set up, or the client is already
+    //    processing the hash synchronously
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session && !handled) route(session);
+    });
+
+    // 3. Fallback timeout
     const timeout = setTimeout(() => {
       if (!handled) {
         router.replace('/login?error=Invalid+or+expired+link.+Please+request+a+new+one.');
       }
-    }, 6000);
+    }, 8000);
 
     return () => {
       subscription.unsubscribe();

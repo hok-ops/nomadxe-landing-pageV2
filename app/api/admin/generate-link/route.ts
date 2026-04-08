@@ -1,17 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import crypto from 'crypto';
 
-/**
- * POST /api/admin/generate-link
- *
- * Admin-only. Generates the auth link that would be emailed to a user
- * without actually sending the email. Used for testing auth flows when
- * email rate limits are hit or email delivery is unavailable.
- *
- * Body: { type: 'invite' | 'recovery', email: string }
- * Returns: { link: string }
- */
+async function createAuthToken(
+  adminClient: ReturnType<typeof createAdminClient>,
+  userId: string,
+  type: 'invite' | 'recovery',
+  expiryHours: number
+): Promise<string> {
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + expiryHours * 60 * 60 * 1000).toISOString();
+
+  // Invalidate prior unused tokens of same type
+  await adminClient
+    .from('auth_tokens')
+    .update({ used_at: new Date().toISOString() })
+    .eq('user_id', userId)
+    .eq('type', type)
+    .is('used_at', null);
+
+  const { error } = await adminClient
+    .from('auth_tokens')
+    .insert([{ token, user_id: userId, type, expires_at: expiresAt }]);
+
+  if (error) throw new Error(`Failed to create auth token: ${error.message}`);
+  return token;
+}
+
 export async function POST(request: NextRequest) {
   const supabase    = createClient();
   const adminClient = createAdminClient();
@@ -40,6 +56,22 @@ export async function POST(request: NextRequest) {
   });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  const invitedUserId = data.user?.id;
+
+  // Create the auth_tokens row so /auth/callback can route to the right page
+  if (invitedUserId && (type === 'invite' || type === 'recovery')) {
+    try {
+      await createAuthToken(
+        adminClient,
+        invitedUserId,
+        type as 'invite' | 'recovery',
+        type === 'invite' ? 48 : 24
+      );
+    } catch (e: any) {
+      console.error('[generate-link] createAuthToken failed:', e.message);
+    }
+  }
 
   return NextResponse.json({ link: data.properties.action_link });
 }
