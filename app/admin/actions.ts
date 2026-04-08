@@ -2,9 +2,21 @@
 
 import { createAdminClient } from '@/utils/supabase/admin';
 import { createClient } from '@/utils/supabase/server';
+import { createClient as createBrowserClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
+
+// Plain non-PKCE client used only for resetPasswordForEmail.
+// PKCE requires browser-side code generation — calling the SSR client
+// (flowType: 'pkce') from a server action silently fails to send the email.
+function createAnonClient() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -157,17 +169,15 @@ export async function sendPasswordReset(formData: FormData) {
 
     if (!userId || !email) throw new Error('User ID and email are required');
 
-    const supabase = createClient();
     const siteUrl = getSiteUrl();
 
     // Generate a recovery token (24h)
     await createAuthToken(userId, 'recovery', 24);
 
-    // resetPasswordForEmail must use the anon/user client, not service_role.
-    // redirectTo → /auth/callback (client page) handles both PKCE ?code= and
-    // implicit flow #access_token= hash fragments.
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${siteUrl}/auth/callback`,
+    // Use plain anon client — PKCE flow requires browser-side code generation
+    // and silently fails to send email when called from a server action.
+    const { error } = await createAnonClient().auth.resetPasswordForEmail(email, {
+      redirectTo: `${siteUrl}/reset-otp`,
     });
 
     if (error) console.error('Reset email error:', error.message);
@@ -194,12 +204,8 @@ export async function requestPasswordReset(formData: FormData) {
 
     if (user) {
       await createAuthToken(user.id, 'recovery', 24);
-      // Must use the SSR client (flowType: 'pkce') so the email link arrives
-      // as ?code= (query param, readable server-side) not #access_token= (hash
-      // fragment, invisible to Route Handlers).
-      const supabase = createClient();
-      await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${siteUrl}/auth/callback`,
+      await createAnonClient().auth.resetPasswordForEmail(email, {
+        redirectTo: `${siteUrl}/reset-otp`,
       });
     }
 
