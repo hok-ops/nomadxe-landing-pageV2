@@ -45,7 +45,7 @@ export default function AuthCallbackPage() {
 
       if (type === 'invite') {
         setStatus('Setting up your account…');
-        const { data: tokenRow } = await supabase
+        const { data: tokenRow, error: tokenErr } = await supabase
           .from('auth_tokens')
           .select('token')
           .eq('user_id', session.user.id)
@@ -56,11 +56,19 @@ export default function AuthCallbackPage() {
           .limit(1)
           .maybeSingle();
 
+        console.log('[auth/callback] invite lookup:', {
+          userId: session.user.id,
+          tokenRow,
+          tokenErr,
+        });
+
         if (tokenRow?.token) {
           router.replace(`/auth/setup/${tokenRow.token}`);
         } else {
-          // Token missing/expired — account may already be set up
-          router.replace('/dashboard');
+          // No token found — likely RLS policy missing on auth_tokens table
+          // or generateLink was called without createAuthToken
+          console.warn('[auth/callback] No invite token found for user', session.user.id, tokenErr);
+          router.replace('/login?error=Invite+link+expired.+Ask+your+admin+to+resend+the+invite.');
         }
         return;
       }
