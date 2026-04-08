@@ -6,6 +6,7 @@ import { AssignDeviceForm } from './AssignDeviceForm';
 import GenerateLinkTool from './GenerateLinkTool';
 import { RosterTable } from './RosterTable';
 import Link from 'next/link';
+import ThemeToggle from '@/components/ThemeToggle';
 
 export const metadata = {
   title: 'Operations Console | NomadXE',
@@ -63,7 +64,7 @@ export default async function AdminDashboard({
   });
 
   return (
-    <div className="min-h-screen bg-[#080c14] text-[#93c5fd] font-mono relative selection:bg-[#3b82f6] selection:text-white pt-28 pb-24">
+    <div className="nx-page min-h-screen bg-[#080c14] text-[#93c5fd] font-mono relative selection:bg-[#3b82f6] selection:text-white pt-28 pb-24">
 
       <div className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#1e40af] via-[#3b82f6] to-[#1e40af] z-[100]" />
       <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.03]"
@@ -95,6 +96,7 @@ export default async function AdminDashboard({
             <p className="text-sm text-[#93c5fd]/70 mt-1">Manage clients, Victron devices, and access control</p>
           </div>
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <Link
               href="/"
               className="text-xs font-semibold border border-[#1e3a5f] text-[#93c5fd]/50 hover:text-white hover:border-[#3b82f6]/60 px-5 py-2.5 rounded-lg transition-all"

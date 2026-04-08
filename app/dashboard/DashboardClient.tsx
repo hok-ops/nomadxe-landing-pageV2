@@ -5,6 +5,7 @@ import Link from 'next/link';
 import NomadXECoreView, { type VRMData } from '@/components/dashboard/NomadXECoreView';
 import FleetTile from '@/components/dashboard/FleetTile';
 import ReadingKey from '@/components/dashboard/ReadingKey';
+import ThemeToggle from '@/components/ThemeToggle';
 
 interface Device { siteId: string; name: string }
 interface Props {
@@ -72,7 +73,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
   const hasSelection = selectedIds.length > 0;
 
   return (
-    <div className="bg-[#080c14] relative" style={{ minHeight: '100dvh' }}>
+    <div className="nx-page bg-[#080c14] relative" style={{ minHeight: '100dvh' }}>
       <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.022]"
         style={{ backgroundImage: 'linear-gradient(#3b82f6 1px,transparent 1px),linear-gradient(to right,#3b82f6 1px,transparent 1px)', backgroundSize: '48px 48px' }} />
       <div className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#1e40af] via-[#3b82f6] to-[#1e40af] z-[100]" />
@@ -92,6 +93,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             <ReadingKey />
             <Link href="/"
               className="text-[10px] font-bold font-mono border border-[#1e3a5f] text-[#93c5fd]/50 hover:text-white hover:border-[#3b82f6]/50 px-4 sm:px-5 py-2.5 rounded-lg transition-all uppercase tracking-widest">

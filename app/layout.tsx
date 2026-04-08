@@ -74,17 +74,28 @@ export const metadata: Metadata = {
 
 import { ToastProvider } from '@/components/ToastProvider';
 import AutoToast from '@/components/AutoToast';
+import { ThemeProvider } from '@/components/ThemeProvider';
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${playfair.variable} ${jetbrains.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${playfair.variable} ${jetbrains.variable}`}>
+      {/* Anti-flash: read localStorage before first paint and set data-theme */}
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('nx-theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="bg-midnight text-white antialiased font-sans">
-        <ToastProvider>
-          {children}
-          <AutoToast />
-        </ToastProvider>
+        <ThemeProvider>
+          <ToastProvider>
+            {children}
+            <AutoToast />
+          </ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
