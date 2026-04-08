@@ -9,9 +9,13 @@ import { headers } from 'next/headers';
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getSiteUrl(): string {
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
-  const host = headers().get('host') ?? 'localhost:3000';
-  const proto = host.startsWith('localhost') ? 'http' : 'https';
+  // SITE_URL is a plain server-side env var — always read at runtime, never
+  // inlined at build time. Prefer this over NEXT_PUBLIC_SITE_URL for server actions.
+  if (process.env.SITE_URL) return process.env.SITE_URL.replace(/\/$/, '');
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '');
+  // Last resort: derive from the request Host header
+  const host = headers().get('x-forwarded-host') ?? headers().get('host') ?? 'localhost:3000';
+  const proto = host.includes('localhost') ? 'http' : 'https';
   return `${proto}://${host}`;
 }
 
