@@ -187,7 +187,7 @@ body::after {
 
 /* FleetTile / table row hover */
 [data-theme="light"] .nx-page .hover\:bg-\[\#0d1526\]:hover {
-  background-color: #eff6ff !important;
+  background-color: #dbeafe !important;
 }
 [data-theme="light"] .nx-page .hover\:bg-\[\#1e3a5f\]\/10:hover {
   background-color: rgba(239,246,255,0.7) !important;
