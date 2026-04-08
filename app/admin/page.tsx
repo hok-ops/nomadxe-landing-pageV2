@@ -11,8 +11,8 @@ import {
 } from './actions';
 import { DeleteUserButton } from './DeleteUserButton';
 import { AssignDeviceForm } from './AssignDeviceForm';
-import { RemoveDeviceButton } from './RemoveDeviceButton';
 import GenerateLinkTool from './GenerateLinkTool';
+import { DevicesCell } from './DevicesCell';
 import Link from 'next/link';
 
 export const metadata = {
@@ -291,30 +291,9 @@ export default async function AdminDashboard({
                             </span>
                           </td>
 
-                          {/* Devices — each with a client-side remove button */}
+                          {/* Devices — collapsed count badge, expand on click */}
                           <td className="px-7 py-5">
-                            {userAssignments.length > 0 ? (
-                              <div className="space-y-2">
-                                {userAssignments.map((inst: any) => (
-                                  <div key={inst.id} className="flex items-center gap-1.5">
-                                    <div>
-                                      <div className="text-sm font-semibold text-white leading-tight">
-                                        {inst.vrm_devices?.name}
-                                      </div>
-                                      <div className="text-[10px] text-[#93c5fd]/30 font-mono">
-                                        {inst.vrm_devices?.vrm_site_id}
-                                      </div>
-                                    </div>
-                                    <RemoveDeviceButton
-                                      assignmentId={inst.id}
-                                      deviceName={inst.vrm_devices?.name ?? ''}
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-[11px] text-[#93c5fd]/20 italic">None assigned</span>
-                            )}
+                            <DevicesCell assignments={userAssignments} />
                           </td>
 
                           {/* Actions */}
