@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import NomadXECoreView, { type VRMData } from '@/components/dashboard/NomadXECoreView';
 import FleetTile from '@/components/dashboard/FleetTile';
+import ReadingKey from '@/components/dashboard/ReadingKey';
 
 interface Device { siteId: string; name: string }
 interface Props {
@@ -90,10 +91,13 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
               <span className="text-[#93c5fd]/75">{onlineCount}/{devices.length} online · {devices.length} unit{devices.length !== 1 ? 's' : ''} assigned</span>
             </p>
           </div>
-          <Link href="/"
-            className="text-[10px] font-bold font-mono border border-[#1e3a5f] text-[#93c5fd]/50 hover:text-white hover:border-[#3b82f6]/50 px-4 sm:px-5 py-2.5 rounded-lg transition-all uppercase tracking-widest">
-            ← Home
-          </Link>
+          <div className="flex items-center gap-2">
+            <ReadingKey />
+            <Link href="/"
+              className="text-[10px] font-bold font-mono border border-[#1e3a5f] text-[#93c5fd]/50 hover:text-white hover:border-[#3b82f6]/50 px-4 sm:px-5 py-2.5 rounded-lg transition-all uppercase tracking-widest">
+              ← Home
+            </Link>
+          </div>
         </header>
 
         {/* ── Empty state ── */}
