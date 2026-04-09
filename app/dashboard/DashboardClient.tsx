@@ -62,12 +62,15 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
     if (refreshing) return;
     setRefreshing(true);
     try {
-      await Promise.all(devices.map(d => pollDevice(d.siteId)));
+      const targets = selectedIds.length > 0
+        ? devices.filter(d => selectedIds.includes(d.siteId))
+        : devices;
+      await Promise.all(targets.map(d => pollDevice(d.siteId)));
       setRefreshKey(k => k + 1);
     } finally {
       setRefreshing(false);
     }
-  }, [devices, pollDevice, refreshing]);
+  }, [devices, selectedIds, pollDevice, refreshing]);
 
   // Auto-scroll newly added card into view in the right panel (desktop)
   useEffect(() => {
@@ -137,7 +140,9 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
                 <polyline points="23 4 23 10 17 10" />
                 <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
               </svg>
-              <span className="hidden sm:inline">{refreshing ? 'Updating…' : 'Refresh'}</span>
+              <span className="hidden sm:inline">
+                {refreshing ? 'Updating…' : hasSelection ? `Refresh (${selectedIds.length})` : 'Refresh All'}
+              </span>
             </button>
             <Link href="/"
               className="text-[10px] font-bold font-mono border border-[#1e3a5f] text-[#93c5fd]/50 hover:text-white hover:border-[#3b82f6]/50 px-4 sm:px-5 py-2.5 rounded-lg transition-all uppercase tracking-widest">
