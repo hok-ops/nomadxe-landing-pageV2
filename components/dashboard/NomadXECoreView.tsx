@@ -20,7 +20,6 @@ export interface VRMData {
 interface Props {
   device: { siteId: string; name: string };
   initialData: VRMData | null;
-  refreshKey?: number;
   displayName?: string | null;
   onRename?: (siteId: string, newName: string) => Promise<void>;
 }
@@ -181,7 +180,7 @@ function StatPill({
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-export default function NomadXECoreView({ device, initialData, refreshKey, displayName, onRename }: Props) {
+export default function NomadXECoreView({ device, initialData, displayName, onRename }: Props) {
   const { theme } = useTheme();
   const isLight = theme === 'light';
 
@@ -237,11 +236,6 @@ export default function NomadXECoreView({ device, initialData, refreshKey, displ
     setLastPoll(new Date());
   }, [device.siteId]);
 
-  // Trigger immediate poll when parent requests a manual refresh
-  useEffect(() => {
-    if (refreshKey && refreshKey > 0) poll();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey]);
 
   // 1 s clock tick for elapsed time display
   useEffect(() => {

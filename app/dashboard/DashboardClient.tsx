@@ -33,13 +33,12 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
       }
     } catch { /* keep existing name */ }
   };
+
   const [selectedIds, setSelectedIds] = useState<string[]>(
     devices.length === 1 ? [devices[0].siteId] : []
   );
   // Mobile-only: 'fleet' shows the tile grid, 'detail' shows selected cards full-width
   const [mobileView, setMobileView] = useState<'fleet' | 'detail'>('fleet');
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [refreshing, setRefreshing] = useState(false);
   const detailPanelRef = useRef<HTMLDivElement>(null);
   const prevSelectedRef = useRef<string[]>(selectedIds);
 
@@ -57,25 +56,11 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
   const devicesRef = useRef(devices);
   useEffect(() => { devicesRef.current = devices; }, [devices]);
 
+  // Auto-poll every 30 seconds — single clock, never resets
   useEffect(() => {
-    const id = setInterval(() => devicesRef.current.forEach(d => pollDevice(d.siteId)), 300_000);
+    const id = setInterval(() => devicesRef.current.forEach(d => pollDevice(d.siteId)), 30_000);
     return () => clearInterval(id);
-  // pollDevice is stable (useCallback []), so this interval is set once and never resets
   }, [pollDevice]);
-
-  const handleRefresh = useCallback(async () => {
-    if (refreshing) return;
-    setRefreshing(true);
-    try {
-      const targets = selectedIds.length > 0
-        ? devices.filter(d => selectedIds.includes(d.siteId))
-        : devices;
-      await Promise.all(targets.map(d => pollDevice(d.siteId)));
-      setRefreshKey(k => k + 1);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [devices, selectedIds, pollDevice, refreshing]);
 
   // Auto-scroll newly added card into view in the right panel (desktop)
   useEffect(() => {
@@ -134,21 +119,6 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <ReadingKey />
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              title="Refresh data now"
-              className="flex items-center gap-1.5 text-[10px] font-bold font-mono border border-[#1e3a5f] text-[#93c5fd]/50 hover:text-white hover:border-[#3b82f6]/50 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-2 rounded-lg transition-all uppercase tracking-widest"
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-                className={refreshing ? 'animate-spin' : ''}>
-                <polyline points="23 4 23 10 17 10" />
-                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-              </svg>
-              <span className="hidden sm:inline">
-                {refreshing ? 'Updating…' : hasSelection ? `Refresh (${selectedIds.length})` : 'Refresh All'}
-              </span>
-            </button>
             <Link href="/"
               className="text-[10px] font-bold font-mono border border-[#1e3a5f] text-[#93c5fd]/50 hover:text-white hover:border-[#3b82f6]/50 px-4 sm:px-5 py-2.5 rounded-lg transition-all uppercase tracking-widest">
               ← Home
@@ -174,7 +144,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
         {/* ── 1 device — full card ── */}
         {devices.length === 1 && (
           <div className="pb-10">
-            <NomadXECoreView device={devices[0]} initialData={dataMap[devices[0].siteId] ?? null} refreshKey={refreshKey} displayName={displayNames[devices[0].siteId] ?? null} onRename={handleRename} />
+            <NomadXECoreView device={devices[0]} initialData={dataMap[devices[0].siteId] ?? null} displayName={displayNames[devices[0].siteId] ?? null} onRename={handleRename} />
           </div>
         )}
 
@@ -182,7 +152,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
         {devices.length > 1 && !hasMany && (
           <div className="space-y-8 pb-10">
             {devices.map(d => (
-              <NomadXECoreView key={d.siteId} device={d} initialData={dataMap[d.siteId] ?? null} refreshKey={refreshKey} displayName={displayNames[d.siteId] ?? null} onRename={handleRename} />
+              <NomadXECoreView key={d.siteId} device={d} initialData={dataMap[d.siteId] ?? null} displayName={displayNames[d.siteId] ?? null} onRename={handleRename} />
             ))}
           </div>
         )}
@@ -241,7 +211,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
                         >
                           ✕
                         </button>
-                        <NomadXECoreView device={device} initialData={dataMap[siteId] ?? null} refreshKey={refreshKey} displayName={displayNames[siteId] ?? null} onRename={handleRename} />
+                        <NomadXECoreView device={device} initialData={dataMap[siteId] ?? null} displayName={displayNames[siteId] ?? null} onRename={handleRename} />
                       </div>
                     );
                   })}
@@ -318,7 +288,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
                         >
                           ✕
                         </button>
-                        <NomadXECoreView device={device} initialData={dataMap[siteId] ?? null} refreshKey={refreshKey} displayName={displayNames[siteId] ?? null} onRename={handleRename} />
+                        <NomadXECoreView device={device} initialData={dataMap[siteId] ?? null} displayName={displayNames[siteId] ?? null} onRename={handleRename} />
                       </div>
                     );
                   })}
