@@ -53,10 +53,15 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
     } catch { /* keep last data */ }
   }, []);
 
+  // Keep a stable ref to devices so the interval never needs to reset
+  const devicesRef = useRef(devices);
+  useEffect(() => { devicesRef.current = devices; }, [devices]);
+
   useEffect(() => {
-    const id = setInterval(() => devices.forEach(d => pollDevice(d.siteId)), 300_000);
+    const id = setInterval(() => devicesRef.current.forEach(d => pollDevice(d.siteId)), 300_000);
     return () => clearInterval(id);
-  }, [devices, pollDevice]);
+  // pollDevice is stable (useCallback []), so this interval is set once and never resets
+  }, [pollDevice]);
 
   const handleRefresh = useCallback(async () => {
     if (refreshing) return;
@@ -141,7 +146,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
                 <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
               </svg>
               <span className="hidden sm:inline">
-                {refreshing ? 'Updating…' : 'Refresh'}
+                {refreshing ? 'Updating…' : hasSelection ? `Refresh (${selectedIds.length})` : 'Refresh All'}
               </span>
             </button>
             <Link href="/"

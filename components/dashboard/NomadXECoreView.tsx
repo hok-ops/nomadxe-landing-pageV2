@@ -237,11 +237,6 @@ export default function NomadXECoreView({ device, initialData, refreshKey, displ
     setLastPoll(new Date());
   }, [device.siteId]);
 
-  useEffect(() => {
-    const id = setInterval(poll, 300_000);
-    return () => clearInterval(id);
-  }, [poll]);
-
   // Trigger immediate poll when parent requests a manual refresh
   useEffect(() => {
     if (refreshKey && refreshKey > 0) poll();
