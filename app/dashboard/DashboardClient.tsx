@@ -199,7 +199,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
 
               {/* Mobile fleet grid */}
               {mobileView === 'fleet' && (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3 items-start content-start">
                   {devices.map(d => (
                     <FleetTile
                       key={d.siteId}
@@ -269,7 +269,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
                   className={`overflow-y-auto pr-1 ${
                     hasSelection
                       ? 'space-y-2.5'
-                      : 'grid grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3'
+                      : 'grid grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 items-start content-start'
                   }`}
                   style={{ height: 'calc(100vh - 14rem)' }}
                 >

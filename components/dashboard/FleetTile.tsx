@@ -44,14 +44,14 @@ export default function FleetTile({ device, data, selected, onClick }: Props) {
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left rounded-xl border p-4 transition-all duration-200 focus:outline-none group ${
+      className={`w-full text-left rounded-xl border p-3 transition-all duration-200 focus:outline-none group ${
         selected
           ? 'border-[#3b82f6]/60 bg-[#1e40af]/10 shadow-[0_0_0_1px_rgba(59,130,246,0.3)]'
           : 'border-[#1e3a5f] bg-[#080c14] hover:border-[#1e3a5f]/80 hover:bg-[#0d1526]'
       }`}
     >
       {/* Row 1: name + status */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2 min-w-0">
           <span
             className={`flex-shrink-0 w-1.5 h-1.5 rounded-full ${
@@ -72,7 +72,7 @@ export default function FleetTile({ device, data, selected, onClick }: Props) {
       </div>
 
       {/* Row 2: Battery SOC */}
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-2 mb-1.5">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={batColor} strokeWidth="2">
           <rect x="2" y="7" width="18" height="10" rx="2" /><path d="M22 11v2" />
         </svg>
@@ -112,7 +112,7 @@ export default function FleetTile({ device, data, selected, onClick }: Props) {
       </div>
 
       {/* Row 4: Site ID — small, bottom of card */}
-      <div className="mt-1.5 text-[9px] font-mono text-[#93c5fd]/50 truncate">
+      <div className="mt-1 text-[9px] font-mono text-[#93c5fd]/50 truncate">
         {device.siteId}
       </div>
     </button>
