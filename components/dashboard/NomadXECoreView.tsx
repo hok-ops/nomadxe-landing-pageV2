@@ -213,14 +213,27 @@ export default function NomadXECoreView({ device, initialData, refreshKey, displ
     setEditing(false);
   };
 
+  // Sync data when parent's dataMap updates (e.g. after DashboardClient.pollDevice)
+  useEffect(() => {
+    if (initialData) {
+      setData(initialData);
+      setLastPoll(new Date());
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData]);
+
   const poll = useCallback(async () => {
     try {
       const res = await fetch(`/api/vrm/${device.siteId}`, { cache: 'no-store' });
       if (res.ok) {
         const json = await res.json();
         if (json.data) setData(json.data);
+      } else {
+        console.error(`[VRM poll] ${device.siteId} → HTTP ${res.status}`);
       }
-    } catch { /* keep last data */ }
+    } catch (err) {
+      console.error(`[VRM poll] ${device.siteId} fetch error:`, err);
+    }
     setLastPoll(new Date());
   }, [device.siteId]);
 
@@ -320,12 +333,16 @@ export default function NomadXECoreView({ device, initialData, refreshKey, displ
           </span>
         </div>
         <div className="flex items-center gap-3 text-[10px] font-mono text-[#93c5fd]/60 uppercase tracking-widest flex-shrink-0">
-          <span>Sync {syncAgo}</span>
           {isOffline
-            ? <span className="text-red-400 font-bold">Offline</span>
-            : <span className="text-[#93c5fd]/65">
-                {lastPoll.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-              </span>
+            ? <span className="text-red-400 font-bold">Offline · VRM {syncAgo}</span>
+            : <>
+                <span title={`VRM device last reported ${syncAgo}`}>
+                  Synced {lastPoll.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </span>
+                <span className="text-[#93c5fd]/35" title="When Victron device last sent telemetry to VRM">
+                  VRM {syncAgo}
+                </span>
+              </>
           }
         </div>
       </div>

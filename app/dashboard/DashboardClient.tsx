@@ -141,7 +141,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
                 <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
               </svg>
               <span className="hidden sm:inline">
-                {refreshing ? 'Updating…' : hasSelection ? `Refresh (${selectedIds.length})` : 'Refresh All'}
+                {refreshing ? 'Updating…' : 'Refresh'}
               </span>
             </button>
             <Link href="/"
