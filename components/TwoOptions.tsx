@@ -7,6 +7,7 @@ const PANEL1_FEATURES = [
   'Compatible with major NVR brands',
   'No fixed infrastructure needed',
   'Relocatable in under 2 hours',
+  'Full trailer servicing included',
 ];
 
 const PANEL2_FEATURES = [
@@ -14,6 +15,7 @@ const PANEL2_FEATURES = [
   'Pre-configured monitoring platform',
   'Dedicated monitoring partner setup',
   'Turnkey — fully operational day one',
+  'Full trailer servicing included',
 ];
 
 export default function TwoOptions() {
@@ -149,6 +151,11 @@ export default function TwoOptions() {
             </a>
           </div>
         </div>
+
+        {/* Servicing assurance note */}
+        <p className="mt-8 text-center font-mono text-xs tracking-widest uppercase text-white/35">
+          Every lease includes full trailer servicing — zero maintenance on your end.
+        </p>
       </div>
     </section>
   );
