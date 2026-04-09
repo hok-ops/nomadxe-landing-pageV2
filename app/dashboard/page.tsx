@@ -74,13 +74,17 @@ export default async function DashboardPage() {
   const adminClient = createAdminClient();
   const { data: assignments } = await adminClient
     .from('device_assignments')
-    .select('device_id, vrm_devices(id, vrm_site_id, name)')
+    .select('device_id, vrm_devices(id, vrm_site_id, name, display_name)')
     .eq('user_id', user.id);
 
   const devices = (assignments ?? [])
     .map((a: any) => a.vrm_devices)
     .filter(Boolean)
-    .map((d: any) => ({ siteId: String(d.vrm_site_id), name: String(d.name) }));
+    .map((d: any) => ({
+      siteId:      String(d.vrm_site_id),
+      name:        String(d.name),
+      displayName: d.display_name ?? null,
+    }));
 
   const initialDataMap = Object.fromEntries(
     await Promise.all(

@@ -17,7 +17,7 @@ const MPPT_LABEL_COLOR: Record<string, string> = {
 };
 
 interface Props {
-  device: { siteId: string; name: string };
+  device: { siteId: string; name: string; displayName?: string | null };
   data: VRMData | null;
   selected: boolean;
   onClick: () => void;
@@ -61,7 +61,9 @@ export default function FleetTile({ device, data, selected, onClick }: Props) {
             }`}
             style={(!noData && !isOffline) ? { boxShadow: '0 0 5px #4ade80' } : {}}
           />
-          <span className="text-[13px] font-bold text-white truncate">{device.name}</span>
+          <span className="text-[13px] font-bold text-white truncate">
+            {device.displayName ?? device.name}
+          </span>
         </div>
         <span className={`text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-md flex-shrink-0 ml-2`}
           style={{ color: mpptColor, background: mpptColor + '18', border: `1px solid ${mpptColor}30` }}>

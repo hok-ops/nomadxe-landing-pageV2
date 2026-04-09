@@ -7,7 +7,7 @@ import FleetTile from '@/components/dashboard/FleetTile';
 import ReadingKey from '@/components/dashboard/ReadingKey';
 import ThemeToggle from '@/components/ThemeToggle';
 
-interface Device { siteId: string; name: string }
+export interface Device { siteId: string; name: string; displayName: string | null }
 interface Props {
   devices: Device[];
   initialDataMap: Record<string, VRMData | null>;
@@ -15,6 +15,24 @@ interface Props {
 
 export default function DashboardClient({ devices, initialDataMap }: Props) {
   const [dataMap, setDataMap] = useState<Record<string, VRMData | null>>(initialDataMap);
+  // Local display name overrides — updated immediately on save without a full page reload
+  const [displayNames, setDisplayNames] = useState<Record<string, string | null>>(
+    Object.fromEntries(devices.map(d => [d.siteId, d.displayName]))
+  );
+
+  const handleRename = async (siteId: string, newName: string) => {
+    const trimmed = newName.trim();
+    try {
+      const res = await fetch(`/api/devices/${siteId}/display-name`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName: trimmed }),
+      });
+      if (res.ok) {
+        setDisplayNames(prev => ({ ...prev, [siteId]: trimmed || null }));
+      }
+    } catch { /* keep existing name */ }
+  };
   const [selectedIds, setSelectedIds] = useState<string[]>(
     devices.length === 1 ? [devices[0].siteId] : []
   );
@@ -142,7 +160,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
         {/* ── 1 device — full card ── */}
         {devices.length === 1 && (
           <div className="pb-10">
-            <NomadXECoreView device={devices[0]} initialData={dataMap[devices[0].siteId] ?? null} refreshKey={refreshKey} />
+            <NomadXECoreView device={devices[0]} initialData={dataMap[devices[0].siteId] ?? null} refreshKey={refreshKey} displayName={displayNames[devices[0].siteId] ?? null} onRename={handleRename} />
           </div>
         )}
 
@@ -150,7 +168,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
         {devices.length > 1 && !hasMany && (
           <div className="space-y-8 pb-10">
             {devices.map(d => (
-              <NomadXECoreView key={d.siteId} device={d} initialData={dataMap[d.siteId] ?? null} refreshKey={refreshKey} />
+              <NomadXECoreView key={d.siteId} device={d} initialData={dataMap[d.siteId] ?? null} refreshKey={refreshKey} displayName={displayNames[d.siteId] ?? null} onRename={handleRename} />
             ))}
           </div>
         )}
@@ -209,7 +227,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
                         >
                           ✕
                         </button>
-                        <NomadXECoreView device={device} initialData={dataMap[siteId] ?? null} refreshKey={refreshKey} />
+                        <NomadXECoreView device={device} initialData={dataMap[siteId] ?? null} refreshKey={refreshKey} displayName={displayNames[siteId] ?? null} onRename={handleRename} />
                       </div>
                     );
                   })}
@@ -286,7 +304,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
                         >
                           ✕
                         </button>
-                        <NomadXECoreView device={device} initialData={dataMap[siteId] ?? null} refreshKey={refreshKey} />
+                        <NomadXECoreView device={device} initialData={dataMap[siteId] ?? null} refreshKey={refreshKey} displayName={displayNames[siteId] ?? null} onRename={handleRename} />
                       </div>
                     );
                   })}

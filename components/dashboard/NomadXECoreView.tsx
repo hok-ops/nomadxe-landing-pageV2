@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -21,6 +21,8 @@ interface Props {
   device: { siteId: string; name: string };
   initialData: VRMData | null;
   refreshKey?: number;
+  displayName?: string | null;
+  onRename?: (siteId: string, newName: string) => Promise<void>;
 }
 
 // ── MPPT state → visual config ────────────────────────────────────────────────
@@ -179,13 +181,37 @@ function StatPill({
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-export default function NomadXECoreView({ device, initialData, refreshKey }: Props) {
+export default function NomadXECoreView({ device, initialData, refreshKey, displayName, onRename }: Props) {
   const { theme } = useTheme();
   const isLight = theme === 'light';
 
   const [data, setData]       = useState<VRMData | null>(initialData);
   const [lastPoll, setLastPoll] = useState(new Date());
   const [, setTick]           = useState(0);
+
+  // Inline rename state
+  const [editing, setEditing]   = useState(false);
+  const [draftName, setDraftName] = useState('');
+  const [saving, setSaving]     = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const startEdit = () => {
+    setDraftName(displayName ?? device.name);
+    setEditing(true);
+    setTimeout(() => inputRef.current?.select(), 0);
+  };
+
+  const cancelEdit = () => { setEditing(false); setDraftName(''); };
+
+  const commitEdit = async () => {
+    if (!onRename) { cancelEdit(); return; }
+    const trimmed = draftName.trim();
+    if (trimmed === (displayName ?? device.name)) { cancelEdit(); return; }
+    setSaving(true);
+    await onRename(device.siteId, trimmed);
+    setSaving(false);
+    setEditing(false);
+  };
 
   const poll = useCallback(async () => {
     try {
@@ -249,7 +275,46 @@ export default function NomadXECoreView({ device, initialData, refreshKey }: Pro
             className={`flex-shrink-0 w-2 h-2 rounded-full ${isOffline ? 'bg-red-500' : 'bg-emerald-400 animate-pulse'}`}
             style={isOffline ? {} : { boxShadow: '0 0 7px #4ade80' }}
           />
-          <span className="text-white font-bold text-sm truncate">{device.name}</span>
+
+          {/* Inline device name — click pencil to edit */}
+          {editing ? (
+            <div className="flex items-center gap-1.5 min-w-0">
+              <input
+                ref={inputRef}
+                value={draftName}
+                onChange={e => setDraftName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') cancelEdit(); }}
+                onBlur={commitEdit}
+                disabled={saving}
+                maxLength={80}
+                className="bg-[#080c14] border border-[#3b82f6]/60 rounded-md px-2 py-0.5 text-white font-bold text-sm outline-none focus:ring-1 focus:ring-[#3b82f6]/40 w-48 disabled:opacity-50"
+              />
+              {saving && (
+                <svg className="animate-spin flex-shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2.5">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                </svg>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 group/name min-w-0">
+              <span className="text-white font-bold text-sm truncate">
+                {displayName ?? device.name}
+              </span>
+              {onRename && (
+                <button
+                  onClick={startEdit}
+                  title="Rename device"
+                  className="flex-shrink-0 opacity-0 group-hover/name:opacity-100 transition-opacity text-[#93c5fd]/40 hover:text-[#3b82f6] focus:opacity-100"
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          )}
+
           <span className="hidden sm:inline text-[10px] font-mono text-[#93c5fd]/60 uppercase tracking-widest flex-shrink-0">
             Site {device.siteId}
           </span>
