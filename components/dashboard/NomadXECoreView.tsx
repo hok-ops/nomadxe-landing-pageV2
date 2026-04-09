@@ -357,7 +357,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
             <div className="mb-0.5">
               <span className="text-4xl font-black tabular-nums leading-none"
                 style={{ color: solarActive ? (isLight ? '#16a34a' : '#22c55e') : (isLight ? '#94a3b8' : '#374151') }}>
-                {data?.solar.power ?? 0}
+                {+(data?.solar.power ?? 0).toFixed(2)}
               </span>
               <span className="text-sm font-bold text-[#22c55e]/70 ml-1">W</span>
             </div>
@@ -453,7 +453,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
               />
               <StatPill
                 label="Power" unit="W"
-                value={String(Math.abs(data?.battery.power ?? 0))}
+                value={(Math.abs(data?.battery.power ?? 0)).toFixed(2)}
                 color={isLight ? '#2563eb' : '#93c5fd'}
               />
             </div>
@@ -481,7 +481,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
             <div className="mb-0.5">
               <span className="text-4xl font-black tabular-nums leading-none"
                 style={{ color: loadActive ? (isLight ? '#d97706' : '#f59e0b') : (isLight ? '#94a3b8' : '#374151') }}>
-                {data?.dcLoad ?? 0}
+                {+(data?.dcLoad ?? 0).toFixed(2)}
               </span>
               <span className="text-sm font-bold text-[#f59e0b]/70 ml-1">W</span>
             </div>
@@ -514,7 +514,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
                     </div>
                     <span className="text-[11px] font-black tabular-nums"
                       style={{ color: surplus ? '#22c55e' : '#f59e0b' }}>
-                      {surplus ? `+${sW - lW}W` : `${pct}%`}
+                      {surplus ? `+${+(sW - lW).toFixed(2)}W` : `${pct}%`}
                     </span>
                   </div>
                   <div className="text-[9px] font-mono mt-1"
