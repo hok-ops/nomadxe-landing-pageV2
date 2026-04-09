@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useTransition } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import NomadXECoreView, { type VRMData } from '@/components/dashboard/NomadXECoreView';
 import FleetTile from '@/components/dashboard/FleetTile';
@@ -39,7 +39,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
   // Mobile-only: 'fleet' shows the tile grid, 'detail' shows selected cards full-width
   const [mobileView, setMobileView] = useState<'fleet' | 'detail'>('fleet');
   const [refreshKey, setRefreshKey] = useState(0);
-  const [refreshing, startRefresh] = useTransition();
+  const [refreshing, setRefreshing] = useState(false);
   const detailPanelRef = useRef<HTMLDivElement>(null);
   const prevSelectedRef = useRef<string[]>(selectedIds);
 
@@ -58,12 +58,16 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
     return () => clearInterval(id);
   }, [devices, pollDevice]);
 
-  const handleRefresh = useCallback(() => {
-    startRefresh(async () => {
+  const handleRefresh = useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
       await Promise.all(devices.map(d => pollDevice(d.siteId)));
       setRefreshKey(k => k + 1);
-    });
-  }, [devices, pollDevice]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [devices, pollDevice, refreshing]);
 
   // Auto-scroll newly added card into view in the right panel (desktop)
   useEffect(() => {

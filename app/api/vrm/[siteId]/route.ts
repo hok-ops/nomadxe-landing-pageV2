@@ -80,7 +80,7 @@ async function fetchVRM(path: string): Promise<any> {
   if (!token) throw new Error('VICTRON_ADMIN_TOKEN not configured');
   const res = await fetch(`https://vrmapi.victronenergy.com/v2${path}`, {
     headers: { 'X-Authorization': `Token ${token}` },
-    next: { revalidate: 0 },
+    cache: 'no-store',
   });
   if (!res.ok) throw new Error(`VRM ${res.status}: ${path}`);
   return res.json();
@@ -94,6 +94,8 @@ function deriveDCLoad(solarW: number, batteryW: number): number {
 }
 
 // ── Route ─────────────────────────────────────────────────────────────────────
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: NextRequest,
