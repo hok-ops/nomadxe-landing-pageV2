@@ -212,15 +212,6 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
     setEditing(false);
   };
 
-  // Sync data when parent's dataMap updates (e.g. after DashboardClient.pollDevice)
-  useEffect(() => {
-    if (initialData) {
-      setData(initialData);
-      setLastPoll(new Date());
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialData]);
-
   const poll = useCallback(async () => {
     try {
       const res = await fetch(`/api/vrm/${device.siteId}`, { cache: 'no-store' });
@@ -236,6 +227,12 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
     setLastPoll(new Date());
   }, [device.siteId]);
 
+  // Poll immediately on mount, then every 30 s
+  useEffect(() => {
+    poll();
+    const id = setInterval(poll, 30_000);
+    return () => clearInterval(id);
+  }, [poll]);
 
   // 1 s clock tick for elapsed time display
   useEffect(() => {
