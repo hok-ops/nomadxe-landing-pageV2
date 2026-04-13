@@ -10,8 +10,6 @@ const MPPT_OPTIONS = [
   { label: 'Absorption',  value: 'Absorption',    color: '#f59e0b' },
   { label: 'Float',       value: 'Float',         color: '#22c55e' },
   { label: 'Storage',     value: 'Storage',       color: '#22c55e' },
-  { label: 'Equalize',    value: 'Equalize',      color: '#3b82f6' },
-  { label: 'Ext. Control',value: 'Ext. Control',  color: '#8b5cf6' },
   { label: 'Fault',       value: 'Fault',         color: '#ef4444' },
 ] as const;
 
@@ -62,8 +60,8 @@ export function deviceMatchesFilters(
     const nowS      = Date.now() / 1000;
     const lastSeenS = data?.lastSeen ?? 0;
     const noData    = lastSeenS === 0;
-    const isLive    = !noData && (nowS - lastSeenS) < 15 * 60;
-    const isOffline = !noData && !isLive;
+    const isOffline = lastSeenS > 0 && (nowS - lastSeenS) > 15 * 60;
+    const isLive    = lastSeenS > 0 && !isOffline;
 
     const matches =
       (filters.connection.has('live')    && isLive)    ||
