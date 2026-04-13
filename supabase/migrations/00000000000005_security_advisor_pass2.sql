@@ -19,7 +19,12 @@
 -- serve its rows to anonymous or authenticated callers directly.
 -- Only service_role (admin client) should ever read or write audit logs.
 
-ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+DO $$ 
+BEGIN 
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename  = 'audit_logs') THEN
+        ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+    END IF;
+END $$;
 
 -- Deny all direct access from authenticated / anon roles.
 -- service_role bypasses RLS and is unaffected.
