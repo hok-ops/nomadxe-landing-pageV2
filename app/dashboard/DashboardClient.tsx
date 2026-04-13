@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import NomadXECoreView, { type VRMData } from '@/components/dashboard/NomadXECoreView';
 import FleetTile from '@/components/dashboard/FleetTile';
+import FleetFilter, { type FleetFilters, EMPTY_FILTERS, deviceMatchesFilters, hasActiveFilters } from '@/components/dashboard/FleetFilter';
 import ReadingKey from '@/components/dashboard/ReadingKey';
 import ThemeToggle from '@/components/ThemeToggle';
 
@@ -39,6 +40,8 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
   );
   // Mobile-only: 'fleet' shows the tile grid, 'detail' shows selected cards full-width
   const [mobileView, setMobileView] = useState<'fleet' | 'detail'>('fleet');
+  // Fleet filters — MPPT charge state + online/offline
+  const [filters, setFilters] = useState<FleetFilters>(EMPTY_FILTERS);
   const detailPanelRef = useRef<HTMLDivElement>(null);
   const prevSelectedRef = useRef<string[]>(selectedIds);
 
@@ -92,6 +95,13 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
     const data = dataMap[d.siteId];
     return data ? (Date.now() / 1000 - data.lastSeen) < 15 * 60 : false;
   }).length;
+
+  // Filter devices for fleet view
+  const filteredDevices = useMemo(
+    () => devices.filter(d => deviceMatchesFilters(dataMap[d.siteId] ?? null, filters)),
+    [devices, dataMap, filters],
+  );
+  const filtersActive = hasActiveFilters(filters);
 
   const hasMany      = devices.length > 3;
   const hasSelection = selectedIds.length > 0;
@@ -183,17 +193,32 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
 
               {/* Mobile fleet grid */}
               {mobileView === 'fleet' && (
-                <div className="grid grid-cols-2 gap-3 items-start content-start">
-                  {devices.map(d => (
-                    <FleetTile
-                      key={d.siteId}
-                      device={d}
-                      data={dataMap[d.siteId] ?? null}
-                      selected={selectedIds.includes(d.siteId)}
-                      onClick={() => toggleSite(d.siteId)}
-                    />
-                  ))}
-                </div>
+                <>
+                  <FleetFilter filters={filters} onChange={setFilters} />
+                  {filteredDevices.length === 0 && filtersActive ? (
+                    <div className="flex flex-col items-center justify-center py-16 text-center">
+                      <p className="text-[#93c5fd]/40 text-sm mb-3">No devices match your filters</p>
+                      <button
+                        onClick={() => setFilters(EMPTY_FILTERS)}
+                        className="text-[10px] font-mono font-bold text-[#3b82f6] hover:text-white uppercase tracking-widest transition-colors"
+                      >
+                        Clear filters
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 items-start content-start">
+                      {filteredDevices.map(d => (
+                        <FleetTile
+                          key={d.siteId}
+                          device={d}
+                          data={dataMap[d.siteId] ?? null}
+                          selected={selectedIds.includes(d.siteId)}
+                          onClick={() => toggleSite(d.siteId)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Mobile detail stack */}
@@ -248,25 +273,40 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
                   )}
                 </div>
 
+                {/* Filter bar */}
+                <FleetFilter filters={filters} onChange={setFilters} />
+
                 {/* Tile grid (unselected) / list (selected) */}
-                <div
-                  className={`overflow-y-auto pr-1 ${
-                    hasSelection
-                      ? 'space-y-2.5'
-                      : 'grid grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 items-start content-start'
-                  }`}
-                  style={{ height: 'calc(100vh - 14rem)' }}
-                >
-                  {devices.map(d => (
-                    <FleetTile
-                      key={d.siteId}
-                      device={d}
-                      data={dataMap[d.siteId] ?? null}
-                      selected={selectedIds.includes(d.siteId)}
-                      onClick={() => toggleSite(d.siteId)}
-                    />
-                  ))}
-                </div>
+                {filteredDevices.length === 0 && filtersActive ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <p className="text-[#93c5fd]/40 text-sm mb-3">No devices match your filters</p>
+                    <button
+                      onClick={() => setFilters(EMPTY_FILTERS)}
+                      className="text-[10px] font-mono font-bold text-[#3b82f6] hover:text-white uppercase tracking-widest transition-colors"
+                    >
+                      Clear filters
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    className={`overflow-y-auto pr-1 ${
+                      hasSelection
+                        ? 'space-y-2.5'
+                        : 'grid grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 items-start content-start'
+                    }`}
+                    style={{ height: 'calc(100vh - 17rem)' }}
+                  >
+                    {filteredDevices.map(d => (
+                      <FleetTile
+                        key={d.siteId}
+                        device={d}
+                        data={dataMap[d.siteId] ?? null}
+                        selected={selectedIds.includes(d.siteId)}
+                        onClick={() => toggleSite(d.siteId)}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* RIGHT: detail stack */}
