@@ -152,7 +152,9 @@ export async function GET(
 
     const data: VRMData = {
       siteId,
-      lastSeen: latestTimestamp(records) || now,
+      // Use 0 (not `now`) when no timestamps are present so the UI can correctly
+      // classify the device as "No data" rather than falsely showing it as Live.
+      lastSeen: latestTimestamp(records),
       battery: {
         soc:     pick(records, A.BATTERY_SOC),
         voltage: pick(records, A.BATTERY_V),
@@ -165,7 +167,9 @@ export async function GET(
         voltage:        pick(records, A.SOLAR_V),
         yieldToday:     pick(records, A.SOLAR_TODAY),
         mpptState:      mpptStateRaw,
-        mpptStateLabel: MPPT_LABELS[mpptStateRaw] ?? 'Unknown',
+        // Fall back to 'Off' for any unrecognised state so fleet filters always
+        // have a known chip to match against (avoids devices vanishing mid-filter).
+        mpptStateLabel: MPPT_LABELS[mpptStateRaw] ?? 'Off',
       },
       dcLoad,
       sparkline: extractSparkline(statsJson, A.SOLAR_W), // attr 442 for stats API

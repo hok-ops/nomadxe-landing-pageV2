@@ -5,14 +5,18 @@ import type { VRMData } from './NomadXECoreView';
 /* ── Filter option definitions ── */
 
 const MPPT_OPTIONS = [
-  { label: 'Off',        value: 'Off',        color: '#9ca3af' },
-  { label: 'Bulk',       value: 'Bulk',       color: '#f59e0b' },
-  { label: 'Absorption', value: 'Absorption', color: '#f59e0b' },
-  { label: 'Float',      value: 'Float',      color: '#22c55e' },
-  { label: 'Storage',    value: 'Storage',    color: '#22c55e' },
-  { label: 'Equalize',   value: 'Equalize',   color: '#3b82f6' },
-  { label: 'Fault',      value: 'Fault',      color: '#ef4444' },
+  { label: 'Off',         value: 'Off',          color: '#9ca3af' },
+  { label: 'Bulk',        value: 'Bulk',          color: '#f59e0b' },
+  { label: 'Absorption',  value: 'Absorption',    color: '#f59e0b' },
+  { label: 'Float',       value: 'Float',         color: '#22c55e' },
+  { label: 'Storage',     value: 'Storage',       color: '#22c55e' },
+  { label: 'Equalize',    value: 'Equalize',      color: '#3b82f6' },
+  { label: 'Ext. Control',value: 'Ext. Control',  color: '#8b5cf6' },
+  { label: 'Fault',       value: 'Fault',         color: '#ef4444' },
 ] as const;
+
+// All known MPPT label values — used to normalise unexpected API responses
+const KNOWN_MPPT_VALUES = new Set(MPPT_OPTIONS.map(o => o.value));
 
 const CONNECTION_OPTIONS = [
   { label: 'Live',     value: 'live',    color: '#4ade80' },
@@ -47,8 +51,10 @@ export function deviceMatchesFilters(
 
   // MPPT group (OR within group)
   if (mpptActive) {
-    const label = data?.solar.mpptStateLabel ?? 'Off';
-    if (!filters.mppt.has(label as MpptFilter)) return false;
+    const raw   = data?.solar.mpptStateLabel ?? 'Off';
+    // Normalise any label the API might return that we don't have a chip for → 'Off'
+    const label = (KNOWN_MPPT_VALUES.has(raw as MpptFilter) ? raw : 'Off') as MpptFilter;
+    if (!filters.mppt.has(label)) return false;
   }
 
   // Connection group (OR within group, AND across groups)
