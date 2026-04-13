@@ -13,10 +13,10 @@ function getSiteUrl(): string {
   // inlined at build time. Prefer this over NEXT_PUBLIC_SITE_URL for server actions.
   if (process.env.SITE_URL) return process.env.SITE_URL.replace(/\/$/, '');
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '');
-  // Last resort: derive from the request Host header
-  const host = headers().get('x-forwarded-host') ?? headers().get('host') ?? 'localhost:3000';
-  const proto = host.includes('localhost') ? 'http' : 'https';
-  return `${proto}://${host}`;
+  // Last resort: statically fallback based on NODE_ENV to prevent Host header forgery
+  return process.env.NODE_ENV === 'development'
+    ? 'http://localhost:3000'
+    : 'https://www.nomadxe.com';
 }
 
 async function generateToken(): Promise<string> {
