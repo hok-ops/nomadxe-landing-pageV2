@@ -186,9 +186,6 @@ export default function ReadingKey() {
                 </div>
               </section>
 
-              <div className="pt-2 pb-1 text-center text-[9px] text-[#93c5fd]/30 font-mono uppercase tracking-widest">
-                Data refreshes every 5 minutes · refresh manually anytime
-              </div>
             </div>
           </div>
         </div>
