@@ -109,7 +109,7 @@ export default function Navbar() {
 
           {/* GET STARTED — outline / ghost pill */}
           <a
-            href={isOps ? '#' : '#contact'}
+            href={isOps ? '#' : '/order'}
             className="inline-flex items-center gap-1.5 text-sm font-semibold rounded-full px-5 py-2 border transition-all duration-200 hover:scale-[1.02] hover:-translate-y-px active:scale-[0.97]"
             style={{
               color: accentColor,
@@ -184,7 +184,7 @@ export default function Navbar() {
 
         {/* Mobile: Get Started — ghost */}
         <a
-          href={isOps ? '#' : '#contact'}
+          href={isOps ? '#' : '/order'}
           onClick={() => setMenuOpen(false)}
           className="text-lg font-semibold rounded-full px-8 py-3 border transition-all duration-300"
           style={{
