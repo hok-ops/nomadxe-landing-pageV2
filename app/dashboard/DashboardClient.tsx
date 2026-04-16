@@ -98,7 +98,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
 
   // Filter devices for fleet view
   const filteredDevices = useMemo(
-    () => devices.filter(d => deviceMatchesFilters(dataMap[d.siteId] ?? null, filters)),
+    () => devices.filter(d => deviceMatchesFilters(d, dataMap[d.siteId] ?? null, filters)),
     [devices, dataMap, filters],
   );
   const filtersActive = hasActiveFilters(filters);

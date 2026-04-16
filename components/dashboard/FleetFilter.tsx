@@ -30,22 +30,40 @@ export type ConnectionFilter = (typeof CONNECTION_OPTIONS)[number]['value'];
 export interface FleetFilters {
   mppt:       Set<MpptFilter>;
   connection: Set<ConnectionFilter>;
+  search:     string;
 }
 
-export const EMPTY_FILTERS: FleetFilters = { mppt: new Set(), connection: new Set() };
+/** Minimal device shape needed for search matching */
+export interface SearchableDevice {
+  siteId: string;
+  name: string;
+  displayName: string | null;
+}
+
+export const EMPTY_FILTERS: FleetFilters = { mppt: new Set(), connection: new Set(), search: '' };
 
 /* ── Helpers ── */
 
 /** Returns true if the device passes all active filter groups */
 export function deviceMatchesFilters(
+  device: SearchableDevice,
   data: VRMData | null,
   filters: FleetFilters,
 ): boolean {
   const mpptActive       = filters.mppt.size > 0;
   const connectionActive = filters.connection.size > 0;
+  const searchQuery      = filters.search.trim().toLowerCase();
+  const searchActive     = searchQuery.length > 0;
 
   // No filters → everything matches
-  if (!mpptActive && !connectionActive) return true;
+  if (!mpptActive && !connectionActive && !searchActive) return true;
+
+  // Compute connection status once — reused by connection filter + search
+  const nowS      = Date.now() / 1000;
+  const lastSeenS = data?.lastSeen ?? 0;
+  const noData    = lastSeenS === 0;
+  const isOffline = lastSeenS > 0 && (nowS - lastSeenS) > 15 * 60;
+  const isLive    = lastSeenS > 0 && !isOffline;
 
   // MPPT group (OR within group)
   if (mpptActive) {
@@ -57,12 +75,6 @@ export function deviceMatchesFilters(
 
   // Connection group (OR within group, AND across groups)
   if (connectionActive) {
-    const nowS      = Date.now() / 1000;
-    const lastSeenS = data?.lastSeen ?? 0;
-    const noData    = lastSeenS === 0;
-    const isOffline = lastSeenS > 0 && (nowS - lastSeenS) > 15 * 60;
-    const isLive    = lastSeenS > 0 && !isOffline;
-
     const matches =
       (filters.connection.has('live')    && isLive)    ||
       (filters.connection.has('offline') && isOffline) ||
@@ -71,11 +83,27 @@ export function deviceMatchesFilters(
     if (!matches) return false;
   }
 
+  // Search — matches device name, display name, VRM site ID, or status keywords
+  if (searchActive) {
+    const haystack = [
+      device.name,
+      device.displayName ?? '',
+      device.siteId,
+      isLive    ? 'online live' : '',
+      isOffline ? 'offline'     : '',
+      noData    ? 'no data offline' : '',
+    ]
+      .join(' ')
+      .toLowerCase();
+
+    if (!haystack.includes(searchQuery)) return false;
+  }
+
   return true;
 }
 
 export function hasActiveFilters(filters: FleetFilters): boolean {
-  return filters.mppt.size > 0 || filters.connection.size > 0;
+  return filters.mppt.size > 0 || filters.connection.size > 0 || filters.search.trim().length > 0;
 }
 
 /* ── Component ── */
@@ -99,7 +127,7 @@ export default function FleetFilter({ filters, onChange }: Props) {
     onChange({ ...filters, connection: next });
   };
 
-  const clearAll = () => onChange({ mppt: new Set(), connection: new Set() });
+  const clearAll = () => onChange({ mppt: new Set(), connection: new Set(), search: '' });
   const active = hasActiveFilters(filters);
 
   return (
@@ -119,6 +147,44 @@ export default function FleetFilter({ filters, onChange }: Props) {
           </button>
         )}
       </div>
+
+      {/* Search row */}
+      <div className="relative">
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#93c5fd]/40 pointer-events-none"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <line x1="21" y1="21" x2="16.5" y2="16.5" />
+        </svg>
+        <input
+          type="search"
+          value={filters.search}
+          onChange={(e) => onChange({ ...filters, search: e.target.value })}
+          placeholder="Search by name, site ID, or status…"
+          aria-label="Search fleet"
+          className="w-full bg-[#0b1220]/70 border border-[#1e3a5f]/60 focus:border-[#3b82f6]/60 focus:outline-none focus:ring-1 focus:ring-[#3b82f6]/30 rounded-md pl-8 pr-8 py-1.5 text-[11px] font-mono text-white placeholder:text-[#93c5fd]/30 transition-colors"
+        />
+        {filters.search.length > 0 && (
+          <button
+            type="button"
+            onClick={() => onChange({ ...filters, search: '' })}
+            aria-label="Clear search"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-[#93c5fd]/40 hover:text-white text-xs transition-colors"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-[#1e3a5f]/40" />
 
       {/* Connection Status row */}
       <FilterRow label="Connection Status">
