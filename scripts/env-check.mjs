@@ -3,7 +3,8 @@ import path from 'path';
 
 const REQUIRED_SECRETS = [
   'SUPABASE_SERVICE_ROLE_KEY',
-  'VICTRON_ADMIN_TOKEN'
+  'VICTRON_ADMIN_TOKEN',
+  'MAKE_WEBHOOK_URL',   // Make.com webhook endpoint for order form (Method 2)
 ];
 
 const FORBIDDEN_PUBLIC_PREFIX = 'NEXT_PUBLIC_';
