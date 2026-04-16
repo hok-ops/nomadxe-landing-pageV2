@@ -123,7 +123,7 @@ export default function Navbar() {
               (e.currentTarget as HTMLElement).style.backgroundColor = `${accentColor}10`;
             }}
           >
-            {isOps ? 'Deploy' : 'Get Started'}
+            {isOps ? 'Deploy' : 'Order Form'}
           </a>
         </div>
 
@@ -195,7 +195,7 @@ export default function Navbar() {
             opacity: menuOpen ? 1 : 0,
           }}
         >
-          {isOps ? 'Deploy' : 'Get Started'}
+          {isOps ? 'Deploy' : 'Order Form'}
         </a>
       </div>
     </>
