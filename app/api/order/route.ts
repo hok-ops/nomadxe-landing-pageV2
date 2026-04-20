@@ -48,7 +48,7 @@ interface OrderPayload {
   start_date: string;
   duration: string;
   trailer_count: string;
-  power_source: string;
+  deployment_option: string;
 
   // Optional
   notes?: string;
@@ -126,12 +126,10 @@ export async function POST(req: NextRequest) {
     'company',
     'site_type',
     'site_address',
-    'gps_lat',
-    'gps_lng',
     'start_date',
     'duration',
     'trailer_count',
-    'power_source',
+    'deployment_option',
   ];
 
   for (const field of requiredFields) {
@@ -145,8 +143,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── 3. GPS coordinate validation ─────────────────────────────────────────
-  if (!isValidLat(body.gps_lat)) {
+  // ── 3. GPS coordinate validation (optional fields) ───────────────────────
+  if (body.gps_lat && !isValidLat(body.gps_lat)) {
     return NextResponse.json(
       {
         error: 'Invalid GPS latitude. Expected decimal degrees between -90 and 90 (e.g. 40.7128).',
@@ -156,7 +154,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (!isValidLng(body.gps_lng)) {
+  if (body.gps_lng && !isValidLng(body.gps_lng)) {
     return NextResponse.json(
       {
         error:
@@ -193,9 +191,9 @@ export async function POST(req: NextRequest) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...body,
-        // Normalise coordinates to numbers for cleaner Airtable mapping
-        gps_lat: parseFloat(body.gps_lat),
-        gps_lng: parseFloat(body.gps_lng),
+        // Normalise coordinates to numbers when provided
+        ...(body.gps_lat ? { gps_lat: parseFloat(body.gps_lat) } : {}),
+        ...(body.gps_lng ? { gps_lng: parseFloat(body.gps_lng) } : {}),
         // ISO timestamp of submission
         submitted_at: new Date().toISOString(),
       }),

@@ -27,10 +27,8 @@ const DURATIONS = [
 ];
 
 const POWER_SOURCES = [
-  'Solar (Self-contained)',
-  'Shore Power (Grid-tied)',
-  'Generator',
-  'Hybrid',
+  'Option 01 — Trailer & Power Base',
+  'Option 02 — Fully Equipped',
 ];
 
 const TRAILER_COUNTS = ['1', '2', '3', '4+'];
@@ -52,7 +50,7 @@ interface FieldErrors {
   start_date?: string;
   duration?: string;
   trailer_count?: string;
-  power_source?: string;
+  deployment_option?: string;
 }
 
 interface UtmParams {
@@ -91,7 +89,7 @@ const INITIAL_FIELDS = {
   start_date: '',
   duration: '',
   trailer_count: '',
-  power_source: '',
+  deployment_option: '',
   notes: '',
 };
 
@@ -106,20 +104,16 @@ function validate(fields: typeof INITIAL_FIELDS): FieldErrors {
   if (!fields.company.trim()) e.company = 'Required';
   if (!fields.site_type) e.site_type = 'Select a site type';
   if (!fields.site_address.trim()) e.site_address = 'Required';
-  if (!fields.gps_lat.trim()) {
-    e.gps_lat = 'Required';
-  } else if (!validateLat(fields.gps_lat)) {
+  if (fields.gps_lat.trim() && !validateLat(fields.gps_lat)) {
     e.gps_lat = 'Decimal degrees, −90 to 90';
   }
-  if (!fields.gps_lng.trim()) {
-    e.gps_lng = 'Required';
-  } else if (!validateLng(fields.gps_lng)) {
+  if (fields.gps_lng.trim() && !validateLng(fields.gps_lng)) {
     e.gps_lng = 'Decimal degrees, −180 to 180';
   }
   if (!fields.start_date) e.start_date = 'Required';
   if (!fields.duration) e.duration = 'Select duration';
   if (!fields.trailer_count) e.trailer_count = 'Select count';
-  if (!fields.power_source) e.power_source = 'Select power source';
+  if (!fields.deployment_option) e.deployment_option = 'Select power source';
   return e;
 }
 
@@ -219,12 +213,12 @@ export default function OrderFormClient() {
         ...(fields.phone.trim() && { phone: fields.phone.trim() }),
         site_type: fields.site_type,
         site_address: fields.site_address.trim(),
-        gps_lat: fields.gps_lat.trim(),
-        gps_lng: fields.gps_lng.trim(),
+        ...(fields.gps_lat.trim() && { gps_lat: fields.gps_lat.trim() }),
+        ...(fields.gps_lng.trim() && { gps_lng: fields.gps_lng.trim() }),
         start_date: fields.start_date,
         duration: fields.duration,
         trailer_count: fields.trailer_count,
-        power_source: fields.power_source,
+        deployment_option: fields.deployment_option,
         ...(fields.notes.trim() && { notes: fields.notes.trim() }),
         ...utmParams,
       };
@@ -335,10 +329,13 @@ export default function OrderFormClient() {
                   }),
                 },
                 { label: 'Duration', value: fields.duration },
-                { label: 'Power', value: fields.power_source },
+                { label: 'Deployment', value: fields.deployment_option },
                 {
                   label: 'GPS',
-                  value: `${parseFloat(fields.gps_lat).toFixed(4)}, ${parseFloat(fields.gps_lng).toFixed(4)}`,
+                  value:
+                    fields.gps_lat.trim() && fields.gps_lng.trim()
+                      ? `${parseFloat(fields.gps_lat).toFixed(4)}, ${parseFloat(fields.gps_lng).toFixed(4)}`
+                      : '—',
                 },
               ].map(({ label, value }) => (
                 <div key={label}>
@@ -499,7 +496,8 @@ export default function OrderFormClient() {
             {/* GPS */}
             <div>
               <p className={`${LABEL} mb-0.5`}>
-                GPS Coordinates — Decimal Degrees <span className="text-red-400/80">*</span>
+                GPS Coordinates — Decimal Degrees{' '}
+                <span className="normal-case text-[#93c5fd]/40 font-normal tracking-normal">(optional)</span>
               </p>
               <p className="font-mono text-[10.5px] text-[#93c5fd]/25 mb-3">
                 e.g. Lat: 40.7128 &nbsp;·&nbsp; Lng: −74.0060
@@ -507,7 +505,7 @@ export default function OrderFormClient() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="ord-gps-lat" className={LABEL}>Latitude</label>
-                  <input id="ord-gps-lat" name="gps_lat" type="text" inputMode="decimal" required
+                  <input id="ord-gps-lat" name="gps_lat" type="text" inputMode="decimal"
                     value={fields.gps_lat} onChange={handleChange} placeholder="40.7128"
                     aria-invalid={!!errors.gps_lat} className={INPUT(!!errors.gps_lat)} />
                   <p className="mt-1 font-mono text-[10px] text-[#93c5fd]/22">−90 to 90</p>
@@ -515,7 +513,7 @@ export default function OrderFormClient() {
                 </div>
                 <div>
                   <label htmlFor="ord-gps-lng" className={LABEL}>Longitude</label>
-                  <input id="ord-gps-lng" name="gps_lng" type="text" inputMode="decimal" required
+                  <input id="ord-gps-lng" name="gps_lng" type="text" inputMode="decimal"
                     value={fields.gps_lng} onChange={handleChange} placeholder="-74.0060"
                     aria-invalid={!!errors.gps_lng} className={INPUT(!!errors.gps_lng)} />
                   <p className="mt-1 font-mono text-[10px] text-[#93c5fd]/22">−180 to 180</p>
@@ -574,19 +572,19 @@ export default function OrderFormClient() {
               </div>
               <div>
                 <label htmlFor="ord-power-source" className={LABEL}>
-                  Power Source <span className="text-red-400/80">*</span>
+                  Deployment Option <span className="text-red-400/80">*</span>
                 </label>
-                <select id="ord-power-source" name="power_source" required
-                  value={fields.power_source} onChange={handleChange}
-                  aria-invalid={!!errors.power_source}
-                  className={`${INPUT(!!errors.power_source)} appearance-none cursor-pointer`}
-                  style={SELECT_STYLE(fields.power_source, !!errors.power_source)}>
+                <select id="ord-power-source" name="deployment_option" required
+                  value={fields.deployment_option} onChange={handleChange}
+                  aria-invalid={!!errors.deployment_option}
+                  className={`${INPUT(!!errors.deployment_option)} appearance-none cursor-pointer`}
+                  style={SELECT_STYLE(fields.deployment_option, !!errors.deployment_option)}>
                   <option value="" disabled>Select…</option>
                   {POWER_SOURCES.map((p) => (
                     <option key={p} value={p} style={{ color: 'white', background: '#080c14' }}>{p}</option>
                   ))}
                 </select>
-                {errors.power_source && <p className={ERR} role="alert">{errors.power_source}</p>}
+                {errors.deployment_option && <p className={ERR} role="alert">{errors.deployment_option}</p>}
               </div>
             </div>
             <div>
