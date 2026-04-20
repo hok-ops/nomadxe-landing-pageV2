@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { inviteNewUser, registerDevice } from './actions';
 import { AssignDeviceForm } from './AssignDeviceForm';
 import GenerateLinkTool from './GenerateLinkTool';
+import CopyOrderLink from './CopyOrderLink';
 import { RosterTable } from './RosterTable';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -173,6 +174,9 @@ export default async function AdminDashboard({
                 </button>
               </form>
             </section>
+
+            {/* ORDER FORM LINK */}
+            <CopyOrderLink />
 
             {/* ASSIGN DEVICE — client component for real-time error feedback */}
             <section className="bg-[#0d1526] border border-[#1e3a5f] rounded-xl p-6 space-y-5">
