@@ -113,7 +113,7 @@ function validate(fields: typeof INITIAL_FIELDS): FieldErrors {
   if (!fields.start_date) e.start_date = 'Required';
   if (!fields.duration) e.duration = 'Select duration';
   if (!fields.trailer_count) e.trailer_count = 'Select count';
-  if (!fields.deployment_option) e.deployment_option = 'Select power source';
+  if (!fields.deployment_option) e.deployment_option = 'Select deployment option';
   return e;
 }
 
@@ -172,6 +172,8 @@ export default function OrderFormClient() {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [utmParams, setUtmParams] = useState<UtmParams>({});
+  const [additionalRecipients, setAdditionalRecipients] = useState<string[]>([]);
+  const [recipientErrors, setRecipientErrors] = useState<(string | undefined)[]>([]);
 
   // Capture UTMs on mount
   useEffect(() => {
@@ -203,8 +205,18 @@ export default function OrderFormClient() {
       document.querySelector<HTMLElement>(`[name="${firstKey}"]`)?.focus();
       return;
     }
+    // Validate additional recipients
+    const recipientErrs = additionalRecipients.map((r) =>
+      r.trim() && !validateEmail(r) ? 'Invalid email address' : undefined
+    );
+    if (recipientErrs.some(Boolean)) {
+      setRecipientErrors(recipientErrs);
+      return;
+    }
+    setRecipientErrors([]);
     setErrors({});
     setFormState('submitting');
+    const validRecipients = additionalRecipients.filter((r) => r.trim());
     try {
       const payload = {
         full_name: fields.full_name.trim(),
@@ -219,6 +231,9 @@ export default function OrderFormClient() {
         duration: fields.duration,
         trailer_count: fields.trailer_count,
         deployment_option: fields.deployment_option,
+        ...(validRecipients.length > 0 && {
+          additional_recipients: validRecipients.join(', '),
+        }),
         ...(fields.notes.trim() && { notes: fields.notes.trim() }),
         ...utmParams,
       };
@@ -460,6 +475,62 @@ export default function OrderFormClient() {
                   value={fields.phone} onChange={handleChange} placeholder="+1 (555) 000-0000"
                   className={INPUT(false)} />
               </div>
+            </div>
+
+            {/* Additional Recipients */}
+            <div>
+              <p className={`${LABEL} mb-1`}>
+                Additional Recipients{' '}
+                <span className="normal-case text-[#93c5fd]/40 font-normal tracking-normal">(optional)</span>
+              </p>
+              <p className="font-mono text-[10.5px] text-[#93c5fd]/25 mb-3">
+                These addresses will also receive the order confirmation email.
+              </p>
+              <div className="space-y-2">
+                {additionalRecipients.map((r, i) => (
+                  <div key={i} className="flex gap-2 items-start">
+                    <div className="flex-1">
+                      <input
+                        type="email"
+                        value={r}
+                        onChange={(e) => {
+                          const updated = [...additionalRecipients];
+                          updated[i] = e.target.value;
+                          setAdditionalRecipients(updated);
+                          if (recipientErrors[i]) {
+                            const errs = [...recipientErrors];
+                            errs[i] = undefined;
+                            setRecipientErrors(errs);
+                          }
+                        }}
+                        placeholder="colleague@company.com"
+                        className={INPUT(!!recipientErrors[i])}
+                      />
+                      {recipientErrors[i] && (
+                        <p className={ERR} role="alert">{recipientErrors[i]}</p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAdditionalRecipients(additionalRecipients.filter((_, j) => j !== i));
+                        setRecipientErrors(recipientErrors.filter((_, j) => j !== i));
+                      }}
+                      className="mt-2.5 text-[#93c5fd]/30 hover:text-red-400 transition-colors text-lg leading-none"
+                      aria-label="Remove recipient"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setAdditionalRecipients([...additionalRecipients, ''])}
+                className="mt-2 text-[11px] font-mono text-[#3b82f6]/60 hover:text-[#3b82f6] transition-colors flex items-center gap-1.5"
+              >
+                <span className="text-base leading-none">+</span> Add recipient
+              </button>
             </div>
           </Section>
 

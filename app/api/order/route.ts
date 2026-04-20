@@ -52,6 +52,7 @@ interface OrderPayload {
 
   // Optional
   notes?: string;
+  additional_recipients?: string;
 
   // UTM / attribution (all optional — captured from URL on page load)
   utm_source?: string;
