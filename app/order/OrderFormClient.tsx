@@ -342,6 +342,7 @@ export default function OrderFormClient() {
     const dcErrs: DeliveryContactError[] = deliveryContacts.map((c, i) => {
       const err: DeliveryContactError = {};
       if (i === 0 && !c.name.trim()) err.name = 'Required';
+      if (!c.phone.trim()) err.phone = 'Required';
       return err;
     });
     if (dcErrs.some((e) => Object.keys(e).length > 0)) {
@@ -815,16 +816,18 @@ export default function OrderFormClient() {
                     </div>
                     <div>
                       <label className={LABEL}>
-                        Phone Number{' '}
-                        <span className="normal-case text-[#93c5fd]/40 font-normal tracking-normal">(optional)</span>
+                        Phone Number <span className="text-red-400/80">*</span>
                       </label>
                       <input
                         type="tel"
                         value={contact.phone}
                         onChange={(e) => updateDeliveryContact(i, 'phone', e.target.value)}
                         placeholder="+1 (555) 000-0000"
-                        className={INPUT(false)}
+                        className={INPUT(!!deliveryContactErrors[i]?.phone)}
                       />
+                      {deliveryContactErrors[i]?.phone && (
+                        <p className={ERR} role="alert">{deliveryContactErrors[i].phone}</p>
+                      )}
                     </div>
                   </div>
                 </div>
