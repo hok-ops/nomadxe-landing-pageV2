@@ -527,9 +527,9 @@ export default function OrderFormClient() {
               <button
                 type="button"
                 onClick={() => setAdditionalRecipients([...additionalRecipients, ''])}
-                className="mt-2 text-[11px] font-mono text-[#3b82f6]/60 hover:text-[#3b82f6] transition-colors flex items-center gap-1.5"
+                className="mt-3 w-full flex items-center justify-center gap-2 border border-[#1e3a5f] hover:border-[#3b82f6]/60 hover:bg-[#1e40af]/10 text-[#93c5fd]/60 hover:text-[#93c5fd] rounded-xl py-2.5 text-xs font-semibold tracking-wide transition-all duration-200 active:scale-[0.98]"
               >
-                <span className="text-base leading-none">+</span> Add recipient
+                <span className="text-sm leading-none">+</span> Add Recipient
               </button>
             </div>
           </Section>
