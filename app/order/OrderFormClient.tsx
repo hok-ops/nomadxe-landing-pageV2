@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 
 // ---------------------------------------------------------------------------
@@ -26,12 +26,45 @@ const DURATIONS = [
   'Custom / TBD',
 ];
 
-const POWER_SOURCES = [
+const DEPLOYMENT_OPTIONS = [
   'Option 01 — Trailer & Power Base',
   'Option 02 — Fully Equipped',
 ];
 
 const TRAILER_COUNTS = ['1', '2', '3', '4+'];
+
+const YES_NO = ['Yes', 'No'];
+
+// ---------------------------------------------------------------------------
+// Radar autocomplete
+// ---------------------------------------------------------------------------
+
+interface RadarAddress {
+  formattedAddress: string;
+  number?: string;
+  street?: string;
+  city?: string;
+  stateCode?: string;
+  postalCode?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+async function fetchRadarSuggestions(query: string): Promise<RadarAddress[]> {
+  const key = process.env.NEXT_PUBLIC_RADAR_PUBLISHABLE_KEY;
+  if (!key || query.trim().length < 3) return [];
+  try {
+    const res = await fetch(
+      `https://api.radar.io/v1/search/autocomplete?query=${encodeURIComponent(query)}&country=US&layers=address&limit=6`,
+      { headers: { Authorization: key } }
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.addresses ?? [];
+  } catch {
+    return [];
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -39,18 +72,34 @@ const TRAILER_COUNTS = ['1', '2', '3', '4+'];
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error';
 
+interface DeliveryContact {
+  name: string;
+  phone: string;
+}
+
+interface DeliveryContactError {
+  name?: string;
+  phone?: string;
+}
+
 interface FieldErrors {
   full_name?: string;
   email?: string;
   company?: string;
+  location_name?: string;
   site_type?: string;
-  site_address?: string;
+  street_address?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
   gps_lat?: string;
   gps_lng?: string;
   start_date?: string;
   duration?: string;
   trailer_count?: string;
   deployment_option?: string;
+  technician_setup?: string;
+  forklift_available?: string;
 }
 
 interface UtmParams {
@@ -82,16 +131,24 @@ const INITIAL_FIELDS = {
   email: '',
   company: '',
   phone: '',
+  location_name: '',
   site_type: '',
-  site_address: '',
+  street_address: '',
+  city: '',
+  state: '',
+  zip_code: '',
   gps_lat: '',
   gps_lng: '',
   start_date: '',
   duration: '',
   trailer_count: '',
   deployment_option: '',
+  technician_setup: '',
+  forklift_available: '',
   notes: '',
 };
+
+const INITIAL_DELIVERY_CONTACT: DeliveryContact = { name: '', phone: '' };
 
 function validate(fields: typeof INITIAL_FIELDS): FieldErrors {
   const e: FieldErrors = {};
@@ -102,8 +159,12 @@ function validate(fields: typeof INITIAL_FIELDS): FieldErrors {
     e.email = 'Invalid email address';
   }
   if (!fields.company.trim()) e.company = 'Required';
+  if (!fields.location_name.trim()) e.location_name = 'Required';
   if (!fields.site_type) e.site_type = 'Select a site type';
-  if (!fields.site_address.trim()) e.site_address = 'Required';
+  if (!fields.street_address.trim()) e.street_address = 'Required';
+  if (!fields.city.trim()) e.city = 'Required';
+  if (!fields.state.trim()) e.state = 'Required';
+  if (!fields.zip_code.trim()) e.zip_code = 'Required';
   if (fields.gps_lat.trim() && !validateLat(fields.gps_lat)) {
     e.gps_lat = 'Decimal degrees, −90 to 90';
   }
@@ -114,6 +175,8 @@ function validate(fields: typeof INITIAL_FIELDS): FieldErrors {
   if (!fields.duration) e.duration = 'Select duration';
   if (!fields.trailer_count) e.trailer_count = 'Select count';
   if (!fields.deployment_option) e.deployment_option = 'Select deployment option';
+  if (!fields.technician_setup) e.technician_setup = 'Required';
+  if (!fields.forklift_available) e.forklift_available = 'Required';
   return e;
 }
 
@@ -174,6 +237,12 @@ export default function OrderFormClient() {
   const [utmParams, setUtmParams] = useState<UtmParams>({});
   const [additionalRecipients, setAdditionalRecipients] = useState<string[]>([]);
   const [recipientErrors, setRecipientErrors] = useState<(string | undefined)[]>([]);
+  const [deliveryContacts, setDeliveryContacts] = useState<DeliveryContact[]>([{ ...INITIAL_DELIVERY_CONTACT }]);
+  const [deliveryContactErrors, setDeliveryContactErrors] = useState<DeliveryContactError[]>([{}]);
+  const [addressSuggestions, setAddressSuggestions] = useState<RadarAddress[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestionRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Capture UTMs on mount
   useEffect(() => {
@@ -182,6 +251,17 @@ export default function OrderFormClient() {
     const captured: UtmParams = {};
     params.forEach((v, k) => { captured[k] = v; });
     if (Object.keys(captured).length) setUtmParams(captured);
+  }, []);
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (suggestionRef.current && !suggestionRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleChange = useCallback(
@@ -195,9 +275,61 @@ export default function OrderFormClient() {
     [errors]
   );
 
+  function handleStreetAddressChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const value = e.target.value;
+    setFields((p) => ({ ...p, street_address: value }));
+    if (errors.street_address) setErrors((p) => ({ ...p, street_address: undefined }));
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (value.trim().length < 3) { setAddressSuggestions([]); setShowSuggestions(false); return; }
+    debounceRef.current = setTimeout(async () => {
+      const results = await fetchRadarSuggestions(value);
+      setAddressSuggestions(results);
+      setShowSuggestions(results.length > 0);
+    }, 300);
+  }
+
+  function selectAddress(addr: RadarAddress) {
+    const street = [addr.number, addr.street].filter(Boolean).join(' ');
+    setFields((p) => ({
+      ...p,
+      street_address: street || p.street_address,
+      city: addr.city ?? p.city,
+      state: addr.stateCode ?? p.state,
+      zip_code: addr.postalCode ?? p.zip_code,
+      gps_lat: addr.latitude != null ? String(addr.latitude) : p.gps_lat,
+      gps_lng: addr.longitude != null ? String(addr.longitude) : p.gps_lng,
+    }));
+    setErrors((p) => ({ ...p, street_address: undefined, city: undefined, state: undefined, zip_code: undefined }));
+    setAddressSuggestions([]);
+    setShowSuggestions(false);
+  }
+
+  function updateDeliveryContact(i: number, field: keyof DeliveryContact, value: string) {
+    const updated = [...deliveryContacts];
+    updated[i] = { ...updated[i], [field]: value };
+    setDeliveryContacts(updated);
+    if (deliveryContactErrors[i]?.[field]) {
+      const errs = [...deliveryContactErrors];
+      errs[i] = { ...errs[i], [field]: undefined };
+      setDeliveryContactErrors(errs);
+    }
+  }
+
+  function addDeliveryContact() {
+    setDeliveryContacts([...deliveryContacts, { ...INITIAL_DELIVERY_CONTACT }]);
+    setDeliveryContactErrors([...deliveryContactErrors, {}]);
+  }
+
+  function removeDeliveryContact(i: number) {
+    setDeliveryContacts(deliveryContacts.filter((_, j) => j !== i));
+    setDeliveryContactErrors(deliveryContactErrors.filter((_, j) => j !== i));
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError(null);
+
+    // Validate main fields
     const fieldErrors = validate(fields);
     if (Object.keys(fieldErrors).length > 0) {
       setErrors(fieldErrors);
@@ -205,6 +337,19 @@ export default function OrderFormClient() {
       document.querySelector<HTMLElement>(`[name="${firstKey}"]`)?.focus();
       return;
     }
+
+    // Validate delivery contacts — first contact name required
+    const dcErrs: DeliveryContactError[] = deliveryContacts.map((c, i) => {
+      const err: DeliveryContactError = {};
+      if (i === 0 && !c.name.trim()) err.name = 'Required';
+      return err;
+    });
+    if (dcErrs.some((e) => Object.keys(e).length > 0)) {
+      setDeliveryContactErrors(dcErrs);
+      return;
+    }
+    setDeliveryContactErrors(deliveryContacts.map(() => ({})));
+
     // Validate additional recipients
     const recipientErrs = additionalRecipients.map((r) =>
       r.trim() && !validateEmail(r) ? 'Invalid email address' : undefined
@@ -216,21 +361,33 @@ export default function OrderFormClient() {
     setRecipientErrors([]);
     setErrors({});
     setFormState('submitting');
+
     const validRecipients = additionalRecipients.filter((r) => r.trim());
+    const validDeliveryContacts = deliveryContacts.filter((c) => c.name.trim());
+
     try {
       const payload = {
         full_name: fields.full_name.trim(),
         email: fields.email.trim().toLowerCase(),
         company: fields.company.trim(),
         ...(fields.phone.trim() && { phone: fields.phone.trim() }),
+        location_name: fields.location_name.trim(),
         site_type: fields.site_type,
-        site_address: fields.site_address.trim(),
+        street_address: fields.street_address.trim(),
+        city: fields.city.trim(),
+        state: fields.state.trim(),
+        zip_code: fields.zip_code.trim(),
         ...(fields.gps_lat.trim() && { gps_lat: fields.gps_lat.trim() }),
         ...(fields.gps_lng.trim() && { gps_lng: fields.gps_lng.trim() }),
+        delivery_contacts: validDeliveryContacts
+          .map((c) => `${c.name}${c.phone ? ` (${c.phone})` : ''}`)
+          .join('; '),
         start_date: fields.start_date,
         duration: fields.duration,
         trailer_count: fields.trailer_count,
         deployment_option: fields.deployment_option,
+        technician_setup: fields.technician_setup,
+        forklift_available: fields.forklift_available,
         ...(validRecipients.length > 0 && {
           additional_recipients: validRecipients.join(', '),
         }),
@@ -259,6 +416,18 @@ export default function OrderFormClient() {
   const isSubmitting = formState === 'submitting';
   const today = new Date().toISOString().split('T')[0];
 
+  function handleReset() {
+    setFormState('idle');
+    setFields(INITIAL_FIELDS);
+    setErrors({});
+    setServerError(null);
+    setAdditionalRecipients([]);
+    setRecipientErrors([]);
+    setDeliveryContacts([{ ...INITIAL_DELIVERY_CONTACT }]);
+    setDeliveryContactErrors([{}]);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   // =========================================================================
   // SUCCESS STATE
   // =========================================================================
@@ -266,21 +435,17 @@ export default function OrderFormClient() {
   if (formState === 'success') {
     return (
       <div className="min-h-screen bg-[#080c14] flex flex-col items-center justify-center p-6 relative overflow-hidden">
-        {/* Background dot grid */}
         <div
           className="pointer-events-none fixed inset-0 z-0 opacity-[0.025]"
           style={{ backgroundImage: 'radial-gradient(circle, #3b82f6 1px, transparent 1px)', backgroundSize: '32px 32px' }}
         />
-        {/* Top accent bar */}
         <div className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#1e40af] via-[#3b82f6] to-[#1e40af] z-[100]" />
-        {/* Ambient glow */}
         <div
           className="pointer-events-none fixed inset-0 z-0"
           style={{ background: 'radial-gradient(ellipse 70% 55% at 50% 38%, rgba(37,99,235,0.08) 0%, transparent 100%)' }}
         />
 
         <div className="relative z-10 w-full max-w-lg text-center space-y-8">
-          {/* Icon */}
           <div className="flex justify-center">
             <div className="relative">
               <div className="w-20 h-20 rounded-full bg-[#1e40af]/20 border border-[#3b82f6]/30 flex items-center justify-center">
@@ -288,82 +453,62 @@ export default function OrderFormClient() {
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
               </div>
-              <div
-                className="absolute inset-0 rounded-full border border-[#3b82f6]/20 animate-ping"
-                style={{ animationDuration: '2.5s' }}
-                aria-hidden="true"
-              />
+              <div className="absolute inset-0 rounded-full border border-[#3b82f6]/20 animate-ping" style={{ animationDuration: '2.5s' }} aria-hidden="true" />
             </div>
           </div>
 
-          {/* Status tag */}
           <div className="inline-flex items-center gap-2 bg-[#1e40af]/15 border border-[#3b82f6]/25 rounded-full px-5 py-2">
             <span className="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse" aria-hidden="true" />
-            <span className="font-mono text-[11px] tracking-[0.2em] uppercase text-[#3b82f6]/80">
-              Order Received
-            </span>
+            <span className="font-mono text-[11px] tracking-[0.2em] uppercase text-[#3b82f6]/80">Order Received</span>
           </div>
 
-          {/* Wordmark */}
           <div>
             <span className="font-mono text-2xl font-black tracking-[0.18em] uppercase text-white">
               NOMAD<span className="text-[#3b82f6]">XE</span>
             </span>
           </div>
 
-          {/* Message */}
           <div className="bg-[#0d1526] border border-[#1e3a5f]/80 rounded-2xl overflow-hidden">
             <div className="h-px w-full bg-gradient-to-r from-transparent via-[#3b82f6]/25 to-transparent" />
             <div className="px-8 py-8 space-y-4">
-              <h1 className="text-xl font-bold text-white">
-                You&rsquo;re in the queue.
-              </h1>
+              <h1 className="text-xl font-bold text-white">You&rsquo;re in the queue.</h1>
               <p className="text-[13.5px] text-[#93c5fd]/60 leading-relaxed">
-                Your Nomadxe order has been secured. Our SOC team is reviewing
-                your site profile and will send a confirmation email shortly.
+                Your NomadXE order has been secured. Our SOC team is reviewing your site profile and will send a confirmation email shortly.
               </p>
             </div>
           </div>
 
-          {/* Order summary */}
           <div className="bg-[#0d1526] border border-[#1e3a5f]/80 rounded-2xl overflow-hidden text-left">
             <div className="h-px w-full bg-gradient-to-r from-transparent via-[#3b82f6]/25 to-transparent" />
             <div className="px-6 py-4 border-b border-[#1e3a5f]/50">
-              <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-[#3b82f6]/60">
-                Order Summary
-              </span>
+              <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-[#3b82f6]/60">Order Summary</span>
             </div>
             <div className="px-6 py-5 grid grid-cols-2 gap-x-6 gap-y-4">
               {[
+                { label: 'Location', value: fields.location_name },
                 { label: 'Site Type', value: fields.site_type },
+                { label: 'Address', value: `${fields.street_address}, ${fields.city}, ${fields.state} ${fields.zip_code}` },
                 { label: 'Trailers', value: fields.trailer_count },
-                {
-                  label: 'Start Date',
-                  value: new Date(fields.start_date + 'T00:00:00').toLocaleDateString('en-US', {
-                    month: 'short', day: 'numeric', year: 'numeric',
-                  }),
-                },
+                { label: 'Start Date', value: new Date(fields.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) },
                 { label: 'Duration', value: fields.duration },
                 { label: 'Deployment', value: fields.deployment_option },
-                {
-                  label: 'GPS',
-                  value:
-                    fields.gps_lat.trim() && fields.gps_lng.trim()
-                      ? `${parseFloat(fields.gps_lat).toFixed(4)}, ${parseFloat(fields.gps_lng).toFixed(4)}`
-                      : '—',
-                },
+                { label: 'Technician Setup', value: fields.technician_setup },
               ].map(({ label, value }) => (
                 <div key={label}>
-                  <p className="font-mono text-[9.5px] uppercase tracking-[0.15em] text-[#93c5fd]/30 mb-0.5">
-                    {label}
-                  </p>
+                  <p className="font-mono text-[9.5px] uppercase tracking-[0.15em] text-[#93c5fd]/30 mb-0.5">{label}</p>
                   <p className="text-[13px] text-white/80">{value || '—'}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Nav */}
+          <button
+            onClick={handleReset}
+            className="w-full bg-[#2563eb] hover:bg-[#3b82f6] text-white font-bold py-3.5 rounded-xl text-sm tracking-wide transition-all duration-200 hover:shadow-[0_0_28px_rgba(59,130,246,0.45)] active:scale-[0.98]"
+          >
+            Submit Another Order →
+          </button>
+
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
             <Link
               href="/"
@@ -375,10 +520,7 @@ export default function OrderFormClient() {
               Back to NomadXE.com
             </Link>
             <span className="hidden sm:block text-[#1e3a5f]">·</span>
-            <a
-              href="mailto:sales@nomadxe.com"
-              className="text-[11px] text-[#3b82f6]/50 hover:text-[#3b82f6] transition-colors duration-200 font-mono uppercase tracking-[0.15em]"
-            >
+            <a href="mailto:sales@nomadxe.com" className="text-[11px] text-[#3b82f6]/50 hover:text-[#3b82f6] transition-colors duration-200 font-mono uppercase tracking-[0.15em]">
               sales@nomadxe.com
             </a>
           </div>
@@ -393,14 +535,11 @@ export default function OrderFormClient() {
 
   return (
     <div className="min-h-screen bg-[#080c14] relative overflow-x-hidden">
-      {/* Background dot grid */}
       <div
         className="pointer-events-none fixed inset-0 z-0 opacity-[0.025]"
         style={{ backgroundImage: 'radial-gradient(circle, #3b82f6 1px, transparent 1px)', backgroundSize: '32px 32px' }}
       />
-      {/* Top accent bar */}
       <div className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#1e40af] via-[#3b82f6] to-[#1e40af] z-[100]" />
-      {/* Ambient glow */}
       <div
         className="pointer-events-none fixed inset-0 z-0"
         style={{ background: 'radial-gradient(ellipse 80% 50% at 50% 20%, rgba(37,99,235,0.07) 0%, transparent 100%)' }}
@@ -410,11 +549,7 @@ export default function OrderFormClient() {
 
         {/* ── Header ── */}
         <div className="text-center mb-10">
-          <Link
-            href="/"
-            className="inline-flex flex-col items-center gap-3 group mb-8"
-            aria-label="Back to NomadXE home"
-          >
+          <Link href="/" className="inline-flex flex-col items-center gap-3 group mb-8" aria-label="Back to NomadXE home">
             <div className="w-11 h-11 rounded-xl bg-[#1e40af]/20 border border-[#3b82f6]/20 flex items-center justify-center group-hover:border-[#3b82f6]/50 group-hover:bg-[#1e40af]/30 transition-all duration-300">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M1 3h15v13H1z" /><path d="M16 8h4l3 3v5h-7V8z" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" />
@@ -424,35 +559,27 @@ export default function OrderFormClient() {
               NOMAD<span className="text-[#3b82f6]">XE</span>
             </span>
           </Link>
-
-          <h1 className="text-[22px] font-bold text-white tracking-tight mb-2">
-            Secure a Deployment
-          </h1>
+          <h1 className="text-[22px] font-bold text-white tracking-tight mb-2">Secure a Deployment</h1>
           <p className="text-[12.5px] text-[#93c5fd]/40 leading-relaxed max-w-sm mx-auto">
-            Complete the form below. Our SOC team will review your site profile
-            and send a confirmation email shortly.
+            Complete the form below. Our SOC team will review your site profile and send a confirmation email shortly.
           </p>
         </div>
 
         {/* ── Form ── */}
         <form onSubmit={handleSubmit} noValidate aria-label="Deployment order form" className="space-y-4">
 
-          {/* Contact */}
+          {/* ── Contact Information ── */}
           <Section title="Contact Information">
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="ord-full-name" className={LABEL}>
-                  Full Name <span className="text-red-400/80">*</span>
-                </label>
+                <label htmlFor="ord-full-name" className={LABEL}>Full Name <span className="text-red-400/80">*</span></label>
                 <input id="ord-full-name" name="full_name" type="text" required autoComplete="name"
                   value={fields.full_name} onChange={handleChange} placeholder="Jane Smith"
                   aria-invalid={!!errors.full_name} className={INPUT(!!errors.full_name)} />
                 {errors.full_name && <p className={ERR} role="alert">{errors.full_name}</p>}
               </div>
               <div>
-                <label htmlFor="ord-email" className={LABEL}>
-                  Work Email <span className="text-red-400/80">*</span>
-                </label>
+                <label htmlFor="ord-email" className={LABEL}>Business Email <span className="text-red-400/80">*</span></label>
                 <input id="ord-email" name="email" type="email" required autoComplete="email"
                   value={fields.email} onChange={handleChange} placeholder="jane@company.com"
                   aria-invalid={!!errors.email} className={INPUT(!!errors.email)} />
@@ -461,16 +588,14 @@ export default function OrderFormClient() {
             </div>
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="ord-company" className={LABEL}>
-                  Company <span className="text-red-400/80">*</span>
-                </label>
+                <label htmlFor="ord-company" className={LABEL}>Company <span className="text-red-400/80">*</span></label>
                 <input id="ord-company" name="company" type="text" required autoComplete="organization"
                   value={fields.company} onChange={handleChange} placeholder="Acme Construction LLC"
                   aria-invalid={!!errors.company} className={INPUT(!!errors.company)} />
                 {errors.company && <p className={ERR} role="alert">{errors.company}</p>}
               </div>
               <div>
-                <label htmlFor="ord-phone" className={LABEL}>Phone</label>
+                <label htmlFor="ord-phone" className={LABEL}>Phone Number</label>
                 <input id="ord-phone" name="phone" type="tel" autoComplete="tel"
                   value={fields.phone} onChange={handleChange} placeholder="+1 (555) 000-0000"
                   className={INPUT(false)} />
@@ -506,9 +631,7 @@ export default function OrderFormClient() {
                         placeholder="colleague@company.com"
                         className={INPUT(!!recipientErrors[i])}
                       />
-                      {recipientErrors[i] && (
-                        <p className={ERR} role="alert">{recipientErrors[i]}</p>
-                      )}
+                      {recipientErrors[i] && <p className={ERR} role="alert">{recipientErrors[i]}</p>}
                     </div>
                     <button
                       type="button"
@@ -518,9 +641,7 @@ export default function OrderFormClient() {
                       }}
                       className="mt-2.5 text-[#93c5fd]/30 hover:text-red-400 transition-colors text-lg leading-none"
                       aria-label="Remove recipient"
-                    >
-                      ×
-                    </button>
+                    >×</button>
                   </div>
                 ))}
               </div>
@@ -534,13 +655,18 @@ export default function OrderFormClient() {
             </div>
           </Section>
 
-          {/* Site Details */}
+          {/* ── Site Details ── */}
           <Section title="Site Details">
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="ord-site-type" className={LABEL}>
-                  Site Type <span className="text-red-400/80">*</span>
-                </label>
+                <label htmlFor="ord-location-name" className={LABEL}>Location Name <span className="text-red-400/80">*</span></label>
+                <input id="ord-location-name" name="location_name" type="text" required
+                  value={fields.location_name} onChange={handleChange} placeholder="Eastside Yard — Phase 2"
+                  aria-invalid={!!errors.location_name} className={INPUT(!!errors.location_name)} />
+                {errors.location_name && <p className={ERR} role="alert">{errors.location_name}</p>}
+              </div>
+              <div>
+                <label htmlFor="ord-site-type" className={LABEL}>Site Type <span className="text-red-400/80">*</span></label>
                 <select id="ord-site-type" name="site_type" required
                   value={fields.site_type} onChange={handleChange}
                   aria-invalid={!!errors.site_type}
@@ -553,14 +679,69 @@ export default function OrderFormClient() {
                 </select>
                 {errors.site_type && <p className={ERR} role="alert">{errors.site_type}</p>}
               </div>
+            </div>
+
+            {/* Address with autocomplete */}
+            <div className="relative" ref={suggestionRef}>
+              <label htmlFor="ord-street-address" className={LABEL}>Street Address <span className="text-red-400/80">*</span></label>
+              <input
+                id="ord-street-address"
+                name="street_address"
+                type="text"
+                required
+                autoComplete="off"
+                value={fields.street_address}
+                onChange={handleStreetAddressChange}
+                onFocus={() => addressSuggestions.length > 0 && setShowSuggestions(true)}
+                placeholder="123 Site Road"
+                aria-invalid={!!errors.street_address}
+                className={INPUT(!!errors.street_address)}
+              />
+              {errors.street_address && <p className={ERR} role="alert">{errors.street_address}</p>}
+
+              {/* Suggestions dropdown */}
+              {showSuggestions && addressSuggestions.length > 0 && (
+                <ul className="absolute z-50 left-0 right-0 mt-1 bg-[#0d1526] border border-[#1e3a5f] rounded-xl overflow-hidden shadow-xl">
+                  {addressSuggestions.map((addr, i) => (
+                    <li key={i}>
+                      <button
+                        type="button"
+                        onMouseDown={() => selectAddress(addr)}
+                        className="w-full text-left px-4 py-3 text-sm text-white/80 hover:bg-[#1e40af]/30 hover:text-white transition-colors border-b border-[#1e3a5f]/40 last:border-0"
+                      >
+                        <span className="block font-medium">
+                          {[addr.number, addr.street].filter(Boolean).join(' ')}
+                        </span>
+                        <span className="block text-[11px] text-[#93c5fd]/40 mt-0.5">
+                          {[addr.city, addr.stateCode, addr.postalCode].filter(Boolean).join(', ')}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="col-span-2">
+                <label htmlFor="ord-city" className={LABEL}>City <span className="text-red-400/80">*</span></label>
+                <input id="ord-city" name="city" type="text" required
+                  value={fields.city} onChange={handleChange} placeholder="Houston"
+                  aria-invalid={!!errors.city} className={INPUT(!!errors.city)} />
+                {errors.city && <p className={ERR} role="alert">{errors.city}</p>}
+              </div>
               <div>
-                <label htmlFor="ord-site-address" className={LABEL}>
-                  Site Address <span className="text-red-400/80">*</span>
-                </label>
-                <input id="ord-site-address" name="site_address" type="text" required
-                  value={fields.site_address} onChange={handleChange} placeholder="123 Site Rd, City, ST"
-                  aria-invalid={!!errors.site_address} className={INPUT(!!errors.site_address)} />
-                {errors.site_address && <p className={ERR} role="alert">{errors.site_address}</p>}
+                <label htmlFor="ord-state" className={LABEL}>State <span className="text-red-400/80">*</span></label>
+                <input id="ord-state" name="state" type="text" required maxLength={2}
+                  value={fields.state} onChange={handleChange} placeholder="TX"
+                  aria-invalid={!!errors.state} className={INPUT(!!errors.state)} />
+                {errors.state && <p className={ERR} role="alert">{errors.state}</p>}
+              </div>
+              <div>
+                <label htmlFor="ord-zip" className={LABEL}>Zip Code <span className="text-red-400/80">*</span></label>
+                <input id="ord-zip" name="zip_code" type="text" required inputMode="numeric"
+                  value={fields.zip_code} onChange={handleChange} placeholder="77001"
+                  aria-invalid={!!errors.zip_code} className={INPUT(!!errors.zip_code)} />
+                {errors.zip_code && <p className={ERR} role="alert">{errors.zip_code}</p>}
               </div>
             </div>
 
@@ -594,13 +775,75 @@ export default function OrderFormClient() {
             </div>
           </Section>
 
-          {/* Deployment */}
+          {/* ── Delivery Contacts ── */}
+          <Section title="Delivery Contact(s)">
+            <p className="font-mono text-[10.5px] text-[#93c5fd]/25 -mt-1">
+              Person(s) who will be on-site to receive and sign for the delivery.
+            </p>
+            <div className="space-y-4">
+              {deliveryContacts.map((contact, i) => (
+                <div key={i} className="space-y-3">
+                  {i > 0 && <div className="border-t border-[#1e3a5f]/40 pt-4" />}
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className={LABEL}>
+                        Contact Name {i === 0 && <span className="text-red-400/80">*</span>}
+                        {i > 0 && <span className="normal-case text-[#93c5fd]/40 font-normal tracking-normal">(optional)</span>}
+                      </label>
+                      <div className="flex gap-2 items-start">
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            value={contact.name}
+                            onChange={(e) => updateDeliveryContact(i, 'name', e.target.value)}
+                            placeholder="John Smith"
+                            className={INPUT(!!deliveryContactErrors[i]?.name)}
+                          />
+                          {deliveryContactErrors[i]?.name && (
+                            <p className={ERR} role="alert">{deliveryContactErrors[i].name}</p>
+                          )}
+                        </div>
+                        {i > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => removeDeliveryContact(i)}
+                            className="mt-2.5 text-[#93c5fd]/30 hover:text-red-400 transition-colors text-lg leading-none"
+                            aria-label="Remove contact"
+                          >×</button>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <label className={LABEL}>
+                        Phone Number{' '}
+                        <span className="normal-case text-[#93c5fd]/40 font-normal tracking-normal">(optional)</span>
+                      </label>
+                      <input
+                        type="tel"
+                        value={contact.phone}
+                        onChange={(e) => updateDeliveryContact(i, 'phone', e.target.value)}
+                        placeholder="+1 (555) 000-0000"
+                        className={INPUT(false)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={addDeliveryContact}
+              className="mt-1 w-full flex items-center justify-center gap-2 border border-[#1e3a5f] hover:border-[#3b82f6]/60 hover:bg-[#1e40af]/10 text-[#93c5fd]/60 hover:text-[#93c5fd] rounded-xl py-2.5 text-xs font-semibold tracking-wide transition-all duration-200 active:scale-[0.98]"
+            >
+              <span className="text-sm leading-none">+</span> Add Another Contact
+            </button>
+          </Section>
+
+          {/* ── Deployment Requirements ── */}
           <Section title="Deployment Requirements">
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="ord-start-date" className={LABEL}>
-                  Target Start Date <span className="text-red-400/80">*</span>
-                </label>
+                <label htmlFor="ord-start-date" className={LABEL}>Projected Lease Start Date <span className="text-red-400/80">*</span></label>
                 <input id="ord-start-date" name="start_date" type="date" required min={today}
                   value={fields.start_date} onChange={handleChange}
                   aria-invalid={!!errors.start_date}
@@ -608,9 +851,7 @@ export default function OrderFormClient() {
                 {errors.start_date && <p className={ERR} role="alert">{errors.start_date}</p>}
               </div>
               <div>
-                <label htmlFor="ord-duration" className={LABEL}>
-                  Duration <span className="text-red-400/80">*</span>
-                </label>
+                <label htmlFor="ord-duration" className={LABEL}>Estimated Duration <span className="text-red-400/80">*</span></label>
                 <select id="ord-duration" name="duration" required
                   value={fields.duration} onChange={handleChange}
                   aria-invalid={!!errors.duration}
@@ -626,9 +867,7 @@ export default function OrderFormClient() {
             </div>
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="ord-trailer-count" className={LABEL}>
-                  No. of Trailers <span className="text-red-400/80">*</span>
-                </label>
+                <label htmlFor="ord-trailer-count" className={LABEL}>Quantity Requesting <span className="text-red-400/80">*</span></label>
                 <select id="ord-trailer-count" name="trailer_count" required
                   value={fields.trailer_count} onChange={handleChange}
                   aria-invalid={!!errors.trailer_count}
@@ -642,24 +881,52 @@ export default function OrderFormClient() {
                 {errors.trailer_count && <p className={ERR} role="alert">{errors.trailer_count}</p>}
               </div>
               <div>
-                <label htmlFor="ord-power-source" className={LABEL}>
-                  Deployment Option <span className="text-red-400/80">*</span>
-                </label>
-                <select id="ord-power-source" name="deployment_option" required
+                <label htmlFor="ord-deployment-option" className={LABEL}>Deployment Option <span className="text-red-400/80">*</span></label>
+                <select id="ord-deployment-option" name="deployment_option" required
                   value={fields.deployment_option} onChange={handleChange}
                   aria-invalid={!!errors.deployment_option}
                   className={`${INPUT(!!errors.deployment_option)} appearance-none cursor-pointer`}
                   style={SELECT_STYLE(fields.deployment_option, !!errors.deployment_option)}>
                   <option value="" disabled>Select…</option>
-                  {POWER_SOURCES.map((p) => (
+                  {DEPLOYMENT_OPTIONS.map((p) => (
                     <option key={p} value={p} style={{ color: 'white', background: '#080c14' }}>{p}</option>
                   ))}
                 </select>
                 {errors.deployment_option && <p className={ERR} role="alert">{errors.deployment_option}</p>}
               </div>
             </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="ord-technician-setup" className={LABEL}>Technician Setup Service Required? <span className="text-red-400/80">*</span></label>
+                <select id="ord-technician-setup" name="technician_setup" required
+                  value={fields.technician_setup} onChange={handleChange}
+                  aria-invalid={!!errors.technician_setup}
+                  className={`${INPUT(!!errors.technician_setup)} appearance-none cursor-pointer`}
+                  style={SELECT_STYLE(fields.technician_setup, !!errors.technician_setup)}>
+                  <option value="" disabled>Select…</option>
+                  {YES_NO.map((v) => (
+                    <option key={v} value={v} style={{ color: 'white', background: '#080c14' }}>{v}</option>
+                  ))}
+                </select>
+                {errors.technician_setup && <p className={ERR} role="alert">{errors.technician_setup}</p>}
+              </div>
+              <div>
+                <label htmlFor="ord-forklift" className={LABEL}>Forklift Available On-Site? <span className="text-red-400/80">*</span></label>
+                <select id="ord-forklift" name="forklift_available" required
+                  value={fields.forklift_available} onChange={handleChange}
+                  aria-invalid={!!errors.forklift_available}
+                  className={`${INPUT(!!errors.forklift_available)} appearance-none cursor-pointer`}
+                  style={SELECT_STYLE(fields.forklift_available, !!errors.forklift_available)}>
+                  <option value="" disabled>Select…</option>
+                  {YES_NO.map((v) => (
+                    <option key={v} value={v} style={{ color: 'white', background: '#080c14' }}>{v}</option>
+                  ))}
+                </select>
+                {errors.forklift_available && <p className={ERR} role="alert">{errors.forklift_available}</p>}
+              </div>
+            </div>
             <div>
-              <label htmlFor="ord-notes" className={LABEL}>Additional Notes</label>
+              <label htmlFor="ord-notes" className={LABEL}>Additional Notes or Questions</label>
               <textarea id="ord-notes" name="notes" rows={3}
                 value={fields.notes} onChange={handleChange}
                 placeholder="Access requirements, existing infrastructure, preferred monitoring partner…"
@@ -694,7 +961,6 @@ export default function OrderFormClient() {
             )}
           </button>
 
-          {/* Footer note */}
           <p className="text-center text-[10px] text-[#93c5fd]/20 font-mono uppercase tracking-[0.15em] pb-4">
             Secure · Confidential · NomadXE
           </p>

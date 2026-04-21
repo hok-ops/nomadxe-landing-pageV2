@@ -39,16 +39,25 @@ interface OrderPayload {
   phone?: string;
 
   // Site details
+  location_name: string;
   site_type: string;
-  site_address: string;
-  gps_lat: string;
-  gps_lng: string;
+  street_address: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  gps_lat?: string;
+  gps_lng?: string;
+
+  // Delivery
+  delivery_contacts: string;
 
   // Deployment
   start_date: string;
   duration: string;
   trailer_count: string;
   deployment_option: string;
+  technician_setup: string;
+  forklift_available: string;
 
   // Optional
   notes?: string;
@@ -125,12 +134,19 @@ export async function POST(req: NextRequest) {
     'full_name',
     'email',
     'company',
+    'location_name',
     'site_type',
-    'site_address',
+    'street_address',
+    'city',
+    'state',
+    'zip_code',
+    'delivery_contacts',
     'start_date',
     'duration',
     'trailer_count',
     'deployment_option',
+    'technician_setup',
+    'forklift_available',
   ];
 
   for (const field of requiredFields) {
