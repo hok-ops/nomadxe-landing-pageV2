@@ -110,6 +110,12 @@ export default async function AdminDashboard({
             >
               My Dashboard
             </Link>
+            <Link
+              href="/admin/quote"
+              className="text-xs font-semibold bg-[#1e40af]/30 border border-[#3b82f6]/40 text-[#93c5fd] hover:bg-[#2563eb]/40 hover:text-white hover:border-[#3b82f6] px-5 py-2.5 rounded-lg transition-all"
+            >
+              Quote Engine
+            </Link>
           </div>
         </header>
 
