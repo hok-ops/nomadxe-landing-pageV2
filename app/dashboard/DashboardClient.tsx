@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import NomadXECoreView, { type VRMData } from '@/components/dashboard/NomadXECoreView';
 import FleetTile from '@/components/dashboard/FleetTile';
@@ -16,10 +16,13 @@ interface Props {
 
 export default function DashboardClient({ devices, initialDataMap }: Props) {
   const [dataMap, setDataMap] = useState<Record<string, VRMData | null>>(initialDataMap);
-  // Local display name overrides — updated immediately on save without a full page reload
   const [displayNames, setDisplayNames] = useState<Record<string, string | null>>(
     Object.fromEntries(devices.map(d => [d.siteId, d.displayName]))
   );
+
+  const handleDeviceData = useCallback((siteId: string, freshData: VRMData) => {
+    setDataMap(prev => ({ ...prev, [siteId]: freshData }));
+  }, []);
 
   const handleRename = async (siteId: string, newName: string) => {
     const trimmed = newName.trim();
@@ -38,9 +41,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
   const [selectedIds, setSelectedIds] = useState<string[]>(
     devices.length === 1 ? [devices[0].siteId] : []
   );
-  // Mobile-only: 'fleet' shows the tile grid, 'detail' shows selected cards full-width
   const [mobileView, setMobileView] = useState<'fleet' | 'detail'>('fleet');
-  // Fleet filters — MPPT charge state + online/offline
   const [filters, setFilters] = useState<FleetFilters>(EMPTY_FILTERS);
   const detailPanelRef = useRef<HTMLDivElement>(null);
   const prevSelectedRef = useRef<string[]>(selectedIds);
@@ -48,34 +49,32 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
   const pollDevice = useCallback(async (siteId: string) => {
     try {
       const res = await fetch(`/api/vrm/${siteId}`, { cache: 'no-store' });
+      if (res.status === 401) {
+        window.location.href = '/login?error=Session+expired.+Please+sign+in+again.';
+        return;
+      }
       if (res.ok) {
         const json = await res.json();
         if (json.data) setDataMap(prev => ({ ...prev, [siteId]: json.data }));
       }
-    } catch { /* keep last data */ }
+    } catch { /* network error */ }
   }, []);
 
-  // Keep a stable ref to devices so the interval never needs to reset
   const devicesRef = useRef(devices);
   useEffect(() => { devicesRef.current = devices; }, [devices]);
 
-  // Auto-poll every 30 seconds — single clock, never resets
   useEffect(() => {
     const id = setInterval(() => devicesRef.current.forEach(d => pollDevice(d.siteId)), 30_000);
     return () => clearInterval(id);
   }, [pollDevice]);
 
-  // Auto-scroll newly added card into view in the right panel (desktop)
   useEffect(() => {
     const prev = prevSelectedRef.current;
     const added = selectedIds.find(id => !prev.includes(id));
     prevSelectedRef.current = selectedIds;
-
     if (!added || !detailPanelRef.current) return;
     const card = detailPanelRef.current.querySelector(`[data-site-id="${added}"]`);
-    if (card) {
-      setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
-    }
+    if (card) setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   }, [selectedIds]);
 
   const toggleSite = (siteId: string) => {
@@ -86,25 +85,30 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
     });
   };
 
-  const closeAll = () => {
-    setSelectedIds([]);
-    setMobileView('fleet');
-  };
+  const closeAll = () => { setSelectedIds([]); setMobileView('fleet'); };
 
+  // Recompute every 5s so the Live/Offline classification stays accurate as time passes
+  // (a device can cross the 15-min offline threshold without any dataMap update).
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 5_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const nowS = Date.now() / 1000;
   const onlineCount = devices.filter(d => {
     const data = dataMap[d.siteId];
-    return data ? (Date.now() / 1000 - data.lastSeen) < 15 * 60 : false;
+    return data ? (nowS - data.lastSeen) < 15 * 60 : false;
   }).length;
 
-  // Filter devices for fleet view
-  const filteredDevices = useMemo(
-    () => devices.filter(d => deviceMatchesFilters(d, dataMap[d.siteId] ?? null, filters)),
-    [devices, dataMap, filters],
-  );
+  // Computed inline (no useMemo) so Date.now() is always fresh on every render.
+  // This guarantees the filter instantly reflects offline transitions without
+  // waiting for the next dataMap update.
+  const filteredDevices = devices.filter(d => deviceMatchesFilters(d, dataMap[d.siteId] ?? null, filters));
   const filtersActive = hasActiveFilters(filters);
-
   const hasMany      = devices.length > 3;
   const hasSelection = selectedIds.length > 0;
+
 
   return (
     <div className="nx-page bg-[#080c14] relative" style={{ minHeight: '100dvh' }}>
@@ -114,7 +118,6 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
 
       <div className="relative z-10 max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-12 pt-6">
 
-        {/* Header */}
         <header className="flex items-center justify-between py-5 border-b border-[#1e3a5f]/60 mb-6 mt-16">
           <div>
             <Link href="/" className="flex items-center gap-2.5 mb-1.5 group w-fit">
@@ -123,7 +126,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
             </Link>
             <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Power Base Readings</h1>
             <p className="text-xs text-[#93c5fd]/40 mt-1 font-mono uppercase tracking-widest">
-              <span className="text-[#93c5fd]/75">{onlineCount}/{devices.length} online · {devices.length} unit{devices.length !== 1 ? 's' : ''} assigned</span>
+              <span className="text-[#93c5fd]/75">{onlineCount}/{devices.length} online &middot; {devices.length} unit{devices.length !== 1 ? 's' : ''} assigned</span>
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -131,12 +134,11 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
             <ReadingKey />
             <Link href="/"
               className="text-[10px] font-bold font-mono border border-[#1e3a5f] text-[#93c5fd]/50 hover:text-white hover:border-[#3b82f6]/50 px-4 sm:px-5 py-2.5 rounded-lg transition-all uppercase tracking-widest">
-              ← Home
+              &larr; Home
             </Link>
           </div>
         </header>
 
-        {/* ── Empty state ── */}
         {devices.length === 0 && (
           <div className="flex flex-col items-center justify-center py-32 text-center">
             <div className="w-16 h-16 rounded-2xl bg-[#1e3a5f]/30 border border-[#1e3a5f] flex items-center justify-center mb-6">
@@ -151,77 +153,52 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
           </div>
         )}
 
-        {/* ── 1 device — full card ── */}
         {devices.length === 1 && (
           <div className="pb-10">
-            <NomadXECoreView device={devices[0]} initialData={dataMap[devices[0].siteId] ?? null} displayName={displayNames[devices[0].siteId] ?? null} onRename={handleRename} />
+            <NomadXECoreView device={devices[0]} initialData={dataMap[devices[0].siteId] ?? null} displayName={displayNames[devices[0].siteId] ?? null} onRename={handleRename} onData={handleDeviceData} />
           </div>
         )}
 
-        {/* ── 2–3 devices — stacked ── */}
         {devices.length > 1 && !hasMany && (
           <div className="space-y-8 pb-10">
             {devices.map(d => (
-              <NomadXECoreView key={d.siteId} device={d} initialData={dataMap[d.siteId] ?? null} displayName={displayNames[d.siteId] ?? null} onRename={handleRename} />
+              <NomadXECoreView key={d.siteId} device={d} initialData={dataMap[d.siteId] ?? null} displayName={displayNames[d.siteId] ?? null} onRename={handleRename} onData={handleDeviceData} />
             ))}
           </div>
         )}
 
-        {/* ── 4+ devices ── */}
         {hasMany && (
           <>
-            {/* ══ MOBILE (< lg): single-panel — fleet grid or full-width detail ══ */}
+            {/* MOBILE */}
             <div className="lg:hidden pb-10">
-
-              {/* Mobile detail view header */}
               {mobileView === 'detail' && (
                 <div className="flex items-center justify-between mb-4">
-                  <button
-                    onClick={closeAll}
-                    className="flex items-center gap-2 text-[10px] font-bold text-[#93c5fd]/65 hover:text-white font-mono uppercase tracking-widest transition-colors"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <polyline points="15 18 9 12 15 6" />
-                    </svg>
-                    Fleet · {devices.length} units
+                  <button onClick={closeAll} className="flex items-center gap-2 text-[10px] font-bold text-[#93c5fd]/65 hover:text-white font-mono uppercase tracking-widest transition-colors">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6" /></svg>
+                    Fleet &middot; {devices.length} units
                   </button>
-                  <span className="text-[10px] font-mono text-[#93c5fd]/50">
-                    {selectedIds.length} open
-                  </span>
+                  <span className="text-[10px] font-mono text-[#93c5fd]/50">{selectedIds.length} open</span>
                 </div>
               )}
 
-              {/* Mobile fleet grid */}
               {mobileView === 'fleet' && (
                 <>
                   <FleetFilter filters={filters} onChange={setFilters} />
                   {filteredDevices.length === 0 && filtersActive ? (
                     <div className="flex flex-col items-center justify-center py-16 text-center">
                       <p className="text-[#93c5fd]/40 text-sm mb-3">No devices match your filters</p>
-                      <button
-                        onClick={() => setFilters(EMPTY_FILTERS)}
-                        className="text-[10px] font-mono font-bold text-[#3b82f6] hover:text-white uppercase tracking-widest transition-colors"
-                      >
-                        Clear filters
-                      </button>
+                      <button onClick={() => setFilters(EMPTY_FILTERS)} className="text-[10px] font-mono font-bold text-[#3b82f6] hover:text-white uppercase tracking-widest transition-colors">Clear filters</button>
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 gap-3 items-start content-start">
                       {filteredDevices.map(d => (
-                        <FleetTile
-                          key={d.siteId}
-                          device={d}
-                          data={dataMap[d.siteId] ?? null}
-                          selected={selectedIds.includes(d.siteId)}
-                          onClick={() => toggleSite(d.siteId)}
-                        />
+                        <FleetTile key={d.siteId} device={d} data={dataMap[d.siteId] ?? null} selected={selectedIds.includes(d.siteId)} onClick={() => toggleSite(d.siteId)} />
                       ))}
                     </div>
                   )}
                 </>
               )}
 
-              {/* Mobile detail stack */}
               {mobileView === 'detail' && (
                 <div className="space-y-6">
                   {selectedIds.map(siteId => {
@@ -229,14 +206,8 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
                     if (!device) return null;
                     return (
                       <div key={siteId} className="relative">
-                        <button
-                          onClick={() => toggleSite(siteId)}
-                          className="absolute top-3 right-3 z-10 w-6 h-6 rounded-md bg-[#080c14]/80 border border-[#1e3a5f] text-[#93c5fd]/40 hover:text-white hover:border-[#3b82f6]/50 text-xs flex items-center justify-center transition-all"
-                          title="Close"
-                        >
-                          ✕
-                        </button>
-                        <NomadXECoreView device={device} initialData={dataMap[siteId] ?? null} displayName={displayNames[siteId] ?? null} onRename={handleRename} />
+                        <button onClick={() => toggleSite(siteId)} className="absolute top-3 right-3 z-10 w-6 h-6 rounded-md bg-[#080c14]/80 border border-[#1e3a5f] text-[#93c5fd]/40 hover:text-white hover:border-[#3b82f6]/50 text-xs flex items-center justify-center transition-all" title="Close">&#x2715;</button>
+                        <NomadXECoreView device={device} initialData={dataMap[siteId] ?? null} displayName={displayNames[siteId] ?? null} onRename={handleRename} onData={handleDeviceData} />
                       </div>
                     );
                   })}
@@ -245,90 +216,47 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
               )}
             </div>
 
-            {/* ══ DESKTOP (≥ lg): dual-panel ══ */}
+            {/* DESKTOP */}
             <div className="hidden lg:flex gap-5 items-start">
-
-              {/* LEFT: fleet sidebar */}
-              <div
-                className="flex-shrink-0 flex flex-col"
-                style={{ width: hasSelection ? '300px' : '100%' }}
-              >
-                {/* Toolbar */}
+              <div className="flex-shrink-0 flex flex-col" style={{ width: hasSelection ? '300px' : '100%' }}>
                 <div className="flex items-center justify-between mb-4 flex-shrink-0">
-                  <span className="text-[10px] font-bold text-[#93c5fd]/65 uppercase tracking-widest font-mono">
-                    Fleet · {devices.length} units
-                  </span>
+                  <span className="text-[10px] font-bold text-[#93c5fd]/65 uppercase tracking-widest font-mono">Fleet &middot; {devices.length} units</span>
                   {hasSelection && (
                     <div className="flex items-center gap-3">
-                      <span className="text-[10px] font-mono text-[#93c5fd]/65">
-                        {selectedIds.length} open
-                      </span>
-                      <button
-                        onClick={closeAll}
-                        className="text-[10px] text-[#93c5fd]/65 hover:text-white font-mono uppercase tracking-widest transition-colors"
-                      >
-                        ✕ Close all
-                      </button>
+                      <span className="text-[10px] font-mono text-[#93c5fd]/65">{selectedIds.length} open</span>
+                      <button onClick={closeAll} className="text-[10px] text-[#93c5fd]/65 hover:text-white font-mono uppercase tracking-widest transition-colors">&#x2715; Close all</button>
                     </div>
                   )}
                 </div>
 
-                {/* Filter bar */}
                 <FleetFilter filters={filters} onChange={setFilters} />
 
-                {/* Tile grid (unselected) / list (selected) */}
                 {filteredDevices.length === 0 && filtersActive ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center">
                     <p className="text-[#93c5fd]/40 text-sm mb-3">No devices match your filters</p>
-                    <button
-                      onClick={() => setFilters(EMPTY_FILTERS)}
-                      className="text-[10px] font-mono font-bold text-[#3b82f6] hover:text-white uppercase tracking-widest transition-colors"
-                    >
-                      Clear filters
-                    </button>
+                    <button onClick={() => setFilters(EMPTY_FILTERS)} className="text-[10px] font-mono font-bold text-[#3b82f6] hover:text-white uppercase tracking-widest transition-colors">Clear filters</button>
                   </div>
                 ) : (
                   <div
-                    className={`overflow-y-auto pr-1 ${
-                      hasSelection
-                        ? 'space-y-2.5'
-                        : 'grid grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 items-start content-start'
-                    }`}
+                    className={`overflow-y-auto pr-1 ${hasSelection ? 'space-y-2.5' : 'grid grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 items-start content-start'}`}
                     style={{ height: 'calc(100vh - 17rem)' }}
                   >
                     {filteredDevices.map(d => (
-                      <FleetTile
-                        key={d.siteId}
-                        device={d}
-                        data={dataMap[d.siteId] ?? null}
-                        selected={selectedIds.includes(d.siteId)}
-                        onClick={() => toggleSite(d.siteId)}
-                      />
+                      <FleetTile key={d.siteId} device={d} data={dataMap[d.siteId] ?? null} selected={selectedIds.includes(d.siteId)} onClick={() => toggleSite(d.siteId)} />
                     ))}
                   </div>
                 )}
               </div>
 
-              {/* RIGHT: detail stack */}
               {hasSelection && (
-                <div
-                  ref={detailPanelRef}
-                  className="flex-1 min-w-0 overflow-y-auto space-y-6 pr-1"
-                  style={{ height: 'calc(100vh - 14rem)' }}
-                >
+                <div ref={detailPanelRef} className="flex-1 min-w-0 overflow-y-auto space-y-6 pr-1" style={{ height: 'calc(100vh - 14rem)' }}>
                   {selectedIds.map(siteId => {
                     const device = devices.find(d => d.siteId === siteId);
                     if (!device) return null;
                     return (
                       <div key={siteId} data-site-id={siteId} className="relative">
-                        <button
-                          onClick={() => toggleSite(siteId)}
-                          className="absolute top-3 right-3 z-10 w-6 h-6 rounded-md bg-[#080c14]/80 border border-[#1e3a5f] text-[#93c5fd]/40 hover:text-white hover:border-[#3b82f6]/50 text-xs flex items-center justify-center transition-all"
-                          title="Close"
-                        >
-                          ✕
-                        </button>
-                        <NomadXECoreView device={device} initialData={dataMap[siteId] ?? null} displayName={displayNames[siteId] ?? null} onRename={handleRename} />
+                        <button onClick={() => toggleSite(siteId)} className="absolute top-3 right-3 z-10 w-6 h-6 rounded-md bg-[#080c14]/80 border border-[#1e3a5f] text-[#93c5fd]/40 hover:text-white hover:border-[#3b82f6]/50 text-xs flex items-center justify-center transition-all" title="Close">&#x2715;</button>
+                        <NomadXECoreView device={device} initialData={dataMap[siteId] ?? null} displayName={displayNames[siteId] ?? null} onRename={handleRename} onData={handleDeviceData} />
                       </div>
                     );
                   })}

@@ -29,8 +29,12 @@ async function fetchInitialVRMData(siteId: string): Promise<VRMData | null> {
 
     const [diagRes, statsRes] = await Promise.all([
       fetch(`https://vrmapi.victronenergy.com/v2/installations/${siteId}/diagnostics`, { headers, cache: 'no-store' }),
-      fetch(`https://vrmapi.victronenergy.com/v2/installations/${siteId}/stats?type=custom&attributeCodes[]=${A.SOLAR_W}&interval=hours&start=${sixHoursAgo}&end=${now}`, { headers, cache: 'no-store' })
-        .catch(() => null),
+      fetch(
+        `https://vrmapi.victronenergy.com/v2/installations/${siteId}/stats` +
+        `?type=custom&attributeCodes[]=${A.SOLAR_W}&attributeCodes[]=${A.BATTERY_SOC}` +
+        `&interval=hours&start=${sixHoursAgo}&end=${now}`,
+        { headers, cache: 'no-store' }
+      ).catch(() => null),
     ]);
 
     if (!diagRes.ok) return null;
@@ -39,27 +43,39 @@ async function fetchInitialVRMData(siteId: string): Promise<VRMData | null> {
 
     const records: any[] = diagJson?.records ?? [];
     const pick = (id: number) => Number(records.find((r: any) => r.idDataAttribute === id)?.rawValue ?? 0);
-    const lastSeen = records.reduce((max: number, r: any) => Math.max(max, Number(r.timestamp ?? 0)), 0) || now;
+    const lastSeen = records.reduce((max: number, r: any) => Math.max(max, Number(r.timestamp ?? 0)), 0);
 
     const solarW   = pick(A.SOLAR_W);
     const batteryW = pick(A.BATTERY_W);
     const dcLoad   = records.some((r: any) => r.idDataAttribute === A.DC_SYSTEM)
       ? pick(A.DC_SYSTEM)
       : Math.max(0, Math.round(solarW - batteryW));
-    const mpptRaw  = pick(A.MPPT_STATE);
+    const mpptRaw = pick(A.MPPT_STATE);
 
     const sparklineRaw = statsJson?.records?.[String(A.SOLAR_W)]?.avg;
     const sparkline = Array.isArray(sparklineRaw)
       ? (sparklineRaw as (number | null)[]).slice(-6).map(v => v ?? 0)
       : [];
 
+    const socSparkRaw = statsJson?.records?.[String(A.BATTERY_SOC)]?.avg;
+    const batterySparkline = Array.isArray(socSparkRaw)
+      ? (socSparkRaw as (number | null)[]).slice(-6).map(v => v ?? 0)
+      : [];
+
     return {
       siteId,
       lastSeen,
-      battery: { soc: pick(A.BATTERY_SOC), voltage: pick(A.BATTERY_V), current: pick(A.BATTERY_A), power: batteryW, state: pick(A.BATTERY_STATE) },
-      solar: { power: solarW, voltage: pick(A.SOLAR_V), yieldToday: pick(A.SOLAR_TODAY), mpptState: mpptRaw, mpptStateLabel: MPPT_LABELS[mpptRaw] ?? 'Unknown' },
+      battery: {
+        soc: pick(A.BATTERY_SOC), voltage: pick(A.BATTERY_V),
+        current: pick(A.BATTERY_A), power: batteryW, state: pick(A.BATTERY_STATE),
+      },
+      solar: {
+        power: solarW, voltage: pick(A.SOLAR_V), yieldToday: pick(A.SOLAR_TODAY),
+        mpptState: mpptRaw, mpptStateLabel: MPPT_LABELS[mpptRaw] ?? 'Unknown',
+      },
       dcLoad,
       sparkline,
+      batterySparkline,
     };
   } catch {
     return null;
@@ -77,7 +93,7 @@ export default async function DashboardPage() {
     .select('device_id, vrm_devices(id, vrm_site_id, name, display_name)')
     .eq('user_id', user.id);
 
-  const devices = (assignments ?? [])
+  const rawDevices = (assignments ?? [])
     .map((a: any) => a.vrm_devices)
     .filter(Boolean)
     .map((d: any) => ({
@@ -85,6 +101,15 @@ export default async function DashboardPage() {
       name:        String(d.name),
       displayName: d.display_name ?? null,
     }));
+
+  // Deduplicate by siteId — a device may have multiple assignment rows
+  // in the DB, which would cause duplicate React keys and broken rendering.
+  const seenIds = new Set<string>();
+  const devices = rawDevices.filter(d => {
+    if (seenIds.has(d.siteId)) return false;
+    seenIds.add(d.siteId);
+    return true;
+  });
 
   const initialDataMap = Object.fromEntries(
     await Promise.all(

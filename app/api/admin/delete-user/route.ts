@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
   try {
     const caller = await getAdminUser();
     if (!caller) {
+      console.warn('[SECURITY] delete-user: unauthorized attempt', { ts: new Date().toISOString() });
       return NextResponse.json({ error: 'Unauthorized — admin only' }, { status: 401 });
     }
 

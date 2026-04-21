@@ -139,7 +139,7 @@ function AuthCallbackInner() {
         handled = true;
         router.replace('/login?error=Invalid+or+expired+link.+Please+request+a+new+one.');
       }
-    }, 10000);
+    }, 15000);
 
     return () => { clearTimeout(timeout); };
   }, [router, supabase, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps

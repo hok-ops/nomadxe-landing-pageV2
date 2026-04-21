@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
   try {
     const caller = await getAdminUser();
     if (!caller) {
+      console.warn('[SECURITY] assign-device POST: unauthorized attempt', { ts: new Date().toISOString() });
       return NextResponse.json({ error: 'Unauthorized — admin only' }, { status: 401 });
     }
 
@@ -80,6 +81,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const caller = await getAdminUser();
     if (!caller) {
+      console.warn('[SECURITY] assign-device DELETE: unauthorized attempt', { ts: new Date().toISOString() });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

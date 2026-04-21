@@ -2,65 +2,38 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 
-// ── VRM attribute ID constants ─────────────────────────────────────────────────
-// Verified against live debug response from installation 810801.
-// These IDs are standard Venus OS / Cerbo GX attribute codes.
 const A = {
-  // Battery Monitor (SmartShunt/BMV)
-  BATTERY_SOC:   51,   // /Soc  (%)
-  BATTERY_V:     47,   // /Dc/0/Voltage  (V)
-  BATTERY_A:     49,   // /Dc/0/Current  (A)  positive = charging
-
-  // System overview — more reliable for power totals across devices
-  BATTERY_W:     243,  // /Dc/Battery/Power  (W)  positive = charging
-  BATTERY_STATE: 215,  // /Dc/Battery/State  0=Idle 1=Charging 2=Discharging
-
-  // Solar Charger (MPPT)
-  SOLAR_W:       442,  // /Yield/Power  (W)  — PV output power
-  SOLAR_V:       86,   // /Pv/V  (V)         — panel string voltage
-  SOLAR_TODAY:   94,   // /History/Daily/0/Yield  (kWh)
-  MPPT_STATE:    85,   // /State  3=Bulk 4=Absorption 5=Float 6=Storage
-
-  // DC loads on the bus (System overview)
-  DC_SYSTEM:     140,  // /Dc/System/Power  (W)
+  BATTERY_SOC:   51,
+  BATTERY_V:     47,
+  BATTERY_A:     49,
+  BATTERY_W:     243,
+  BATTERY_STATE: 215,
+  SOLAR_W:       442,
+  SOLAR_V:       86,
+  SOLAR_TODAY:   94,
+  MPPT_STATE:    85,
+  DC_SYSTEM:     140,
 } as const;
 
-// MPPT SmartSolar charge state enum
 const MPPT_LABELS: Record<number, string> = {
-  0: 'Off',
-  2: 'Fault',
-  3: 'Bulk',
-  4: 'Absorption',
-  5: 'Float',
-  6: 'Storage',
-  7: 'Equalize',
-  245: 'Off',
-  247: 'Equalize',
-  252: 'Ext. Control',
+  0: 'Off', 2: 'Fault', 3: 'Bulk', 4: 'Absorption',
+  5: 'Float', 6: 'Storage', 7: 'Equalize',
+  245: 'Off', 247: 'Equalize', 252: 'Ext. Control',
 };
 
 export interface VRMData {
   siteId: string;
-  lastSeen: number;          // unix seconds — heartbeat
+  lastSeen: number;
   battery: {
-    soc: number;             // %
-    voltage: number;         // V
-    current: number;         // A — positive = charging
-    power: number;           // W — positive = charging
-    state: number;           // 0=Idle 1=Charging 2=Discharging
+    soc: number; voltage: number; current: number; power: number; state: number;
   };
   solar: {
-    power: number;           // W  (PV output)
-    voltage: number;         // V  (panel string voltage)
-    yieldToday: number;      // kWh
-    mpptState: number;       // charge state enum
-    mpptStateLabel: string;
+    power: number; voltage: number; yieldToday: number; mpptState: number; mpptStateLabel: string;
   };
-  dcLoad: number;            // W — DC bus loads
-  sparkline: number[];       // 6 hourly solar power readings (W)
+  dcLoad: number;
+  sparkline: number[];
+  batterySparkline?: number[];
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function pick(records: any[], id: number): number {
   const rec = records.find((r: any) => r.idDataAttribute === id);
@@ -87,13 +60,14 @@ async function fetchVRM(path: string): Promise<any> {
 }
 
 function deriveDCLoad(solarW: number, batteryW: number): number {
-  // Energy balance: Solar = Battery Charge + DC Loads
-  // → DC Loads = Solar − Battery Net (positive W = charging)
-  // When battery is discharging (batteryW < 0), loads = solar + |discharge|
   return Math.max(0, Math.round(solarW - batteryW));
 }
 
-// ── Route ─────────────────────────────────────────────────────────────────────
+function extractSparkline(statsJson: any, attrCode: number): number[] {
+  const attr = statsJson?.records?.[String(attrCode)];
+  if (!attr?.avg) return [];
+  return (attr.avg as (number | null)[]).slice(-6).map(v => v ?? 0);
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -103,13 +77,16 @@ export async function GET(
 ) {
   const { siteId } = params;
 
+  if (!/^\d+$/.test(siteId)) {
+    return NextResponse.json({ error: 'Invalid site ID' }, { status: 400 });
+  }
+
   const supabase    = createClient();
   const adminClient = createAdminClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  // Verify caller owns this device OR is admin
   const [{ data: assignment }, { data: profile }] = await Promise.all([
     adminClient
       .from('device_assignments')
@@ -125,54 +102,47 @@ export async function GET(
   }
 
   try {
-    const now        = Math.floor(Date.now() / 1000);
-    const sixHrsAgo  = now - 6 * 3600;
+    const now       = Math.floor(Date.now() / 1000);
+    const sixHrsAgo = now - 6 * 3600;
 
     const [diagJson, statsJson] = await Promise.all([
       fetchVRM(`/installations/${siteId}/diagnostics`),
       fetchVRM(
         `/installations/${siteId}/stats` +
-        `?type=custom&attributeCodes[]=${A.SOLAR_W}` +  // 442 = PV power
+        `?type=custom&attributeCodes[]=${A.SOLAR_W}` +
+        `&attributeCodes[]=${A.BATTERY_SOC}` +
         `&interval=hours&start=${sixHrsAgo}&end=${now}`
       ).catch(() => null),
     ]);
 
     const records: any[] = diagJson?.records ?? [];
-
     const solarW   = pick(records, A.SOLAR_W);
     const batteryW = pick(records, A.BATTERY_W);
-
-    // DC System attr 140: trust the value (even 0) when the attribute is present.
-    // Only fall back to the energy-balance formula when attr 140 is absent entirely.
-    const dcLoad = hasAttr(records, A.DC_SYSTEM)
+    const dcLoad   = hasAttr(records, A.DC_SYSTEM)
       ? pick(records, A.DC_SYSTEM)
       : deriveDCLoad(solarW, batteryW);
-
     const mpptStateRaw = pick(records, A.MPPT_STATE);
 
     const data: VRMData = {
       siteId,
-      // Use 0 (not `now`) when no timestamps are present so the UI can correctly
-      // classify the device as "No data" rather than falsely showing it as Live.
       lastSeen: latestTimestamp(records),
       battery: {
         soc:     pick(records, A.BATTERY_SOC),
         voltage: pick(records, A.BATTERY_V),
         current: pick(records, A.BATTERY_A),
         power:   batteryW,
-        state:   pick(records, A.BATTERY_STATE), // 0=Idle 1=Charging 2=Discharging
+        state:   pick(records, A.BATTERY_STATE),
       },
       solar: {
         power:          solarW,
         voltage:        pick(records, A.SOLAR_V),
         yieldToday:     pick(records, A.SOLAR_TODAY),
         mpptState:      mpptStateRaw,
-        // Fall back to 'Off' for any unrecognised state so fleet filters always
-        // have a known chip to match against (avoids devices vanishing mid-filter).
         mpptStateLabel: MPPT_LABELS[mpptStateRaw] ?? 'Off',
       },
       dcLoad,
-      sparkline: extractSparkline(statsJson, A.SOLAR_W), // attr 442 for stats API
+      sparkline:        extractSparkline(statsJson, A.SOLAR_W),
+      batterySparkline: extractSparkline(statsJson, A.BATTERY_SOC),
     };
 
     return NextResponse.json({ data, ok: true });
@@ -180,10 +150,4 @@ export async function GET(
     console.error(`[VRM] ${siteId}:`, err.message);
     return NextResponse.json({ error: err.message, ok: false }, { status: 502 });
   }
-}
-
-function extractSparkline(statsJson: any, attrCode: number): number[] {
-  const attr = statsJson?.records?.[String(attrCode)];
-  if (!attr?.avg) return [];
-  return (attr.avg as (number | null)[]).slice(-6).map(v => v ?? 0);
 }

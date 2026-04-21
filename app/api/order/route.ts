@@ -183,7 +183,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 4. Email format sanity check ─────────────────────────────────────────
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
+  if (!/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z]{2,})+$/.test(body.email.trim())) {
     return NextResponse.json(
       { error: 'Invalid email address.', fields: ['email'] },
       { status: 422, headers: corsHeaders() }

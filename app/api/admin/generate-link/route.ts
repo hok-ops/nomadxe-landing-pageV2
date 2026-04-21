@@ -38,7 +38,12 @@ export async function POST(request: NextRequest) {
 
   const { data: profile } = await adminClient
     .from('profiles').select('role').eq('id', user.id).single();
-  if (profile?.role !== 'admin') {
+  if (!profile || profile.role !== 'admin') {
+    console.warn('[SECURITY] generate-link: non-admin access attempt', {
+      userId: user.id,
+      role: profile?.role ?? 'no profile',
+      ts: new Date().toISOString(),
+    });
     return NextResponse.json({ error: 'Admin only' }, { status: 403 });
   }
 

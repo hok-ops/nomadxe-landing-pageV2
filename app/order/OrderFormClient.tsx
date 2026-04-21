@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 
 // ---------------------------------------------------------------------------
@@ -34,37 +34,6 @@ const DEPLOYMENT_OPTIONS = [
 const TRAILER_COUNTS = ['1', '2', '3', '4+'];
 
 const YES_NO = ['Yes', 'No'];
-
-// ---------------------------------------------------------------------------
-// Radar autocomplete
-// ---------------------------------------------------------------------------
-
-interface RadarAddress {
-  formattedAddress: string;
-  number?: string;
-  street?: string;
-  city?: string;
-  stateCode?: string;
-  postalCode?: string;
-  latitude?: number;
-  longitude?: number;
-}
-
-async function fetchRadarSuggestions(query: string): Promise<RadarAddress[]> {
-  const key = process.env.NEXT_PUBLIC_RADAR_PUBLISHABLE_KEY;
-  if (!key || query.trim().length < 3) return [];
-  try {
-    const res = await fetch(
-      `https://api.radar.io/v1/search/autocomplete?query=${encodeURIComponent(query)}&country=US&layers=address&limit=6`,
-      { headers: { Authorization: key } }
-    );
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.addresses ?? [];
-  } catch {
-    return [];
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -111,7 +80,8 @@ interface UtmParams {
 // ---------------------------------------------------------------------------
 
 function validateEmail(v: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+  // Stricter RFC-based check: requires valid local part, domain label, and 2+ char TLD
+  return /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z]{2,})+$/.test(v.trim());
 }
 
 function validateLat(v: string): boolean {
@@ -239,10 +209,6 @@ export default function OrderFormClient() {
   const [recipientErrors, setRecipientErrors] = useState<(string | undefined)[]>([]);
   const [deliveryContacts, setDeliveryContacts] = useState<DeliveryContact[]>([{ ...INITIAL_DELIVERY_CONTACT }]);
   const [deliveryContactErrors, setDeliveryContactErrors] = useState<DeliveryContactError[]>([{}]);
-  const [addressSuggestions, setAddressSuggestions] = useState<RadarAddress[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const suggestionRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Capture UTMs on mount
   useEffect(() => {
@@ -251,17 +217,6 @@ export default function OrderFormClient() {
     const captured: UtmParams = {};
     params.forEach((v, k) => { captured[k] = v; });
     if (Object.keys(captured).length) setUtmParams(captured);
-  }, []);
-
-  // Close suggestions on outside click
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (suggestionRef.current && !suggestionRef.current.contains(e.target as Node)) {
-        setShowSuggestions(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleChange = useCallback(
@@ -274,35 +229,6 @@ export default function OrderFormClient() {
     },
     [errors]
   );
-
-  function handleStreetAddressChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const value = e.target.value;
-    setFields((p) => ({ ...p, street_address: value }));
-    if (errors.street_address) setErrors((p) => ({ ...p, street_address: undefined }));
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (value.trim().length < 3) { setAddressSuggestions([]); setShowSuggestions(false); return; }
-    debounceRef.current = setTimeout(async () => {
-      const results = await fetchRadarSuggestions(value);
-      setAddressSuggestions(results);
-      setShowSuggestions(results.length > 0);
-    }, 300);
-  }
-
-  function selectAddress(addr: RadarAddress) {
-    const street = [addr.number, addr.street].filter(Boolean).join(' ');
-    setFields((p) => ({
-      ...p,
-      street_address: street || p.street_address,
-      city: addr.city ?? p.city,
-      state: addr.stateCode ?? p.state,
-      zip_code: addr.postalCode ?? p.zip_code,
-      gps_lat: addr.latitude != null ? String(addr.latitude) : p.gps_lat,
-      gps_lng: addr.longitude != null ? String(addr.longitude) : p.gps_lng,
-    }));
-    setErrors((p) => ({ ...p, street_address: undefined, city: undefined, state: undefined, zip_code: undefined }));
-    setAddressSuggestions([]);
-    setShowSuggestions(false);
-  }
 
   function updateDeliveryContact(i: number, field: keyof DeliveryContact, value: string) {
     const updated = [...deliveryContacts];
@@ -380,8 +306,13 @@ export default function OrderFormClient() {
         zip_code: fields.zip_code.trim(),
         ...(fields.gps_lat.trim() && { gps_lat: fields.gps_lat.trim() }),
         ...(fields.gps_lng.trim() && { gps_lng: fields.gps_lng.trim() }),
+        // Sanitize name/phone: strip semicolons so the '; ' delimiter stays unambiguous
         delivery_contacts: validDeliveryContacts
-          .map((c) => `${c.name}${c.phone ? ` (${c.phone})` : ''}`)
+          .map((c) => {
+            const name  = c.name.replace(/;/g, ',').trim();
+            const phone = c.phone.replace(/;/g, ',').trim();
+            return phone ? `${name} (${phone})` : name;
+          })
           .join('; '),
         start_date: fields.start_date,
         duration: fields.duration,
@@ -682,45 +613,22 @@ export default function OrderFormClient() {
               </div>
             </div>
 
-            {/* Address with autocomplete */}
-            <div className="relative" ref={suggestionRef}>
+            {/* Street Address */}
+            <div>
               <label htmlFor="ord-street-address" className={LABEL}>Street Address <span className="text-red-400/80">*</span></label>
               <input
                 id="ord-street-address"
                 name="street_address"
                 type="text"
                 required
-                autoComplete="off"
+                autoComplete="street-address"
                 value={fields.street_address}
-                onChange={handleStreetAddressChange}
-                onFocus={() => addressSuggestions.length > 0 && setShowSuggestions(true)}
+                onChange={handleChange}
                 placeholder="123 Site Road"
                 aria-invalid={!!errors.street_address}
                 className={INPUT(!!errors.street_address)}
               />
               {errors.street_address && <p className={ERR} role="alert">{errors.street_address}</p>}
-
-              {/* Suggestions dropdown */}
-              {showSuggestions && addressSuggestions.length > 0 && (
-                <ul className="absolute z-50 left-0 right-0 mt-1 bg-[#0d1526] border border-[#1e3a5f] rounded-xl overflow-hidden shadow-xl">
-                  {addressSuggestions.map((addr, i) => (
-                    <li key={i}>
-                      <button
-                        type="button"
-                        onMouseDown={() => selectAddress(addr)}
-                        className="w-full text-left px-4 py-3 text-sm text-white/80 hover:bg-[#1e40af]/30 hover:text-white transition-colors border-b border-[#1e3a5f]/40 last:border-0"
-                      >
-                        <span className="block font-medium">
-                          {[addr.number, addr.street].filter(Boolean).join(' ')}
-                        </span>
-                        <span className="block text-[11px] text-[#93c5fd]/40 mt-0.5">
-                          {[addr.city, addr.stateCode, addr.postalCode].filter(Boolean).join(', ')}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className="col-span-2">

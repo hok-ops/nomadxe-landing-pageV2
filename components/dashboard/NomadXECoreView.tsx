@@ -15,6 +15,7 @@ export interface VRMData {
   };
   dcLoad: number;
   sparkline: number[];
+  batterySparkline?: number[]; // 6h hourly SOC % readings
 }
 
 interface Props {
@@ -22,20 +23,19 @@ interface Props {
   initialData: VRMData | null;
   displayName?: string | null;
   onRename?: (siteId: string, newName: string) => Promise<void>;
+  onData?: (siteId: string, data: VRMData) => void; // bubbles fresh data to parent for filter sync
 }
 
 // ── MPPT state → visual config ────────────────────────────────────────────────
-// NomadXE trailers are DC-only. The MPPT charger state is the primary
-// system state signal — no inverter/VEBus present.
 
 const MPPT_STYLE: Record<number, { color: string; glow: string; border: string }> = {
-  0:  { color: '#6b7280', glow: 'rgba(107,114,128,0.15)', border: '#374151' },  // Off
-  2:  { color: '#ef4444', glow: 'rgba(239,68,68,0.20)',   border: '#991b1b' },  // Fault
-  3:  { color: '#f59e0b', glow: 'rgba(245,158,11,0.20)',  border: '#b45309' },  // Bulk
-  4:  { color: '#f59e0b', glow: 'rgba(245,158,11,0.18)',  border: '#b45309' },  // Absorption
-  5:  { color: '#22c55e', glow: 'rgba(34,197,94,0.18)',   border: '#15803d' },  // Float
-  6:  { color: '#22c55e', glow: 'rgba(34,197,94,0.18)',   border: '#15803d' },  // Storage
-  7:  { color: '#3b82f6', glow: 'rgba(59,130,246,0.18)',  border: '#1d4ed8' },  // Equalize
+  0:  { color: '#6b7280', glow: 'rgba(107,114,128,0.15)', border: '#374151' },
+  2:  { color: '#ef4444', glow: 'rgba(239,68,68,0.20)',   border: '#991b1b' },
+  3:  { color: '#f59e0b', glow: 'rgba(245,158,11,0.20)',  border: '#b45309' },
+  4:  { color: '#f59e0b', glow: 'rgba(245,158,11,0.18)',  border: '#b45309' },
+  5:  { color: '#22c55e', glow: 'rgba(34,197,94,0.18)',   border: '#15803d' },
+  6:  { color: '#22c55e', glow: 'rgba(34,197,94,0.18)',   border: '#15803d' },
+  7:  { color: '#3b82f6', glow: 'rgba(59,130,246,0.18)',  border: '#1d4ed8' },
 };
 
 function getMpptStyle(state: number) {
@@ -48,9 +48,17 @@ function getBatteryColor(soc: number, light = false) {
   return               light ? '#dc2626' : '#ef4444';
 }
 
-// ── Solar Sparkline ───────────────────────────────────────────────────────────
+// ── Sparkline (generic) ───────────────────────────────────────────────────────
 
-function SolarSparkline({ data }: { data: number[] }) {
+interface SparklineProps {
+  data: number[];
+  color: string;
+  label: string;
+  unit: string;
+  height?: number;
+}
+
+function Sparkline({ data, color, label, unit, height = 36 }: SparklineProps) {
   if (data.length < 2) {
     return (
       <div className="h-9 flex items-center">
@@ -58,27 +66,41 @@ function SolarSparkline({ data }: { data: number[] }) {
       </div>
     );
   }
-  const W = 200, H = 36;
+  const W = 200, H = height;
   const max = Math.max(...data, 1);
+  const min = Math.min(...data);
+  const range = Math.max(max - min, 1);
   const step = W / (data.length - 1);
-  const pts = data.map((v, i) => ({ x: +(i * step).toFixed(1), y: +(H - (v / max) * (H - 4)).toFixed(1) }));
+  const pts = data.map((v, i) => ({
+    x: +(i * step).toFixed(1),
+    y: +(H - ((v - min) / range) * (H - 4) - 2).toFixed(1),
+  }));
   const polyline = pts.map(p => `${p.x},${p.y}`).join(' ');
   const area = `M${pts[0].x},${H} ${pts.map(p => `L${p.x},${p.y}`).join(' ')} L${pts[pts.length - 1].x},${H} Z`;
-  const uid = data.slice(0, 3).join('-');
+  const uid = `${label}-${data.slice(0, 3).join('-')}`;
+  const last = data[data.length - 1];
 
   return (
-    <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="overflow-visible">
-      <defs>
-        <linearGradient id={`sg-${uid}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#22c55e" stopOpacity="0.30" />
-          <stop offset="100%" stopColor="#22c55e" stopOpacity="0.01" />
-        </linearGradient>
-      </defs>
-      <path d={area} fill={`url(#sg-${uid})`} />
-      <polyline points={polyline} fill="none" stroke="#22c55e" strokeWidth="1.5"
-        strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="2.5" fill="#22c55e" />
-    </svg>
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[9px] text-[#93c5fd]/60 font-mono uppercase tracking-widest">{label}</span>
+        <span className="text-[10px] font-black font-mono tabular-nums" style={{ color }}>
+          {typeof last === 'number' ? last.toFixed(label.includes('SOC') ? 0 : 1) : '\u2014'}{unit}
+        </span>
+      </div>
+      <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="overflow-visible">
+        <defs>
+          <linearGradient id={`sg-${uid}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.28" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.01" />
+          </linearGradient>
+        </defs>
+        <path d={area} fill={`url(#sg-${uid})`} />
+        <polyline points={polyline} fill="none" stroke={color} strokeWidth="1.5"
+          strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="2.5" fill={color} />
+      </svg>
+    </div>
   );
 }
 
@@ -88,7 +110,6 @@ function FlowArrow({ active, color = '#3b82f6' }: { active: boolean; color?: str
   const c = active ? color : '#1e3a5f';
   return (
     <>
-      {/* Mobile: vertical down arrow */}
       <div className="lg:hidden flex justify-center py-1 flex-shrink-0">
         <svg width="14" height="30" viewBox="0 0 14 30">
           {active && (
@@ -100,7 +121,6 @@ function FlowArrow({ active, color = '#3b82f6' }: { active: boolean; color?: str
           <polygon points="3,18 7,30 11,18" fill={c} />
         </svg>
       </div>
-      {/* Desktop: horizontal right arrow */}
       <div className="hidden lg:flex items-center justify-center flex-shrink-0 w-12">
         <svg width="48" height="14" viewBox="0 0 48 14">
           {active && (
@@ -133,11 +153,11 @@ function SocBar({ soc, light }: { soc: number; light: boolean }) {
 
 // ── Offline overlay ───────────────────────────────────────────────────────────
 
-function OfflineOverlay({ staleSince }: { staleSince: number }) {
+function OfflineOverlay({ staleSince, deviceName }: { staleSince: number; deviceName: string }) {
   const mins = Math.floor((Date.now() / 1000 - staleSince) / 60);
   return (
     <div className="absolute inset-0 z-20 rounded-2xl flex flex-col items-center justify-center gap-3"
-      style={{ background: 'rgba(8,12,20,0.90)', backdropFilter: 'blur(2px)' }}>
+      style={{ background: 'rgba(8,12,20,0.92)', backdropFilter: 'blur(3px)' }}>
       <style>{`
         @keyframes op{0%,100%{border-color:rgba(239,68,68,.55);box-shadow:0 0 0 0 rgba(239,68,68,0)}
         50%{border-color:rgba(75,85,99,.35);box-shadow:0 0 20px 3px rgba(239,68,68,.15)}}
@@ -147,16 +167,17 @@ function OfflineOverlay({ staleSince }: { staleSince: number }) {
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="1.5">
         <circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
       </svg>
-      <div className="text-center space-y-1">
+      <div className="text-center space-y-0.5 px-4">
+        <div className="text-white font-black text-sm tracking-tight truncate max-w-xs">{deviceName}</div>
         <div className="text-red-400 font-black text-xs tracking-[0.35em] uppercase font-mono">Signal Lost</div>
-        <div className="text-[#93c5fd]/45 text-[11px] font-mono">
+        <div className="text-[#93c5fd]/45 text-[11px] font-mono mt-1">
           {mins < 60 ? `No data for ${mins}m` : `Offline ${Math.floor(mins / 60)}h ${mins % 60}m`}
-          {mins >= 30 ? ' — check trailer' : ''}
+          {mins >= 30 ? ' \u2014 check trailer' : ''}
         </div>
       </div>
       <div className="flex items-center gap-1.5 text-[10px] text-red-500/50 font-mono">
         <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping inline-block" />
-        Attempting reconnect…
+        Attempting reconnect\u2026
       </div>
     </div>
   );
@@ -180,18 +201,17 @@ function StatPill({
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-export default function NomadXECoreView({ device, initialData, displayName, onRename }: Props) {
+export default function NomadXECoreView({ device, initialData, displayName, onRename, onData }: Props) {
   const { theme } = useTheme();
   const isLight = theme === 'light';
 
-  const [data, setData]       = useState<VRMData | null>(initialData);
+  const [data, setData]         = useState<VRMData | null>(initialData);
   const [lastPoll, setLastPoll] = useState(new Date());
-  const [, setTick]           = useState(0);
+  const [, setTick]             = useState(0);
 
-  // Inline rename state
-  const [editing, setEditing]   = useState(false);
+  const [editing, setEditing]     = useState(false);
   const [draftName, setDraftName] = useState('');
-  const [saving, setSaving]     = useState(false);
+  const [saving, setSaving]       = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const startEdit = () => {
@@ -215,26 +235,31 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
   const poll = useCallback(async () => {
     try {
       const res = await fetch(`/api/vrm/${device.siteId}`, { cache: 'no-store' });
+      if (res.status === 401) {
+        window.location.href = '/login?error=Session+expired.+Please+sign+in+again.';
+        return;
+      }
       if (res.ok) {
         const json = await res.json();
-        if (json.data) setData(json.data);
+        if (json.data) {
+          setData(json.data);
+          onData?.(device.siteId, json.data);
+        }
       } else {
-        console.error(`[VRM poll] ${device.siteId} → HTTP ${res.status}`);
+        console.error(`[VRM poll] ${device.siteId} => HTTP ${res.status}`);
       }
     } catch (err) {
       console.error(`[VRM poll] ${device.siteId} fetch error:`, err);
     }
     setLastPoll(new Date());
-  }, [device.siteId]);
+  }, [device.siteId, onData]);
 
-  // Poll immediately on mount, then every 30 s
   useEffect(() => {
     poll();
     const id = setInterval(poll, 30_000);
     return () => clearInterval(id);
   }, [poll]);
 
-  // 1 s clock tick for elapsed time display
   useEffect(() => {
     const id = setInterval(() => setTick(t => t + 1), 1000);
     return () => clearInterval(id);
@@ -257,25 +282,26 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
     ? staleS < 60    ? `${Math.floor(staleS)}s ago`
     : staleS < 3600  ? `${Math.floor(staleS / 60)}m ago`
     : `${Math.floor(staleS / 3600)}h ago`
-    : '—';
+    : '\u2014';
+
+  const activeDisplayName = displayName ?? device.name;
+  const vrmUrl = `https://vrm.victronenergy.com/installation/${device.siteId}/dashboard`;
 
   return (
     <div className="relative bg-[#0d1526] border border-[#1e3a5f] rounded-2xl overflow-hidden shadow-[0_20px_56px_rgba(0,0,0,0.55)]">
 
-      {isOffline && <OfflineOverlay staleSince={lastSeenS} />}
+      {isOffline && <OfflineOverlay staleSince={lastSeenS} deviceName={activeDisplayName} />}
 
-      {/* Top shimmer */}
       <div className="h-px bg-gradient-to-r from-transparent via-[#3b82f6]/20 to-transparent" />
 
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-y-2 px-4 sm:px-6 py-4 border-b border-[#1e3a5f]/50">
         <div className="flex items-center gap-2.5 min-w-0">
           <span
-            className={`flex-shrink-0 w-2 h-2 rounded-full ${isOffline ? 'bg-red-500' : 'bg-emerald-400 animate-pulse'}`}
-            style={isOffline ? {} : { boxShadow: '0 0 7px #4ade80' }}
+            className={`flex-shrink-0 w-2 h-2 rounded-full ${isOffline ? 'bg-red-500' : lastSeenS === 0 ? 'bg-gray-600' : 'bg-emerald-400 animate-pulse'}`}
+            style={(!isOffline && lastSeenS > 0) ? { boxShadow: '0 0 7px #4ade80' } : {}}
           />
 
-          {/* Inline device name — click pencil to edit */}
           {editing ? (
             <div className="flex items-center gap-1.5 min-w-0">
               <input
@@ -296,9 +322,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
             </div>
           ) : (
             <div className="flex items-center gap-1.5 group/name min-w-0">
-              <span className="text-white font-bold text-sm truncate">
-                {displayName ?? device.name}
-              </span>
+              <span className="text-white font-bold text-sm truncate">{activeDisplayName}</span>
               {onRename && (
                 <button
                   onClick={startEdit}
@@ -318,31 +342,44 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
             Site {device.siteId}
           </span>
         </div>
-        <div className="flex items-center gap-3 text-[10px] font-mono text-[#93c5fd]/60 uppercase tracking-widest flex-shrink-0">
-          {isOffline
-            ? <span className="text-red-400 font-bold">Offline · VRM {syncAgo}</span>
-            : <>
-                <span title={`VRM device last reported ${syncAgo}`}>
-                  Synced {lastPoll.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                </span>
-                <span className="text-[#93c5fd]/35" title="When Victron device last sent telemetry to VRM">
-                  VRM {syncAgo}
-                </span>
-              </>
-          }
+
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <a
+            href={vrmUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open in Victron VRM Portal"
+            className="flex items-center gap-1.5 text-[10px] font-mono text-[#93c5fd]/40 hover:text-[#3b82f6] uppercase tracking-widest transition-colors"
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+            VRM
+          </a>
+
+          <div className="text-[10px] font-mono text-[#93c5fd]/60 uppercase tracking-widest">
+            {isOffline
+              ? <span className="text-red-400 font-bold">Offline &middot; VRM {syncAgo}</span>
+              : <>
+                  <span title={`VRM device last reported ${syncAgo}`}>
+                    Synced {lastPoll.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </span>
+                  <span className="text-[#93c5fd]/35 ml-3" title="When Victron device last sent telemetry to VRM">
+                    VRM {syncAgo}
+                  </span>
+                </>
+            }
+          </div>
         </div>
       </div>
 
       <div className="p-4 sm:p-6">
-
-        {/* ── Power Flow: Solar → Battery → DC Loads (row on desktop, column on mobile) ── */}
         <div className="flex flex-col lg:flex-row lg:items-stretch gap-3 lg:gap-0">
 
           {/* Solar Card */}
           <div className="flex-1 min-w-0 bg-[#080c14] border border-[#1e3a5f]/50 rounded-xl p-5">
-
             <div className="flex items-center gap-2 mb-4">
-              {/* Sun icon */}
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2">
                 <circle cx="12" cy="12" r="5" />
                 <line x1="12" y1="2" x2="12" y2="4" /><line x1="12" y1="20" x2="12" y2="22" />
@@ -352,8 +389,6 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
               </svg>
               <span className="text-[10px] font-bold text-[#22c55e]/85 uppercase tracking-[0.3em] font-mono">Solar</span>
             </div>
-
-            {/* Primary wattage */}
             <div className="mb-0.5">
               <span className="text-4xl font-black tabular-nums leading-none"
                 style={{ color: solarActive ? (isLight ? '#16a34a' : '#22c55e') : (isLight ? '#94a3b8' : '#374151') }}>
@@ -361,74 +396,46 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
               </span>
               <span className="text-sm font-bold text-[#22c55e]/70 ml-1">W</span>
             </div>
-
-            {/* Stats row */}
             <div className="flex gap-3 mt-2 mb-1 text-[11px] font-mono">
               <span className="text-[#93c5fd]/65">{(data?.solar.voltage ?? 0).toFixed(1)} V</span>
             </div>
-
-            {/* Yield today */}
             <div className="text-[10px] font-mono text-[#22c55e]/70 uppercase tracking-widest mt-2 mb-3">
               Today: {(data?.solar.yieldToday ?? 0).toFixed(2)} kWh
             </div>
-
-            {/* Sparkline */}
-            <div>
-              <div className="text-[9px] text-[#93c5fd]/60 font-mono uppercase tracking-widest mb-1.5">
-                6h Harvest Trend
-              </div>
-              <SolarSparkline data={data?.sparkline ?? []} />
-            </div>
+            <Sparkline data={data?.sparkline ?? []} color="#22c55e" label="6h Solar Harvest" unit="W" />
           </div>
 
-          {/* Arrow: Solar → Battery */}
           <FlowArrow active={solarActive} color="#22c55e" />
 
-          {/* ── Battery Hub (center) ── */}
+          {/* Battery Hub */}
           <div
             className="flex-[1.15] min-w-0 bg-[#080c14] rounded-xl p-5 flex flex-col"
-            style={{
-              border: `1px solid ${charging ? '#22c55e30' : discharging ? '#3b82f630' : '#1e3a5f80'}`,
-            }}
+            style={{ border: `1px solid ${charging ? '#22c55e30' : discharging ? '#3b82f630' : '#1e3a5f80'}` }}
           >
-            {/* Label + MPPT state badge */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                {/* Battery icon */}
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={batColor} strokeWidth="1.8">
-                  <rect x="2" y="7" width="18" height="10" rx="2" />
-                  <path d="M22 11v2" />
+                  <rect x="2" y="7" width="18" height="10" rx="2" /><path d="M22 11v2" />
                 </svg>
                 <span className="text-[10px] font-bold uppercase tracking-[0.3em] font-mono" style={{ color: batColor + 'cc' }}>
                   Battery
                 </span>
               </div>
-
-              {/* MPPT state pill */}
               {data && (
-                <span
-                  className="text-[10px] font-black font-mono uppercase tracking-wider px-2.5 py-1 rounded-md"
-                  style={{
-                    color: mppt.color,
-                    background: mppt.glow,
-                    border: `1px solid ${mppt.border}40`,
-                  }}
-                >
+                <span className="text-[10px] font-black font-mono uppercase tracking-wider px-2.5 py-1 rounded-md"
+                  style={{ color: mppt.color, background: mppt.glow, border: `1px solid ${mppt.border}40` }}>
                   {data.solar.mpptStateLabel}
                 </span>
               )}
             </div>
 
-            {/* SOC — primary number */}
             <div className="flex items-baseline gap-1 mb-3">
               <span className="text-5xl font-black tabular-nums text-white leading-none">{soc}</span>
               <span className="text-xl font-bold text-[#93c5fd]/65">%</span>
             </div>
 
-            {/* SOC bar */}
             <SocBar soc={soc} light={isLight} />
 
-            {/* Charge direction label */}
             <div className="mt-2 mb-4 text-[10px] font-mono uppercase tracking-widest" style={{
               color: charging
                 ? (isLight ? '#16a34a' : '#22c55ecc')
@@ -436,48 +443,40 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
                   ? (isLight ? '#d97706' : '#f59e0bcc')
                   : (isLight ? '#64748b'  : '#93c5fd80'),
             }}>
-              {charging ? '↑ Charging' : discharging ? '↓ On Battery' : 'Standby'}
+              {charging ? '\u2191 Charging' : discharging ? '\u2193 On Battery' : 'Standby'}
             </div>
 
-            {/* Voltage / Current / Power stats */}
-            <div className="grid grid-cols-3 gap-2 mt-auto">
-              <StatPill
-                label="Voltage" unit="V"
+            <div className="grid grid-cols-3 gap-2">
+              <StatPill label="Voltage" unit="V"
                 value={(data?.battery.voltage ?? 0).toFixed(2)}
-                color={isLight ? '#2563eb' : '#93c5fd'}
-              />
-              <StatPill
-                label="Current" unit="A"
+                color={isLight ? '#2563eb' : '#93c5fd'} />
+              <StatPill label="Current" unit="A"
                 value={`${(data?.battery.current ?? 0) >= 0 ? '+' : ''}${(data?.battery.current ?? 0).toFixed(1)}`}
-                color={charging ? (isLight ? '#16a34a' : '#22c55e') : discharging ? (isLight ? '#d97706' : '#f59e0b') : (isLight ? '#2563eb' : '#93c5fd')}
-              />
-              <StatPill
-                label="Power" unit="W"
+                color={charging ? (isLight ? '#16a34a' : '#22c55e') : discharging ? (isLight ? '#d97706' : '#f59e0b') : (isLight ? '#2563eb' : '#93c5fd')} />
+              <StatPill label="Power" unit="W"
                 value={(Math.abs(data?.battery.power ?? 0)).toFixed(2)}
-                color={isLight ? '#2563eb' : '#93c5fd'}
-              />
+                color={isLight ? '#2563eb' : '#93c5fd'} />
             </div>
+
+            {(data?.batterySparkline?.length ?? 0) >= 2 && (
+              <div className="mt-4 pt-4 border-t border-[#1e3a5f]/40">
+                <Sparkline data={data!.batterySparkline!} color={batColor} label="6h SOC Trend" unit="%" />
+              </div>
+            )}
           </div>
 
-          {/* Arrow: Battery → DC Loads */}
           <FlowArrow active={loadActive} color="#f59e0b" />
 
           {/* DC Loads Card */}
           <div className="flex-1 min-w-0 bg-[#080c14] border border-[#1e3a5f]/50 rounded-xl p-5 flex flex-col">
-
             <div className="flex items-center gap-2 mb-4">
-              {/* Plug icon */}
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2">
                 <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
                 <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
-                <line x1="6" y1="1" x2="6" y2="4" />
-                <line x1="10" y1="1" x2="10" y2="4" />
-                <line x1="14" y1="1" x2="14" y2="4" />
+                <line x1="6" y1="1" x2="6" y2="4" /><line x1="10" y1="1" x2="10" y2="4" /><line x1="14" y1="1" x2="14" y2="4" />
               </svg>
               <span className="text-[10px] font-bold text-[#f59e0b]/85 uppercase tracking-[0.3em] font-mono">DC Loads</span>
             </div>
-
-            {/* Primary wattage */}
             <div className="mb-0.5">
               <span className="text-4xl font-black tabular-nums leading-none"
                 style={{ color: loadActive ? (isLight ? '#d97706' : '#f59e0b') : (isLight ? '#94a3b8' : '#374151') }}>
@@ -485,12 +484,10 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
               </span>
               <span className="text-sm font-bold text-[#f59e0b]/70 ml-1">W</span>
             </div>
-
             <div className="text-[10px] font-mono text-[#93c5fd]/65 mt-2 uppercase tracking-widest">
               DC System Load
             </div>
 
-            {/* Solar coverage / surplus */}
             {solarActive && loadActive && (() => {
               const sW = data?.solar.power ?? 0;
               const lW = data?.dcLoad ?? 1;
@@ -504,13 +501,8 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 h-1 bg-[#0a0f1e] rounded-full overflow-hidden border border-[#1e3a5f]/40">
-                      <div
-                        className="h-full rounded-full transition-all duration-700"
-                        style={{
-                          width: surplus ? '100%' : `${pct}%`,
-                          backgroundColor: surplus ? '#22c55e' : '#f59e0b',
-                        }}
-                      />
+                      <div className="h-full rounded-full transition-all duration-700"
+                        style={{ width: surplus ? '100%' : `${pct}%`, backgroundColor: surplus ? '#22c55e' : '#f59e0b' }} />
                     </div>
                     <span className="text-[11px] font-black tabular-nums"
                       style={{ color: surplus ? '#22c55e' : '#f59e0b' }}>
@@ -519,9 +511,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
                   </div>
                   <div className="text-[9px] font-mono mt-1"
                     style={{ color: surplus ? 'rgba(34,197,94,0.7)' : 'rgba(245,158,11,0.7)' }}>
-                    {surplus
-                      ? `${pct}% of load — excess charging battery`
-                      : 'battery supplementing load'}
+                    {surplus ? `${pct}% of load \u2014 excess charging battery` : 'battery supplementing load'}
                   </div>
                 </div>
               );
