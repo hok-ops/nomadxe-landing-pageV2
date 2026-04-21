@@ -13,7 +13,11 @@ function getSiteUrl(): string {
   // inlined at build time. Prefer this over NEXT_PUBLIC_SITE_URL for server actions.
   if (process.env.SITE_URL) return process.env.SITE_URL.replace(/\/$/, '');
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '');
-  // Last resort: statically fallback based on NODE_ENV to prevent Host header forgery
+  // Neither env var is set — log a critical warning so it surfaces in production logs
+  console.error(
+    '[SECURITY] getSiteUrl: neither SITE_URL nor NEXT_PUBLIC_SITE_URL is set. ' +
+    'Invite/reset emails will use a hardcoded fallback. Set this env var in Vercel immediately.'
+  );
   return process.env.NODE_ENV === 'development'
     ? 'http://localhost:3000'
     : 'https://www.nomadxe.com';
@@ -315,6 +319,28 @@ export async function assignDevice(formData: FormData) {
     if (!user_id || !device_id) throw new Error('User and device selection are required');
 
     const adminClient = createAdminClient();
+
+    // Pre-check: prevent duplicate assignments before the DB constraint fires.
+    // This gives a clear, human-readable error rather than a raw Postgres message.
+    const { data: existing } = await adminClient
+      .from('device_assignments')
+      .select('id')
+      .eq('user_id', user_id)
+      .eq('device_id', Number(device_id))
+      .maybeSingle();
+
+    if (existing) {
+      // Fetch device name for a friendlier message
+      const { data: device } = await adminClient
+        .from('vrm_devices')
+        .select('name')
+        .eq('id', Number(device_id))
+        .maybeSingle();
+      throw new Error(
+        `${device?.name ?? 'This device'} is already assigned to this user`
+      );
+    }
+
     const { error } = await adminClient
       .from('device_assignments')
       .insert([{ user_id, device_id: Number(device_id) }]);

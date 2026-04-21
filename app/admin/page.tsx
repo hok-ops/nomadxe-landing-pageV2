@@ -52,6 +52,14 @@ export default async function AdminDashboard({
     vrm_site_id: d.vrm_site_id as string,
   }));
 
+  // Build a map of userId → assigned device IDs so AssignDeviceForm can
+  // visually prevent duplicate assignments before the request is even sent.
+  const assignmentMap: Record<string, number[]> = {};
+  for (const a of assignments ?? []) {
+    if (!assignmentMap[a.user_id]) assignmentMap[a.user_id] = [];
+    assignmentMap[a.user_id].push(a.device_id as number);
+  }
+
   const rosterUsers = authUsers.map(u => {
     const p = profiles?.find(prof => prof.id === u.id);
     return {
@@ -192,7 +200,7 @@ export default async function AdminDashboard({
                   Link an additional Victron unit to an existing client. Each user can have multiple units.
                 </p>
               </div>
-              <AssignDeviceForm users={userList} devices={deviceList} />
+              <AssignDeviceForm users={userList} devices={deviceList} assignmentMap={assignmentMap} />
             </section>
 
             {/* REGISTER DEVICE */}
