@@ -87,8 +87,6 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
 
   const closeAll = () => { setSelectedIds([]); setMobileView('fleet'); };
 
-  // Recompute every 5s so the Live/Offline classification stays accurate as time passes
-  // (a device can cross the 15-min offline threshold without any dataMap update).
   const [, setTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setTick(t => t + 1), 5_000);
@@ -101,14 +99,43 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
     return data ? (nowS - data.lastSeen) < 15 * 60 : false;
   }).length;
 
-  // Computed inline (no useMemo) so Date.now() is always fresh on every render.
-  // This guarantees the filter instantly reflects offline transitions without
-  // waiting for the next dataMap update.
   const filteredDevices = devices.filter(d => deviceMatchesFilters(d, dataMap[d.siteId] ?? null, filters));
+
+  const sortedDevices = [...filteredDevices].sort((a, b) => {
+    const da = dataMap[a.siteId];
+    const db = dataMap[b.siteId];
+    const nameA = (a.displayName ?? a.name).toLowerCase();
+    const nameB = (b.displayName ?? b.name).toLowerCase();
+    switch (filters.sort) {
+      case 'name-asc':
+        return nameA < nameB ? -1 : nameA > nameB ? 1 : 0;
+      case 'name-desc':
+        return nameA > nameB ? -1 : nameA < nameB ? 1 : 0;
+      case 'battery': {
+        const socA = da?.battery.soc ?? -1;
+        const socB = db?.battery.soc ?? -1;
+        return socB - socA;
+      }
+      case 'solar': {
+        const solA = da?.solar.power ?? -1;
+        const solB = db?.solar.power ?? -1;
+        return solB - solA;
+      }
+      case 'status': {
+        const rank = (d: VRMData | null) => {
+          if (!d || d.lastSeen === 0) return 2;
+          return (nowS - d.lastSeen) > 15 * 60 ? 1 : 0;
+        };
+        return rank(da) - rank(db);
+      }
+      default:
+        return 0;
+    }
+  });
+
   const filtersActive = hasActiveFilters(filters);
   const hasMany      = devices.length > 3;
   const hasSelection = selectedIds.length > 0;
-
 
   return (
     <div className="nx-page bg-[#080c14] relative" style={{ minHeight: '100dvh' }}>
@@ -169,7 +196,6 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
 
         {hasMany && (
           <>
-            {/* MOBILE */}
             <div className="lg:hidden pb-10">
               {mobileView === 'detail' && (
                 <div className="flex items-center justify-between mb-4">
@@ -180,25 +206,23 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
                   <span className="text-[10px] font-mono text-[#93c5fd]/50">{selectedIds.length} open</span>
                 </div>
               )}
-
               {mobileView === 'fleet' && (
                 <>
                   <FleetFilter filters={filters} onChange={setFilters} />
-                  {filteredDevices.length === 0 && filtersActive ? (
+                  {sortedDevices.length === 0 && filtersActive ? (
                     <div className="flex flex-col items-center justify-center py-16 text-center">
                       <p className="text-[#93c5fd]/40 text-sm mb-3">No devices match your filters</p>
                       <button onClick={() => setFilters(EMPTY_FILTERS)} className="text-[10px] font-mono font-bold text-[#3b82f6] hover:text-white uppercase tracking-widest transition-colors">Clear filters</button>
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 gap-3 items-start content-start">
-                      {filteredDevices.map(d => (
+                      {sortedDevices.map(d => (
                         <FleetTile key={d.siteId} device={d} data={dataMap[d.siteId] ?? null} selected={selectedIds.includes(d.siteId)} onClick={() => toggleSite(d.siteId)} />
                       ))}
                     </div>
                   )}
                 </>
               )}
-
               {mobileView === 'detail' && (
                 <div className="space-y-6">
                   {selectedIds.map(siteId => {
@@ -216,7 +240,6 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
               )}
             </div>
 
-            {/* DESKTOP */}
             <div className="hidden lg:flex gap-5 items-start">
               <div className="flex-shrink-0 flex flex-col" style={{ width: hasSelection ? '300px' : '100%' }}>
                 <div className="flex items-center justify-between mb-4 flex-shrink-0">
@@ -228,10 +251,8 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
                     </div>
                   )}
                 </div>
-
                 <FleetFilter filters={filters} onChange={setFilters} />
-
-                {filteredDevices.length === 0 && filtersActive ? (
+                {sortedDevices.length === 0 && filtersActive ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center">
                     <p className="text-[#93c5fd]/40 text-sm mb-3">No devices match your filters</p>
                     <button onClick={() => setFilters(EMPTY_FILTERS)} className="text-[10px] font-mono font-bold text-[#3b82f6] hover:text-white uppercase tracking-widest transition-colors">Clear filters</button>
@@ -241,13 +262,12 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
                     className={`overflow-y-auto pr-1 ${hasSelection ? 'space-y-2.5' : 'grid grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 items-start content-start'}`}
                     style={{ height: 'calc(100vh - 17rem)' }}
                   >
-                    {filteredDevices.map(d => (
+                    {sortedDevices.map(d => (
                       <FleetTile key={d.siteId} device={d} data={dataMap[d.siteId] ?? null} selected={selectedIds.includes(d.siteId)} onClick={() => toggleSite(d.siteId)} />
                     ))}
                   </div>
                 )}
               </div>
-
               {hasSelection && (
                 <div ref={detailPanelRef} className="flex-1 min-w-0 overflow-y-auto space-y-6 pr-1" style={{ height: 'calc(100vh - 14rem)' }}>
                   {selectedIds.map(siteId => {
