@@ -3,8 +3,6 @@
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
 const RETURN_REASONS = [
   'Project Complete',
   'Site Closed',
@@ -34,8 +32,6 @@ const FORKLIFT_OPTIONS = [
 
 const QUANTITIES = ['1', '2', '3', '4+'];
 
-// ── Style helpers ─────────────────────────────────────────────────────────────
-
 const LABEL = 'block text-[10.5px] font-semibold text-[#93c5fd]/55 uppercase tracking-[0.12em] mb-1.5';
 const INPUT = (err: boolean) =>
   `w-full bg-[#080c14] border rounded-xl px-4 py-3 text-white text-sm placeholder:text-[#93c5fd]/18 outline-none transition-all duration-200 focus:ring-2 ${
@@ -44,15 +40,16 @@ const INPUT = (err: boolean) =>
       : 'border-[#1e3a5f] focus:border-[#3b82f6] focus:ring-[#3b82f6]/20'
   }`;
 const ERR = 'mt-1 text-[11px] text-red-400 font-mono';
-const SEL = (val: string, err: boolean) => ({ color: val ? 'white' : 'rgba(147,197,253,0.18)' });
-
-// ── Types ─────────────────────────────────────────────────────────────────────
+const SEL = (val: string) => ({ color: val ? 'white' : 'rgba(147,197,253,0.18)' });
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error';
+interface SiteContact { name: string; phone: string; }
+type ContactErr = { name?: string; phone?: string };
 
 interface Fields {
   full_name: string; email: string; company: string; phone: string;
-  unit_identifier: string; vrm_site_id: string; quantity: string;
+  cc_emails: string;
+  unit_identifier: string; quantity: string;
   site_name: string; street_address: string; city: string; state: string; zip_code: string;
   pickup_date: string; pickup_window: string;
   pickup_contact_name: string; pickup_contact_phone: string;
@@ -66,7 +63,8 @@ type FE = Partial<Record<keyof Fields, string>>;
 
 const INIT: Fields = {
   full_name: '', email: '', company: '', phone: '',
-  unit_identifier: '', vrm_site_id: '', quantity: '',
+  cc_emails: '',
+  unit_identifier: '', quantity: '',
   site_name: '', street_address: '', city: '', state: '', zip_code: '',
   pickup_date: '', pickup_window: '',
   pickup_contact_name: '', pickup_contact_phone: '',
@@ -82,6 +80,7 @@ function validate(f: Fields): FE {
   if (!f.email.trim()) { e.email = 'Required'; }
   else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email.trim())) e.email = 'Invalid email';
   if (!f.company.trim()) e.company = 'Required';
+  if (!f.phone.trim()) e.phone = 'Required';
   if (!f.unit_identifier.trim()) e.unit_identifier = 'Required';
   if (!f.quantity) e.quantity = 'Required';
   if (!f.site_name.trim()) e.site_name = 'Required';
@@ -104,8 +103,6 @@ function validate(f: Fields): FE {
   return e;
 }
 
-// ── Section wrapper ───────────────────────────────────────────────────────────
-
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="bg-[#0d1526] border border-[#1e3a5f]/80 rounded-2xl overflow-hidden">
@@ -118,13 +115,13 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
-
 export default function DeactivateFormClient() {
   const [formState, setFormState] = useState<FormState>('idle');
   const [fields, setFields] = useState<Fields>(INIT);
   const [errors, setErrors] = useState<FE>({});
   const [serverError, setServerError] = useState<string | null>(null);
+  const [additionalContacts, setAdditionalContacts] = useState<SiteContact[]>([]);
+  const [contactErrors, setContactErrors] = useState<ContactErr[]>([]);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -134,13 +131,32 @@ export default function DeactivateFormClient() {
     }, [errors]
   );
 
+  const addContact = () => setAdditionalContacts(p => [...p, { name: '', phone: '' }]);
+  const removeContact = (idx: number) => {
+    setAdditionalContacts(p => p.filter((_, i) => i !== idx));
+    setContactErrors(p => p.filter((_, i) => i !== idx));
+  };
+  const updateContact = (idx: number, field: 'name' | 'phone', value: string) => {
+    setAdditionalContacts(p => p.map((c, i) => i === idx ? { ...c, [field]: value } : c));
+    if (contactErrors[idx]?.[field]) setContactErrors(p => p.map((ce, i) => i === idx ? { ...ce, [field]: undefined } : ce));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError(null);
+
+    const cErrs: ContactErr[] = additionalContacts.map(c => ({
+      name: !c.name.trim() ? 'Required' : undefined,
+      phone: !c.phone.trim() ? 'Required' : undefined,
+    }));
+    setContactErrors(cErrs);
+    const hasContactErrors = cErrs.some(c => c.name || c.phone);
+
     const errs = validate(fields);
-    if (Object.keys(errs).length > 0) {
+    if (Object.keys(errs).length > 0 || hasContactErrors) {
       setErrors(errs);
-      document.querySelector<HTMLElement>(`[name="${Object.keys(errs)[0]}"]`)?.focus();
+      const firstField = Object.keys(errs)[0];
+      if (firstField) document.querySelector<HTMLElement>(`[name="${firstField}"]`)?.focus();
       return;
     }
     setErrors({});
@@ -154,6 +170,7 @@ export default function DeactivateFormClient() {
           full_name: fields.full_name.trim(),
           email: fields.email.trim().toLowerCase(),
           company: fields.company.trim(),
+          additional_pickup_contacts: additionalContacts.filter(c => c.name.trim() || c.phone.trim()),
         }),
       });
       if (res.ok) {
@@ -180,10 +197,10 @@ export default function DeactivateFormClient() {
     setFields(INIT);
     setErrors({});
     setServerError(null);
+    setAdditionalContacts([]);
+    setContactErrors([]);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
-
-  // ── Success ────────────────────────────────────────────────────────────────
 
   if (formState === 'success') {
     return (
@@ -248,8 +265,6 @@ export default function DeactivateFormClient() {
     );
   }
 
-  // ── Form ───────────────────────────────────────────────────────────────────
-
   return (
     <div className="min-h-screen bg-[#080c14] relative overflow-x-hidden">
       <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.025]"
@@ -278,7 +293,7 @@ export default function DeactivateFormClient() {
 
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
 
-          {/* Contact */}
+          {/* Requestor Information */}
           <Section title="Requestor Information">
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
@@ -305,15 +320,24 @@ export default function DeactivateFormClient() {
                 {errors.company && <p className={ERR}>{errors.company}</p>}
               </div>
               <div>
-                <label htmlFor="d-phone" className={LABEL}>Phone Number</label>
-                <input id="d-phone" name="phone" type="tel"
+                <label htmlFor="d-phone" className={LABEL}>Phone Number <span className="text-red-400/80">*</span></label>
+                <input id="d-phone" name="phone" type="tel" required
                   value={fields.phone} onChange={handleChange} placeholder="+1 (555) 000-0000"
-                  className={INPUT(false)} />
+                  aria-invalid={!!errors.phone} className={INPUT(!!errors.phone)} />
+                {errors.phone && <p className={ERR}>{errors.phone}</p>}
               </div>
+            </div>
+            <div>
+              <label htmlFor="d-cc" className={LABEL}>CC Recipients <span className="normal-case text-[#93c5fd]/40 font-normal tracking-normal">(optional)</span></label>
+              <textarea id="d-cc" name="cc_emails" rows={2}
+                value={fields.cc_emails} onChange={handleChange}
+                placeholder="ops@company.com, manager@company.com"
+                className={`${INPUT(false)} resize-none`} />
+              <p className="mt-1 font-mono text-[10px] text-[#93c5fd]/22">Comma-separated — additional addresses to receive a copy of this request</p>
             </div>
           </Section>
 
-          {/* Unit ID */}
+          {/* Unit Identification */}
           <Section title="Unit Identification">
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
@@ -324,26 +348,20 @@ export default function DeactivateFormClient() {
                 {errors.unit_identifier && <p className={ERR}>{errors.unit_identifier}</p>}
               </div>
               <div>
-                <label htmlFor="d-vrm" className={LABEL}>VRM Site ID <span className="normal-case text-[#93c5fd]/40 font-normal tracking-normal">(optional)</span></label>
-                <input id="d-vrm" name="vrm_site_id" type="text"
-                  value={fields.vrm_site_id} onChange={handleChange} placeholder="e.g. 123456"
-                  className={INPUT(false)} />
+                <label htmlFor="d-qty" className={LABEL}>Quantity Being Returned <span className="text-red-400/80">*</span></label>
+                <select id="d-qty" name="quantity" required value={fields.quantity} onChange={handleChange}
+                  aria-invalid={!!errors.quantity}
+                  className={`${INPUT(!!errors.quantity)} appearance-none cursor-pointer`}
+                  style={SEL(fields.quantity)}>
+                  <option value="" disabled>Select…</option>
+                  {QUANTITIES.map(q => <option key={q} value={q} style={{ color: 'white', background: '#080c14' }}>{q}</option>)}
+                </select>
+                {errors.quantity && <p className={ERR}>{errors.quantity}</p>}
               </div>
-            </div>
-            <div className="sm:w-1/2 sm:pr-2">
-              <label htmlFor="d-qty" className={LABEL}>Quantity Being Returned <span className="text-red-400/80">*</span></label>
-              <select id="d-qty" name="quantity" required value={fields.quantity} onChange={handleChange}
-                aria-invalid={!!errors.quantity}
-                className={`${INPUT(!!errors.quantity)} appearance-none cursor-pointer`}
-                style={SEL(fields.quantity, !!errors.quantity)}>
-                <option value="" disabled>Select…</option>
-                {QUANTITIES.map(q => <option key={q} value={q} style={{ color: 'white', background: '#080c14' }}>{q}</option>)}
-              </select>
-              {errors.quantity && <p className={ERR}>{errors.quantity}</p>}
             </div>
           </Section>
 
-          {/* Current Site */}
+          {/* Current Site Location */}
           <Section title="Current Site Location">
             <div>
               <label htmlFor="d-site-name" className={LABEL}>Site Name <span className="text-red-400/80">*</span></label>
@@ -401,13 +419,15 @@ export default function DeactivateFormClient() {
                 <select id="d-pickup-window" name="pickup_window" required value={fields.pickup_window} onChange={handleChange}
                   aria-invalid={!!errors.pickup_window}
                   className={`${INPUT(!!errors.pickup_window)} appearance-none cursor-pointer`}
-                  style={SEL(fields.pickup_window, !!errors.pickup_window)}>
+                  style={SEL(fields.pickup_window)}>
                   <option value="" disabled>Select…</option>
                   {PICKUP_WINDOWS.map(w => <option key={w} value={w} style={{ color: 'white', background: '#080c14' }}>{w}</option>)}
                 </select>
                 {errors.pickup_window && <p className={ERR}>{errors.pickup_window}</p>}
               </div>
             </div>
+
+            {/* Primary On-Site Contact */}
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="d-pcontact-name" className={LABEL}>On-Site Pick-Up Contact — Name <span className="text-red-400/80">*</span></label>
@@ -424,12 +444,45 @@ export default function DeactivateFormClient() {
                 {errors.pickup_contact_phone && <p className={ERR}>{errors.pickup_contact_phone}</p>}
               </div>
             </div>
+
+            {/* Additional Site Contacts */}
+            {additionalContacts.map((contact, idx) => (
+              <div key={idx} className="relative grid sm:grid-cols-2 gap-4 pl-4 border-l-2 border-[#1e3a5f]/50">
+                <div>
+                  <label className={LABEL}>Additional Contact {idx + 2} — Name <span className="text-red-400/80">*</span></label>
+                  <input type="text" value={contact.name}
+                    onChange={e => updateContact(idx, 'name', e.target.value)}
+                    placeholder="Contact name"
+                    aria-invalid={!!contactErrors[idx]?.name}
+                    className={INPUT(!!contactErrors[idx]?.name)} />
+                  {contactErrors[idx]?.name && <p className={ERR}>{contactErrors[idx]?.name}</p>}
+                </div>
+                <div>
+                  <label className={LABEL}>Phone <span className="text-red-400/80">*</span></label>
+                  <input type="tel" value={contact.phone}
+                    onChange={e => updateContact(idx, 'phone', e.target.value)}
+                    placeholder="+1 (555) 000-0000"
+                    aria-invalid={!!contactErrors[idx]?.phone}
+                    className={INPUT(!!contactErrors[idx]?.phone)} />
+                  {contactErrors[idx]?.phone && <p className={ERR}>{contactErrors[idx]?.phone}</p>}
+                </div>
+                <button type="button" onClick={() => removeContact(idx)}
+                  className="absolute -left-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-[#0d1526] border border-[#1e3a5f] text-[#93c5fd]/30 hover:text-red-400 hover:border-red-500/30 transition-colors text-[9px] flex items-center justify-center"
+                  aria-label="Remove contact">✕</button>
+              </div>
+            ))}
+            <button type="button" onClick={addContact}
+              className="flex items-center gap-2 text-[11px] font-mono text-[#93c5fd]/35 hover:text-[#93c5fd]/70 transition-colors py-1">
+              <span className="w-5 h-5 rounded border border-[#1e3a5f] flex items-center justify-center text-[10px] text-[#93c5fd]/40">+</span>
+              Add Another On-Site Contact
+            </button>
+
             <div>
               <label htmlFor="d-forklift" className={LABEL}>Loading Equipment Available? <span className="text-red-400/80">*</span></label>
               <select id="d-forklift" name="forklift_at_pickup" required value={fields.forklift_at_pickup} onChange={handleChange}
                 aria-invalid={!!errors.forklift_at_pickup}
                 className={`${INPUT(!!errors.forklift_at_pickup)} appearance-none cursor-pointer`}
-                style={SEL(fields.forklift_at_pickup, !!errors.forklift_at_pickup)}>
+                style={SEL(fields.forklift_at_pickup)}>
                 <option value="" disabled>Select…</option>
                 {FORKLIFT_OPTIONS.map(o => <option key={o} value={o} style={{ color: 'white', background: '#080c14' }}>{o}</option>)}
               </select>
@@ -451,7 +504,7 @@ export default function DeactivateFormClient() {
               <select id="d-reason" name="return_reason" required value={fields.return_reason} onChange={handleChange}
                 aria-invalid={!!errors.return_reason}
                 className={`${INPUT(!!errors.return_reason)} appearance-none cursor-pointer`}
-                style={SEL(fields.return_reason, !!errors.return_reason)}>
+                style={SEL(fields.return_reason)}>
                 <option value="" disabled>Select…</option>
                 {RETURN_REASONS.map(r => <option key={r} value={r} style={{ color: 'white', background: '#080c14' }}>{r}</option>)}
               </select>
@@ -462,7 +515,7 @@ export default function DeactivateFormClient() {
               <select id="d-condition" name="equipment_condition" required value={fields.equipment_condition} onChange={handleChange}
                 aria-invalid={!!errors.equipment_condition}
                 className={`${INPUT(!!errors.equipment_condition)} appearance-none cursor-pointer`}
-                style={SEL(fields.equipment_condition, !!errors.equipment_condition)}>
+                style={SEL(fields.equipment_condition)}>
                 <option value="" disabled>Select…</option>
                 {CONDITION_OPTIONS.map(c => <option key={c} value={c} style={{ color: 'white', background: '#080c14' }}>{c}</option>)}
               </select>

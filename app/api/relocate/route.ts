@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   }
 
   const REQUIRED = [
-    'full_name', 'email', 'company',
+    'full_name', 'email', 'company', 'phone',
     'unit_identifier', 'quantity',
     'origin_site_name', 'origin_street', 'origin_city', 'origin_state', 'origin_zip',
     'origin_contact_name', 'origin_contact_phone', 'forklift_at_origin',

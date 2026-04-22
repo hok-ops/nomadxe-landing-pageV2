@@ -21,10 +21,13 @@ const ERR = 'mt-1 text-[11px] text-red-400 font-mono';
 const SEL = (val: string) => ({ color: val ? 'white' : 'rgba(147,197,253,0.18)' });
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error';
+interface SiteContact { name: string; phone: string; }
+type ContactErr = { name?: string; phone?: string };
 
 interface Fields {
   full_name: string; email: string; company: string; phone: string;
-  unit_identifier: string; vrm_site_id: string; quantity: string;
+  cc_emails: string;
+  unit_identifier: string; quantity: string;
   origin_site_name: string; origin_street: string; origin_city: string; origin_state: string; origin_zip: string;
   origin_contact_name: string; origin_contact_phone: string;
   forklift_at_origin: string; origin_gate_instructions: string;
@@ -42,7 +45,8 @@ type FE = Partial<Record<keyof Fields, string>>;
 
 const INIT: Fields = {
   full_name:'', email:'', company:'', phone:'',
-  unit_identifier:'', vrm_site_id:'', quantity:'',
+  cc_emails:'',
+  unit_identifier:'', quantity:'',
   origin_site_name:'', origin_street:'', origin_city:'', origin_state:'', origin_zip:'',
   origin_contact_name:'', origin_contact_phone:'',
   forklift_at_origin:'', origin_gate_instructions:'',
@@ -65,6 +69,7 @@ function validate(f: Fields): FE {
   if (!f.email.trim()) { e.email = 'Required'; }
   else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email.trim())) e.email = 'Invalid email';
   if (!f.company.trim()) e.company = 'Required';
+  if (!f.phone.trim()) e.phone = 'Required';
   if (!f.unit_identifier.trim()) e.unit_identifier = 'Required';
   if (!f.quantity) e.quantity = 'Required';
   if (!f.origin_site_name.trim()) e.origin_site_name = 'Required';
@@ -117,11 +122,61 @@ function SectionBlue({ title, children }: { title: string; children: React.React
   );
 }
 
+function AdditionalContacts({
+  contacts, contactErrors, onAdd, onRemove, onUpdate, accentColor,
+}: {
+  contacts: SiteContact[];
+  contactErrors: ContactErr[];
+  onAdd: () => void;
+  onRemove: (idx: number) => void;
+  onUpdate: (idx: number, field: 'name' | 'phone', value: string) => void;
+  accentColor: string;
+}) {
+  return (
+    <>
+      {contacts.map((contact, idx) => (
+        <div key={idx} className="relative grid sm:grid-cols-2 gap-4 pl-4 border-l-2 border-[#1e3a5f]/50">
+          <div>
+            <label className={`${LABEL}`}>Additional Contact {idx + 2} — Name <span className="text-red-400/80">*</span></label>
+            <input type="text" value={contact.name}
+              onChange={e => onUpdate(idx, 'name', e.target.value)}
+              placeholder="Contact name"
+              aria-invalid={!!contactErrors[idx]?.name}
+              className={INPUT(!!contactErrors[idx]?.name)} />
+            {contactErrors[idx]?.name && <p className={ERR}>{contactErrors[idx]?.name}</p>}
+          </div>
+          <div>
+            <label className={`${LABEL}`}>Phone <span className="text-red-400/80">*</span></label>
+            <input type="tel" value={contact.phone}
+              onChange={e => onUpdate(idx, 'phone', e.target.value)}
+              placeholder="+1 (555) 000-0000"
+              aria-invalid={!!contactErrors[idx]?.phone}
+              className={INPUT(!!contactErrors[idx]?.phone)} />
+            {contactErrors[idx]?.phone && <p className={ERR}>{contactErrors[idx]?.phone}</p>}
+          </div>
+          <button type="button" onClick={() => onRemove(idx)}
+            className="absolute -left-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-[#0d1526] border border-[#1e3a5f] text-[#93c5fd]/30 hover:text-red-400 hover:border-red-500/30 transition-colors text-[9px] flex items-center justify-center"
+            aria-label="Remove contact">✕</button>
+        </div>
+      ))}
+      <button type="button" onClick={onAdd}
+        className="flex items-center gap-2 text-[11px] font-mono text-[#93c5fd]/35 hover:text-[#93c5fd]/70 transition-colors py-1">
+        <span className="w-5 h-5 rounded border border-[#1e3a5f] flex items-center justify-center text-[10px] text-[#93c5fd]/40">+</span>
+        Add Another On-Site Contact
+      </button>
+    </>
+  );
+}
+
 export default function RelocateFormClient() {
   const [formState, setFormState] = useState<FormState>('idle');
   const [fields, setFields] = useState<Fields>(INIT);
   const [errors, setErrors] = useState<FE>({});
   const [serverError, setServerError] = useState<string | null>(null);
+  const [originContacts, setOriginContacts] = useState<SiteContact[]>([]);
+  const [originContactErrors, setOriginContactErrors] = useState<ContactErr[]>([]);
+  const [destContacts, setDestContacts] = useState<SiteContact[]>([]);
+  const [destContactErrors, setDestContactErrors] = useState<ContactErr[]>([]);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -131,13 +186,49 @@ export default function RelocateFormClient() {
     }, [errors]
   );
 
+  // Origin contact helpers
+  const addOriginContact = () => setOriginContacts(p => [...p, { name: '', phone: '' }]);
+  const removeOriginContact = (idx: number) => {
+    setOriginContacts(p => p.filter((_, i) => i !== idx));
+    setOriginContactErrors(p => p.filter((_, i) => i !== idx));
+  };
+  const updateOriginContact = (idx: number, field: 'name' | 'phone', value: string) => {
+    setOriginContacts(p => p.map((c, i) => i === idx ? { ...c, [field]: value } : c));
+    if (originContactErrors[idx]?.[field]) setOriginContactErrors(p => p.map((ce, i) => i === idx ? { ...ce, [field]: undefined } : ce));
+  };
+
+  // Destination contact helpers
+  const addDestContact = () => setDestContacts(p => [...p, { name: '', phone: '' }]);
+  const removeDestContact = (idx: number) => {
+    setDestContacts(p => p.filter((_, i) => i !== idx));
+    setDestContactErrors(p => p.filter((_, i) => i !== idx));
+  };
+  const updateDestContact = (idx: number, field: 'name' | 'phone', value: string) => {
+    setDestContacts(p => p.map((c, i) => i === idx ? { ...c, [field]: value } : c));
+    if (destContactErrors[idx]?.[field]) setDestContactErrors(p => p.map((ce, i) => i === idx ? { ...ce, [field]: undefined } : ce));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError(null);
+
+    const oCErrs: ContactErr[] = originContacts.map(c => ({
+      name: !c.name.trim() ? 'Required' : undefined,
+      phone: !c.phone.trim() ? 'Required' : undefined,
+    }));
+    const dCErrs: ContactErr[] = destContacts.map(c => ({
+      name: !c.name.trim() ? 'Required' : undefined,
+      phone: !c.phone.trim() ? 'Required' : undefined,
+    }));
+    setOriginContactErrors(oCErrs);
+    setDestContactErrors(dCErrs);
+    const hasContactErrors = oCErrs.some(c => c.name || c.phone) || dCErrs.some(c => c.name || c.phone);
+
     const errs = validate(fields);
-    if (Object.keys(errs).length > 0) {
+    if (Object.keys(errs).length > 0 || hasContactErrors) {
       setErrors(errs);
-      document.querySelector<HTMLElement>(`[name="${Object.keys(errs)[0]}"]`)?.focus();
+      const firstField = Object.keys(errs)[0];
+      if (firstField) document.querySelector<HTMLElement>(`[name="${firstField}"]`)?.focus();
       return;
     }
     setErrors({});
@@ -146,7 +237,14 @@ export default function RelocateFormClient() {
       const res = await fetch('/api/relocate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...fields, full_name: fields.full_name.trim(), email: fields.email.trim().toLowerCase(), company: fields.company.trim() }),
+        body: JSON.stringify({
+          ...fields,
+          full_name: fields.full_name.trim(),
+          email: fields.email.trim().toLowerCase(),
+          company: fields.company.trim(),
+          additional_origin_contacts: originContacts.filter(c => c.name.trim() || c.phone.trim()),
+          additional_dest_contacts: destContacts.filter(c => c.name.trim() || c.phone.trim()),
+        }),
       });
       if (res.ok) {
         setFormState('success');
@@ -167,6 +265,8 @@ export default function RelocateFormClient() {
 
   function handleReset() {
     setFormState('idle'); setFields(INIT); setErrors({}); setServerError(null);
+    setOriginContacts([]); setOriginContactErrors([]);
+    setDestContacts([]); setDestContactErrors([]);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -286,11 +386,20 @@ export default function RelocateFormClient() {
                 {errors.company && <p className={ERR}>{errors.company}</p>}
               </div>
               <div>
-                <label htmlFor="r-phone" className={LABEL}>Phone Number</label>
-                <input id="r-phone" name="phone" type="tel"
+                <label htmlFor="r-phone" className={LABEL}>Phone Number <span className="text-red-400/80">*</span></label>
+                <input id="r-phone" name="phone" type="tel" required
                   value={fields.phone} onChange={handleChange} placeholder="+1 (555) 000-0000"
-                  className={INPUT(false)} />
+                  aria-invalid={!!errors.phone} className={INPUT(!!errors.phone)} />
+                {errors.phone && <p className={ERR}>{errors.phone}</p>}
               </div>
+            </div>
+            <div>
+              <label htmlFor="r-cc" className={LABEL}>CC Recipients <span className="normal-case text-[#93c5fd]/40 font-normal tracking-normal">(optional)</span></label>
+              <textarea id="r-cc" name="cc_emails" rows={2}
+                value={fields.cc_emails} onChange={handleChange}
+                placeholder="ops@company.com, manager@company.com"
+                className={`${INPUT(false)} resize-none`} />
+              <p className="mt-1 font-mono text-[10px] text-[#93c5fd]/22">Comma-separated — additional addresses to receive a copy of this request</p>
             </div>
           </SectionBlue>
 
@@ -305,22 +414,16 @@ export default function RelocateFormClient() {
                 {errors.unit_identifier && <p className={ERR}>{errors.unit_identifier}</p>}
               </div>
               <div>
-                <label htmlFor="r-vrm" className={LABEL}>VRM Site ID <span className="normal-case text-[#93c5fd]/40 font-normal tracking-normal">(optional)</span></label>
-                <input id="r-vrm" name="vrm_site_id" type="text"
-                  value={fields.vrm_site_id} onChange={handleChange} placeholder="e.g. 123456"
-                  className={INPUT(false)} />
+                <label htmlFor="r-qty" className={LABEL}>Quantity Being Relocated <span className="text-red-400/80">*</span></label>
+                <select id="r-qty" name="quantity" required value={fields.quantity} onChange={handleChange}
+                  aria-invalid={!!errors.quantity}
+                  className={`${INPUT(!!errors.quantity)} appearance-none cursor-pointer`}
+                  style={SEL(fields.quantity)}>
+                  <option value="" disabled>Select…</option>
+                  {QUANTITIES.map(q => <option key={q} value={q} style={{ color: 'white', background: '#080c14' }}>{q}</option>)}
+                </select>
+                {errors.quantity && <p className={ERR}>{errors.quantity}</p>}
               </div>
-            </div>
-            <div className="sm:w-1/2 sm:pr-2">
-              <label htmlFor="r-qty" className={LABEL}>Quantity Being Relocated <span className="text-red-400/80">*</span></label>
-              <select id="r-qty" name="quantity" required value={fields.quantity} onChange={handleChange}
-                aria-invalid={!!errors.quantity}
-                className={`${INPUT(!!errors.quantity)} appearance-none cursor-pointer`}
-                style={SEL(fields.quantity)}>
-                <option value="" disabled>Select…</option>
-                {QUANTITIES.map(q => <option key={q} value={q} style={{ color: 'white', background: '#080c14' }}>{q}</option>)}
-              </select>
-              {errors.quantity && <p className={ERR}>{errors.quantity}</p>}
             </div>
           </SectionBlue>
 
@@ -379,6 +482,10 @@ export default function RelocateFormClient() {
                 {errors.origin_contact_phone && <p className={ERR}>{errors.origin_contact_phone}</p>}
               </div>
             </div>
+            <AdditionalContacts
+              contacts={originContacts} contactErrors={originContactErrors}
+              onAdd={addOriginContact} onRemove={removeOriginContact} onUpdate={updateOriginContact}
+              accentColor="#f59e0b" />
             <div>
               <label htmlFor="r-o-forklift" className={LABEL}>Forklift Available at Origin? <span className="text-red-400/80">*</span></label>
               <select id="r-o-forklift" name="forklift_at_origin" required value={fields.forklift_at_origin} onChange={handleChange}
@@ -487,6 +594,10 @@ export default function RelocateFormClient() {
                 {errors.dest_contact_phone && <p className={ERR}>{errors.dest_contact_phone}</p>}
               </div>
             </div>
+            <AdditionalContacts
+              contacts={destContacts} contactErrors={destContactErrors}
+              onAdd={addDestContact} onRemove={removeDestContact} onUpdate={updateDestContact}
+              accentColor="#3b82f6" />
             <div>
               <label htmlFor="r-d-forklift" className={LABEL}>Forklift Available at Destination? <span className="text-red-400/80">*</span></label>
               <select id="r-d-forklift" name="forklift_at_dest" required value={fields.forklift_at_dest} onChange={handleChange}

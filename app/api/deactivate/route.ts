@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   }
 
   const REQUIRED = [
-    'full_name', 'email', 'company',
+    'full_name', 'email', 'company', 'phone',
     'unit_identifier', 'quantity',
     'site_name', 'street_address', 'city', 'state', 'zip_code',
     'pickup_date', 'pickup_window',
