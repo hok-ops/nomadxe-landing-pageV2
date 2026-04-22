@@ -55,6 +55,7 @@ interface FieldErrors {
   full_name?: string;
   email?: string;
   company?: string;
+  phone?: string;
   location_name?: string;
   site_type?: string;
   street_address?: string;
@@ -297,7 +298,7 @@ export default function OrderFormClient() {
         full_name: fields.full_name.trim(),
         email: fields.email.trim().toLowerCase(),
         company: fields.company.trim(),
-        ...(fields.phone.trim() && { phone: fields.phone.trim() }),
+        phone: fields.phone.trim(),
         location_name: fields.location_name.trim(),
         site_type: fields.site_type,
         street_address: fields.street_address.trim(),
@@ -527,10 +528,11 @@ export default function OrderFormClient() {
                 {errors.company && <p className={ERR} role="alert">{errors.company}</p>}
               </div>
               <div>
-                <label htmlFor="ord-phone" className={LABEL}>Phone Number</label>
-                <input id="ord-phone" name="phone" type="tel" autoComplete="tel"
+                <label htmlFor="ord-phone" className={LABEL}>Phone Number <span className="text-red-400/80">*</span></label>
+                <input id="ord-phone" name="phone" type="tel" required autoComplete="tel"
                   value={fields.phone} onChange={handleChange} placeholder="+1 (555) 000-0000"
-                  className={INPUT(false)} />
+                  aria-invalid={!!errors.phone} className={INPUT(!!errors.phone)} />
+                {errors.phone && <p className={ERR} role="alert">{errors.phone}</p>}
               </div>
             </div>
 

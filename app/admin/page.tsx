@@ -1,10 +1,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { redirect } from 'next/navigation';
-import { inviteNewUser, registerDevice } from './actions';
-import { AssignDeviceForm } from './AssignDeviceForm';
-import GenerateLinkTool from './GenerateLinkTool';
-import CopyOrderLink from './CopyOrderLink';
+import { AdminLeftPanel } from './AdminLeftPanel';
 import { RosterTable } from './RosterTable';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -44,7 +41,6 @@ export default async function AdminDashboard({
   const totalDevices = devices?.length || 0;
   const pendingUsers = authUsers.filter(u => !u.last_sign_in_at).length;
 
-  // Shape data for client components
   const userList = authUsers.map(u => ({ id: u.id, email: u.email }));
   const deviceList = (devices ?? []).map(d => ({
     id: d.id as number,
@@ -52,8 +48,6 @@ export default async function AdminDashboard({
     vrm_site_id: d.vrm_site_id as string,
   }));
 
-  // Build a map of userId → assigned device IDs so AssignDeviceForm can
-  // visually prevent duplicate assignments before the request is even sent.
   const assignmentMap: Record<string, number[]> = {};
   for (const a of assignments ?? []) {
     if (!assignmentMap[a.user_id]) assignmentMap[a.user_id] = [];
@@ -145,109 +139,12 @@ export default async function AdminDashboard({
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
 
           {/* ── Left Panel ── */}
-          <div className="xl:col-span-1 space-y-6">
-
-            {/* INVITE */}
-            <section className="bg-[#0d1526] border border-[#1e3a5f] rounded-xl p-6 space-y-5">
-              <div>
-                <h2 className="text-sm font-bold text-white mb-1">Invite New Client</h2>
-                <p className="text-[11px] text-[#93c5fd]/70 leading-relaxed">
-                  Sends a secure invite email. Client sets their own password on first login.
-                </p>
-              </div>
-              <form action={inviteNewUser} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] uppercase tracking-widest text-[#93c5fd]/75 font-bold">Client Email</label>
-                  <input name="email" type="email" required
-                    className="w-full bg-[#080c14] border border-[#1e3a5f] rounded-lg px-4 py-3 text-sm text-white placeholder:text-[#93c5fd]/20 outline-none focus:border-[#3b82f6] transition-colors"
-                    placeholder="client@example.com"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] uppercase tracking-widest text-[#93c5fd]/75 font-bold">
-                    Victron Site ID <span className="normal-case text-[#93c5fd]/60 font-normal">(optional)</span>
-                  </label>
-                  <input name="vrm_site_id"
-                    className="w-full bg-[#080c14] border border-[#1e3a5f] rounded-lg px-4 py-3 text-sm text-white placeholder:text-[#93c5fd]/20 outline-none focus:border-[#3b82f6] transition-colors"
-                    placeholder="e.g. 123456"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] uppercase tracking-widest text-[#93c5fd]/75 font-bold">
-                    Device Name <span className="normal-case text-[#93c5fd]/60 font-normal">(optional)</span>
-                  </label>
-                  <input name="device_name"
-                    className="w-full bg-[#080c14] border border-[#1e3a5f] rounded-lg px-4 py-3 text-sm text-white placeholder:text-[#93c5fd]/20 outline-none focus:border-[#3b82f6] transition-colors"
-                    placeholder="e.g. Unit Alpha"
-                  />
-                </div>
-                <button type="submit"
-                  className="w-full bg-[#2563eb] hover:bg-[#3b82f6] text-white font-bold py-3 rounded-lg text-sm transition-all hover:shadow-[0_0_20px_rgba(59,130,246,0.4)] active:scale-[0.98]"
-                >
-                  Send Invitation
-                </button>
-              </form>
-            </section>
-
-            {/* ORDER FORM LINK */}
-            <CopyOrderLink />
-
-            {/* ASSIGN DEVICE — client component for real-time error feedback */}
-            <section className="bg-[#0d1526] border border-[#1e3a5f] rounded-xl p-6 space-y-5">
-              <div>
-                <h2 className="text-sm font-bold text-white mb-1">Assign Device to User</h2>
-                <p className="text-[11px] text-[#93c5fd]/70 leading-relaxed">
-                  Link an additional Victron unit to an existing client. Each user can have multiple units.
-                </p>
-              </div>
-              <AssignDeviceForm users={userList} devices={deviceList} assignmentMap={assignmentMap} />
-            </section>
-
-            {/* REGISTER DEVICE */}
-            <section className="bg-[#0d1526] border border-[#1e3a5f] rounded-xl p-6 space-y-5">
-              <div>
-                <h2 className="text-sm font-bold text-white mb-1">Register Victron Device</h2>
-                <p className="text-[11px] text-[#93c5fd]/70 leading-relaxed">
-                  Add a device to the fleet. Find the Site ID in VRM → Installation Settings.
-                </p>
-              </div>
-              <form action={registerDevice} className="space-y-4">
-                <input name="vrm_site_id" required
-                  className="w-full bg-[#080c14] border border-[#1e3a5f] rounded-lg px-4 py-3 text-sm text-white placeholder:text-[#93c5fd]/20 outline-none focus:border-[#3b82f6] transition-colors"
-                  placeholder="VRM Site ID"
-                />
-                <input name="name" required
-                  className="w-full bg-[#080c14] border border-[#1e3a5f] rounded-lg px-4 py-3 text-sm text-white placeholder:text-[#93c5fd]/20 outline-none focus:border-[#3b82f6] transition-colors"
-                  placeholder="Device name (e.g. Unit Bravo)"
-                />
-                <button type="submit"
-                  className="w-full border border-[#1e40af]/60 text-[#93c5fd]/70 hover:bg-[#1e40af]/20 font-bold py-3 rounded-lg text-sm transition-all active:scale-[0.98]"
-                >
-                  Register Device
-                </button>
-              </form>
-            </section>
-
-            {/* HOW-TO */}
-            <section className="bg-[#0a0f1e] border border-[#1e3a5f]/60 rounded-xl p-6 space-y-4">
-              <h2 className="text-xs font-bold text-[#3b82f6] uppercase tracking-widest">How This Works</h2>
-              <ol className="space-y-3 text-[11px] text-[#93c5fd]/70 leading-relaxed">
-                {[
-                  ['Invite a client', 'They receive an activation email and set their own password.'],
-                  ['Assign additional units', 'Use "Assign Device" to link extra Victron units after signup.'],
-                  ['Finding the Site ID', 'VRM portal → select installation → 6–8 digit ID in the URL.'],
-                  ['Manage roles & access', 'Toggle Admin, suspend, send a new password reset, or delete.'],
-                ].map(([title, desc], i) => (
-                  <li key={i} className="flex gap-3">
-                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#1e40af] text-white flex items-center justify-center text-[9px] font-black">{i + 1}</span>
-                    <span><strong className="text-white">{title} — </strong>{desc}</span>
-                  </li>
-                ))}
-              </ol>
-              <div className="pt-3 border-t border-[#1e3a5f]/40 text-[10px] text-amber-400/80">
-                ⚠ Set <code className="text-amber-300">NEXT_PUBLIC_SITE_URL=https://www.nomadxe.com</code> in Vercel so invite/reset emails link correctly.
-              </div>
-            </section>
+          <div className="xl:col-span-1">
+            <AdminLeftPanel
+              userList={userList}
+              deviceList={deviceList}
+              assignmentMap={assignmentMap}
+            />
           </div>
 
           {/* ── Right Panel: Roster ── */}
@@ -255,11 +152,6 @@ export default async function AdminDashboard({
             <RosterTable users={rosterUsers} totalDevices={totalDevices} />
           </div>
 
-        </div>
-
-        {/* Dev tool — full-width below the main grid */}
-        <div className="mt-8">
-          <GenerateLinkTool users={userList} />
         </div>
       </div>
     </div>
