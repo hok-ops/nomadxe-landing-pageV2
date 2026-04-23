@@ -145,9 +145,9 @@ export default function TwoOptions() {
             <a
               href="#contact"
               className="mt-auto self-start bg-midnight text-blue font-semibold rounded-full px-8 py-3 text-sm transition-all duration-300 hover:shadow-blue-glow hover:scale-[1.02] active:scale-[0.98]"
-              aria-label="Get started with Fully Equipped option"
+              aria-label="Get in touch about Fully Equipped option"
             >
-              Get Started
+              Get in touch
             </a>
           </div>
         </div>

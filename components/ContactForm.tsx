@@ -103,17 +103,18 @@ export default function ContactForm() {
         <div className="flex flex-col gap-8">
           <div data-contact-animate>
             <p className="font-mono text-xs tracking-widest uppercase text-blue/60 mb-4">
-              Get Started
+              Start with a conversation
             </p>
             <h2 className="text-4xl md:text-5xl font-bold text-white leading-tight">
-              Ready to deploy{' '}
-              <em className="font-display italic text-blue not-italic">visibility?</em>
+              We&apos;ll tailor the deployment{' '}
+              <em className="font-display italic text-blue not-italic">to your site.</em>
             </h2>
           </div>
 
           <p data-contact-animate className="text-white/60 leading-relaxed">
-            Tell us about your site. We&apos;ll respond within one business day with a deployment
-            plan, timeline, and quote tailored to your needs.
+            Tell us about the site — acreage, access, incident history. We&apos;ll come back within one
+            business day with a deployment plan, timeline, and honest quote. Site walks and assessments
+            are follow-ups, not prerequisites.
           </p>
 
           {/* Trust signals */}

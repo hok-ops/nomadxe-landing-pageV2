@@ -3,7 +3,7 @@
 import { useEffect, useRef, useLayoutEffect } from 'react';
 import Image from 'next/image';
 
-const STATUS_TEXT = '[ SYSTEM ACTIVE ] — Mobile Surveillance Infrastructure';
+const STATUS_TEXT = '[ DEPLOYED ] — Mobile Surveillance · Certified Partner Network';
 
 const BLUR_DATA =
   'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAABgUE/8QAIRAAAQQCAgMAAAAAAAAAAAAAAQIDBAURITFBUWH/xAAUAQEAAAAAAAAAAAAAAAAAAAAA/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEQMRAD8Amz17TaZdLc2yxH2GUNBKnHCpRJPAA7n4rP6m1ZTQbzRdJpBkGQxHZL7ylHYRtSBx+/2rRRQB/9k=';
@@ -107,14 +107,15 @@ export default function Hero() {
 
         {/* Headline */}
         <h1 data-hero-animate className="text-5xl md:text-7xl font-sans font-bold leading-tight text-white mb-4">
-          Visibility without{' '}
-          <em className="font-display not-italic text-blue">boundaries.</em>
+          Deploy in 48 hours.{' '}
+          <em className="font-display not-italic text-blue">Deter from day one.</em>
         </h1>
 
         {/* Subheading */}
-        <p data-hero-animate className="text-lg text-white/70 max-w-lg mb-10 leading-relaxed">
-          Nomadxe deploys trailer-mounted surveillance systems to sites where traditional infrastructure
-          doesn&apos;t reach — up and running in hours, not weeks.
+        <p data-hero-animate className="text-lg text-white/70 max-w-xl mb-10 leading-relaxed">
+          Solar-powered, cellular-uplinked surveillance trailers running AI video analytics. Site-hardened
+          in a day, monitored 24/7, relocatable in hours — for construction yards, events, and remote ops
+          that can&apos;t wait for fixed infrastructure.
         </p>
 
         {/* CTAs */}
