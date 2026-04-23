@@ -298,6 +298,36 @@ function DeploymentScheduler() {
 
 /* ── Features Section ────────────────────────────────────────────── */
 export default function Features() {
+  const headerRef = useRef<HTMLDivElement>(null);
+  const gridRef   = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced) return;
+    const revealEls: HTMLElement[] = [];
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            (e.target as HTMLElement).style.opacity = '1';
+            (e.target as HTMLElement).style.transform = 'translateY(0)';
+            obs.unobserve(e.target);
+          }
+        });
+      },
+      { threshold: 0.15 }
+    );
+    [headerRef.current, gridRef.current].forEach((el, i) => {
+      if (!el) return;
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(28px)';
+      el.style.transition = `opacity 0.65s cubic-bezier(.22,1,.36,1) ${i * 0.15}s, transform 0.65s cubic-bezier(.22,1,.36,1) ${i * 0.15}s`;
+      revealEls.push(el);
+      obs.observe(el);
+    });
+    return () => obs.disconnect();
+  }, []);
+
   return (
     <section
       id="solutions"
@@ -306,7 +336,7 @@ export default function Features() {
     >
       <div className="max-w-6xl mx-auto">
         {/* Section header */}
-        <div className="mb-16 text-center">
+        <div ref={headerRef} className="mb-16 text-center">
           <p className="font-mono text-xs tracking-widest uppercase text-blue/60 mb-4">
             Platform Capabilities
           </p>
@@ -316,7 +346,7 @@ export default function Features() {
           </h2>
         </div>
         {/* Cards grid */}
-        <div className="grid md:grid-cols-3 gap-8">
+        <div ref={gridRef} className="grid md:grid-cols-3 gap-8">
           <DiagnosticShuffler />
           <TelemetryTypewriter />
           <DeploymentScheduler />

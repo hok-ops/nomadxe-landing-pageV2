@@ -81,6 +81,19 @@ export default function Hero() {
         className="absolute inset-0 bg-gradient-to-t from-midnight via-midnight/70 to-midnight/20"
       />
 
+      {/* Scanline + float keyframes */}
+      <style dangerouslySetInnerHTML={{__html:`
+        @keyframes scanH{0%{top:-2px;opacity:0}10%{opacity:1}90%{opacity:1}100%{top:100%;opacity:0}}
+        @keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+        @keyframes pulseRing{0%{transform:scale(1);opacity:0.7}100%{transform:scale(2.2);opacity:0}}
+      `}} />
+      {/* Scanline sweep */}
+      <div aria-hidden="true" style={{
+        position:'absolute',left:0,right:0,height:'2px',zIndex:3,pointerEvents:'none',
+        background:'linear-gradient(90deg,transparent,rgba(14,165,233,0.09),transparent)',
+        animation:'scanH 8s linear infinite',
+      }} />
+
       {/* Content */}
       <div className="relative z-10 px-8 md:px-16 pb-16 md:pb-24 max-w-3xl">
         {/* Status bar */}
@@ -89,7 +102,10 @@ export default function Hero() {
           className="mb-6 flex items-center gap-2 font-mono text-xs tracking-widest uppercase text-blue/80"
           aria-label="System status"
         >
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue animate-pulse" aria-hidden="true" />
+          <span className="relative inline-flex items-center justify-center w-1.5 h-1.5 flex-shrink-0" aria-hidden="true">
+            <span className="absolute inline-block w-1.5 h-1.5 rounded-full bg-blue" style={{animation:'pulseRing 2s ease-out infinite'}} />
+            <span className="relative inline-block w-1.5 h-1.5 rounded-full bg-blue" />
+          </span>
           <span ref={statusRef} aria-live="polite" />
           <span
             aria-hidden="true"
@@ -128,7 +144,7 @@ export default function Hero() {
       </div>
 
       {/* Scroll hint */}
-      <div aria-hidden="true" className="absolute bottom-8 right-8 font-mono text-xs text-white/30 tracking-widest uppercase hidden md:block">
+      <div aria-hidden="true" className="absolute bottom-8 right-8 font-mono text-xs text-white/30 tracking-widest uppercase hidden md:block" style={{animation:"floatY 2.4s ease-in-out infinite"}}>
         scroll ↓
       </div>
     </section>
