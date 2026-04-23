@@ -91,12 +91,14 @@ export default function Hero() {
         </div>
       </div>
 
-      {/* ─── DESKTOP: trailer as atmospheric background, copy on top ─── */}
-      <div className="hidden md:block relative min-h-dvh overflow-hidden">
+      {/* ─── DESKTOP: centered full-width trailer, vertical fade, copy at bottom ─── */}
+      <div className="hidden md:flex relative min-h-dvh overflow-hidden flex-col justify-end">
 
-        {/* Trailer background — nearly the whole portrait image is visible,
-            positioned right of center so copy reads cleanly on the left.
-            Reduced opacity + top/left gradient wash keeps it backdrop-y. */}
+        {/* Trailer background — centered and stretched to fill the viewport
+            width. Using object-cover with object-top keeps the trailer body
+            in frame (bottom of the portrait — which is mostly ground — is
+            what gets cropped, and our vertical fade gradient covers that
+            zone anyway where the copy sits). */}
         <div data-hero-image aria-hidden="true" className="absolute inset-0 z-0 pointer-events-none">
           <Image
             src="/trailer-hires.jpg"
@@ -105,27 +107,30 @@ export default function Hero() {
             fill
             sizes="100vw"
             quality={94}
-            className="object-contain object-[78%_center] lg:object-[72%_center] opacity-45"
+            className="object-cover object-top opacity-70"
             placeholder="blur"
             blurDataURL={BLUR_DATA}
           />
 
-          {/* Soft halo behind the trailer to lift it off the page */}
+          {/* Soft central halo behind the trailer to lift it off the page */}
           <div
             className="absolute inset-0"
             style={{
               backgroundImage:
-                'radial-gradient(ellipse 48% 65% at 72% 50%, rgba(14,165,233,0.18), transparent 72%)',
+                'radial-gradient(ellipse 65% 55% at 50% 38%, rgba(14,165,233,0.22), transparent 72%)',
             }}
           />
 
-          {/* Left-side wash — keeps copy readable while letting the trailer
-              peek through on the right. Tuned so ~90% of the image stays
-              visible rather than getting cropped. */}
-          <div className="absolute inset-0 bg-gradient-to-r from-midnight via-midnight/70 to-transparent" />
-
-          {/* Subtle vertical feather */}
-          <div className="absolute inset-0 bg-gradient-to-b from-midnight/30 via-transparent to-midnight/55" />
+          {/* Vertical transparency gradient — image is clear up top and
+              fades to solid midnight toward the bottom, giving the copy a
+              clean dark plinth to sit on without hiding the trailer. */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(to bottom, rgba(4,7,14,0.05) 0%, rgba(4,7,14,0.15) 30%, rgba(4,7,14,0.55) 55%, rgba(4,7,14,0.88) 78%, #04070e 100%)',
+            }}
+          />
 
           {/* Scan-line texture */}
           <div
@@ -137,19 +142,17 @@ export default function Hero() {
           />
         </div>
 
-        {/* Copy panel — left-anchored over the backdrop */}
-        <div className="relative z-10 grid grid-cols-12 items-center min-h-dvh">
-          <div className="col-span-12 lg:col-span-7 xl:col-span-6 px-8 lg:px-16 py-24">
-            <div className="max-w-[34rem] lg:max-w-[38rem]">
-              <HeroCopy statusRef={statusRef} />
-            </div>
+        {/* Copy — centered horizontally and overlaid toward the bottom of the image */}
+        <div className="relative z-10 px-8 lg:px-16 pb-20 lg:pb-28">
+          <div className="max-w-[44rem] mx-auto">
+            <HeroCopy statusRef={statusRef} />
           </div>
         </div>
 
         {/* Floating telemetry chip — annotates the trailer on large screens */}
         <div
           aria-hidden="true"
-          className="hidden lg:flex absolute bottom-8 right-8 z-20 items-center gap-3 rounded-lg bg-midnight/80 backdrop-blur-md border border-white/10 px-4 py-2.5 font-mono text-[11px] tracking-wider text-white/80 shadow-[0_10px_40px_-10px_rgba(14,165,233,0.45)]"
+          className="hidden lg:flex absolute top-28 right-8 z-20 items-center gap-3 rounded-lg bg-midnight/80 backdrop-blur-md border border-white/10 px-4 py-2.5 font-mono text-[11px] tracking-wider text-white/80 shadow-[0_10px_40px_-10px_rgba(14,165,233,0.45)]"
         >
           <span className="relative inline-flex items-center justify-center w-1.5 h-1.5">
             <span className="absolute inline-block w-1.5 h-1.5 rounded-full bg-blue animate-pulseRing" />
