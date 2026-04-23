@@ -210,10 +210,10 @@ function TelemetryTypewriter() {
 }
 
 /* ── Card 3: Deployment Scheduler ────────────────────────────────── */
-/* A horizontal route-map: a trailer travels from DISPATCH → ON-SITE → LIVE.
-   Each waypoint lights up as the convoy arrives; route line fills behind it;
-   at the end, the LIVE node pulses with radio-wave rings and a READY badge
-   rises. More cinematic than three static circles. */
+/* A horizontal progress route: DISPATCH → ON-SITE → LIVE.
+   The route fills step by step, each waypoint lights up, and the LIVE
+   node ripples with radio-wave rings once reached. No moving object —
+   just the route and waypoints so the card stays calm and legible. */
 
 const DEPLOY_STEPS = [
   { label: 'DISPATCH', caption: 'Route planned' },
@@ -226,7 +226,7 @@ const WP_X = [50, 160, 270];
 const WP_Y = 62;
 
 function DeploymentScheduler() {
-  // -1 = idle (trailer offscreen), 0/1/2 = currently arrived at waypoint idx
+  // -1 = idle, 0/1/2 = currently lit waypoint idx
   const [activeNode, setActiveNode] = useState(-1);
   const [allDone, setAllDone] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -279,8 +279,6 @@ function DeploymentScheduler() {
     };
   }, []);
 
-  // Smoothly interpolated trailer X — glides toward the currently active waypoint.
-  const targetX = activeNode < 0 ? WP_X[0] - 38 : WP_X[Math.min(activeNode, 2)];
   const filledRouteX = activeNode < 0 ? WP_X[0] : WP_X[Math.min(activeNode, 2)];
 
   return (
@@ -308,9 +306,6 @@ function DeploymentScheduler() {
             <stop offset="0%"   stopColor="#0EA5E9" stopOpacity="0.35" />
             <stop offset="100%" stopColor="#0EA5E9" stopOpacity="0" />
           </radialGradient>
-          <filter id="deploy-glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="2.4" />
-          </filter>
           <style>{`
             @keyframes deployPulse {
               0%   { transform: scale(0.6); opacity: 0.8; }
@@ -323,10 +318,6 @@ function DeploymentScheduler() {
             }
             .deploy-ring-2 { animation-delay: 0.6s; }
             .deploy-ring-3 { animation-delay: 1.2s; }
-            @keyframes deployBadgeRise {
-              from { opacity: 0; transform: translateY(6px); }
-              to   { opacity: 1; transform: translateY(0); }
-            }
           `}</style>
         </defs>
 
@@ -336,7 +327,7 @@ function DeploymentScheduler() {
           stroke="#ffffff18" strokeWidth="1.5" strokeDasharray="3 3"
         />
 
-        {/* Filled route (animates as trailer progresses) */}
+        {/* Filled route */}
         <line
           x1={WP_X[0]} y1={WP_Y} x2={filledRouteX} y2={WP_Y}
           stroke="url(#deploy-route)" strokeWidth="2" strokeLinecap="round"
@@ -409,37 +400,6 @@ function DeploymentScheduler() {
             </g>
           );
         })}
-
-        {/* Trailer convoy — glides along the route */}
-        <g
-          style={{
-            transform: `translate(${targetX - WP_X[0]}px, 0)`,
-            transition: 'transform 1100ms cubic-bezier(.65,.05,.36,1)',
-          }}
-        >
-          {/* Soft shadow */}
-          <ellipse cx={WP_X[0]} cy={WP_Y + 14} rx="16" ry="2.2" fill="#0EA5E9" opacity="0.12" />
-
-          {/* Trailer body (tiny) */}
-          <g transform={`translate(${WP_X[0] - 14}, ${WP_Y - 12})`}>
-            {/* Main box */}
-            <rect x="0" y="3" width="20" height="9" rx="1.5" fill="#13151A" stroke="#0EA5E9" strokeWidth="0.9" />
-            {/* Solar panel on top */}
-            <rect x="2" y="1" width="16" height="2.5" fill="#0EA5E9" opacity="0.85" />
-            {/* Tow tongue */}
-            <line x1="20" y1="7.5" x2="24" y2="7.5" stroke="#0EA5E9" strokeWidth="0.9" />
-            {/* Wheels */}
-            <circle cx="5"  cy="13" r="1.4" fill="#0EA5E9" />
-            <circle cx="15" cy="13" r="1.4" fill="#0EA5E9" />
-            {/* Antenna — only visible when deployed (arrived at final node) */}
-            {allDone && (
-              <g filter="url(#deploy-glow)">
-                <line x1="10" y1="1" x2="10" y2="-5" stroke="#0EA5E9" strokeWidth="0.8" />
-                <circle cx="10" cy="-6" r="1.2" fill="#0EA5E9" />
-              </g>
-            )}
-          </g>
-        </g>
       </svg>
 
       {/* Status badge — rises in when LIVE reached */}

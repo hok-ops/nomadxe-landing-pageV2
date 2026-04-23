@@ -11,6 +11,7 @@ import MonitoringPartners from '../components/MonitoringPartners';
 import UseCases from '../components/UseCases';
 import ContactForm from '../components/ContactForm';
 import Footer from '../components/Footer';
+import ScrollReveal from '../components/ScrollReveal';
 
 // Supabase auth callbacks land here. Catch auth params and forward appropriately.
 export default function Home({
@@ -39,6 +40,7 @@ export default function Home({
       <JsonLd />
       <AuthHashProcessor />
       <Navbar />
+      <ScrollReveal />
       <main id="main">
         <Hero />
         <Features />

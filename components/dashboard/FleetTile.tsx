@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { VRMData } from './NomadXECoreView';
 import { useTheme } from '@/components/ThemeProvider';
 
@@ -109,7 +110,11 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
   const [hovered, setHovered] = useState(false);
   const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({});
   const [entered, setEntered] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const tileRef = useRef<HTMLDivElement>(null);
+
+  // Portal target is document.body — only available after mount (SSR safety).
+  useEffect(() => { setMounted(true); }, []);
 
   // Mount stagger — tiles appear in a gentle cascade. Cap delay so large
   // fleets don't wait forever; respect reduced-motion by skipping the fade.
@@ -225,7 +230,7 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
         </div>
         <div className="mt-1 text-[9px] font-mono text-[#93c5fd]/50 truncate">{device.siteId}</div>
       </button>
-      {hovered && data && !noData && (
+      {hovered && mounted && data && !noData && createPortal(
         <HoverDetail
           data={data}
           device={device}
@@ -233,7 +238,8 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
           noData={noData}
           isLight={isLight}
           fixedStyle={popupStyle}
-        />
+        />,
+        document.body
       )}
     </div>
   );

@@ -93,26 +93,68 @@ function Sparkline({ data, color, label, unit, height = 36, pulseKey = 0 }: Spar
       <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="overflow-visible">
         <defs>
           <linearGradient id={`sg-${uid}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.28" />
-            <stop offset="100%" stopColor={color} stopOpacity="0.01" />
+            <stop offset="0%"   stopColor={color} stopOpacity="0.42" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.02" />
           </linearGradient>
         </defs>
-        <path d={area} fill={`url(#sg-${uid})`} />
-        {/* key is pulseKey-scoped so bumping it re-mounts the element and replays sparkDraw */}
+
+        {/* Area under curve — fades in alongside the stroke for depth */}
+        <path
+          key={`area-${pulseKey}`}
+          d={area}
+          fill={`url(#sg-${uid})`}
+          style={{
+            color,
+            animation: `sparkArea 1.4s cubic-bezier(.22,1,.36,1) 0.1s both`,
+            transformOrigin: 'bottom',
+          }}
+        />
+
+        {/* Main stroke — draws in from left with a pulsing glow */}
         <polyline
           key={`line-${pulseKey}`}
-          points={polyline} fill="none" stroke={color} strokeWidth="1.5"
+          points={polyline} fill="none" stroke={color} strokeWidth="1.8"
           strokeLinecap="round" strokeLinejoin="round"
           style={{
+            color,
             strokeDasharray: 2000,
             strokeDashoffset: 2000,
-            animation: `sparkDraw 1.2s ease 0.1s forwards`,
-            filter: `drop-shadow(0 0 3px ${color}55)`,
-          }} />
+            animation: `sparkDraw 1.3s cubic-bezier(.22,1,.36,1) 0.1s forwards`,
+          }}
+        />
+
+        {/* Expanding ring pulse on the latest point — triggers once on mount */}
+        <circle
+          key={`ring-${pulseKey}`}
+          cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="2.5"
+          fill="none" stroke={color} strokeWidth="1.5"
+          style={{
+            transformOrigin: `${pts[pts.length - 1].x}px ${pts[pts.length - 1].y}px`,
+            animation: `sparkDotRing 1.1s ease 1.0s both`,
+          }}
+        />
+
+        {/* Quieter continuous ring — a subtle heartbeat while the view is open */}
+        <circle
+          key={`ringloop-${pulseKey}`}
+          cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="2.5"
+          fill="none" stroke={color} strokeWidth="1"
+          style={{
+            transformOrigin: `${pts[pts.length - 1].x}px ${pts[pts.length - 1].y}px`,
+            animation: `sparkDotRingLoop 2.6s ease-out 2.2s infinite`,
+            opacity: 0,
+          }}
+        />
+
+        {/* Solid end dot — pops in after the line finishes drawing */}
         <circle
           key={`dot-${pulseKey}`}
           cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="2.5" fill={color}
-          style={{ animation: `sparkDot 900ms ease 1s both` }}
+          style={{
+            transformOrigin: `${pts[pts.length - 1].x}px ${pts[pts.length - 1].y}px`,
+            animation: `sparkDot 900ms ease 1.0s both`,
+            filter: `drop-shadow(0 0 4px ${color})`,
+          }}
         />
       </svg>
     </div>

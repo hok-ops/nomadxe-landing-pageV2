@@ -317,10 +317,26 @@ a {
   100% { transform: scale(2.2); opacity: 0; }
 }
 @keyframes sparkDraw {
-  to { stroke-dashoffset: 0; }
+  0%   { stroke-dashoffset: 2000; filter: drop-shadow(0 0 4px currentColor); }
+  60%  { filter: drop-shadow(0 0 10px currentColor); }
+  100% { stroke-dashoffset: 0;    filter: drop-shadow(0 0 3px currentColor); }
+}
+@keyframes sparkArea {
+  0%   { opacity: 0; }
+  60%  { opacity: 0.3; }
+  100% { opacity: 1; }
 }
 @keyframes sparkDot {
-  0%   { transform: scale(0); opacity: 0; }
-  60%  { transform: scale(1.8); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
+  0%   { transform: scale(0);   opacity: 0; }
+  60%  { transform: scale(2.4); opacity: 1; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+@keyframes sparkDotRing {
+  0%   { transform: scale(0.6); opacity: 0.9; }
+  100% { transform: scale(3.2); opacity: 0;   }
+}
+@keyframes sparkDotRingLoop {
+  0%,  55% { transform: scale(0.6); opacity: 0;   }
+  70%      { opacity: 0.6;                         }
+  100%     { transform: scale(2.6); opacity: 0;   }
 }

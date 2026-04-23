@@ -222,9 +222,9 @@ const STEPS = [
   {
     number: '01',
     label: 'Configure',
-    title: 'Site-ready in hours.',
+    title: 'Dialed in before dispatch.',
     description:
-      'We survey the site remotely, spec the trailer configuration, and pre-configure your platform before we arrive.',
+      'We survey the site remotely, spec the trailer configuration, and pre-configure your platform — so by the time a trailer rolls out, everything is already wired to work.',
     bg: 'bg-surface',
   },
   {

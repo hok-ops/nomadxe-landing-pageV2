@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 const MPPT_STATES = [
   { color: '#22c55e', label: 'Float',       desc: 'Battery full — trickle maintaining charge' },
@@ -27,6 +28,10 @@ const UNITS = [
 
 export default function ReadingKey() {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Portal needs the DOM — only render the overlay after mount.
+  useEffect(() => { setMounted(true); }, []);
 
   // Close on Escape
   useEffect(() => {
@@ -58,10 +63,12 @@ export default function ReadingKey() {
         <span className="hidden sm:inline">Key</span>
       </button>
 
-      {/* Overlay */}
-      {open && (
+      {/* Overlay — rendered via portal into document.body so it escapes any
+          stacking context created by ancestors (transforms, backdrop-filter,
+          z-index wrappers) and always sits above the dashboard content. */}
+      {open && mounted && createPortal(
         <div
-          className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4"
+          className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4"
           style={{ background: 'rgba(4,7,14,0.85)', backdropFilter: 'blur(4px)' }}
           onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
         >
@@ -188,7 +195,8 @@ export default function ReadingKey() {
 
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

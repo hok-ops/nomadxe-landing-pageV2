@@ -95,14 +95,20 @@ export default function FleetSummary({ devices, dataMap }: Props) {
       yieldSum += data.solar.yieldToday;
       if (data.battery.state === 1) charging++;
     });
-    const avgSoc = online > 0 ? socSum / online : 0;
+    // Per-unit averages are the actionable view for fleet ops — a raw
+    // fleet-total wattage blends great trailers with struggling ones and
+    // hides problems. Yield Today stays a total because cumulative energy
+    // harvested today IS a meaningful fleet-level number.
+    const avgSoc    = online > 0 ? socSum   / online : 0;
+    const avgSolar  = online > 0 ? solarSum / online : 0;
+    const avgLoad   = online > 0 ? dcSum    / online : 0;
     const healthPct = devices.length > 0 ? Math.round((online / devices.length) * 100) : 0;
-    return { online, offline, noData, avgSoc, solarSum, dcSum, yieldSum, charging, healthPct };
+    return { online, offline, noData, avgSoc, avgSolar, avgLoad, yieldSum, charging, healthPct };
   }, [devices, dataMap]);
 
   const animatedSoc    = useTweenedNumber(stats.avgSoc);
-  const animatedSolar  = useTweenedNumber(stats.solarSum);
-  const animatedDc     = useTweenedNumber(stats.dcSum);
+  const animatedSolar  = useTweenedNumber(stats.avgSolar);
+  const animatedDc     = useTweenedNumber(stats.avgLoad);
   const animatedYield  = useTweenedNumber(stats.yieldSum);
 
   const healthColor = stats.healthPct >= 90 ? '#22c55e' : stats.healthPct >= 50 ? '#3b82f6' : '#f59e0b';
@@ -151,14 +157,14 @@ export default function FleetSummary({ devices, dataMap }: Props) {
           accent="#3b82f6"
         />
         <Metric
-          label="Solar Now"
+          label="Avg Solar"
           value={animatedSolar.toFixed(0)}
           unit="W"
           color="#22c55e"
           accent="#22c55e"
         />
         <Metric
-          label="DC Load"
+          label="Avg Load"
           value={animatedDc.toFixed(0)}
           unit="W"
           color="#f59e0b"
