@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>NomadXE Landing — Animation Preview</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{--midnight:#0B0C10;--surface:#13151A;--blue:#0EA5E9;--blue-glow:rgba(14,165,233,0.4);}
+html{scroll-behavior:smooth;}
+body{background:var(--midnight);color:#fff;font-family:-apple-system,'Inter',sans-serif;overflow-x:hidden;}
+
+/* ── keyframes ── */
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes ringOut{0%{transform:scale(0.6);opacity:0.9}100%{transform:scale(3.5);opacity:0}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scanH{0%{transform:translateY(-100%)}100%{transform:translateY(120vh)}}
+@keyframes revealUp{from{opacity:0;transform:translateY(32px)}to{opacity:1;transform:translateY(0)}}
+@keyframes staggerIn{from{opacity:0;transform:translateY(24px) scale(0.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes bracketIn{from{opacity:0;transform:scale(0.5)}to{opacity:1;transform:scale(1)}}
+@keyframes livePulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(245,158,11,0)}50%{opacity:0.7;box-shadow:0 0 0 4px rgba(245,158,11,0.2)}}
+@keyframes circuitDraw{to{stroke-dashoffset:0}}
+@keyframes glowPulse{0%,100%{box-shadow:0 0 0 0 rgba(14,165,233,0)}50%{box-shadow:0 0 0 6px rgba(14,165,233,0.12)}}
+@keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes barShimmer{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+
+/* scroll-driven reveal utility */
+.reveal{opacity:0;transform:translateY(28px);transition:opacity 0.6s cubic-bezier(0.22,1,0.36,1),transform 0.6s cubic-bezier(0.22,1,0.36,1);}
+.reveal.visible{opacity:1;transform:translateY(0);}
+.reveal-d1{transition-delay:0.05s;}
+.reveal-d2{transition-delay:0.12s;}
+.reveal-d3{transition-delay:0.19s;}
+.reveal-d4{transition-delay:0.26s;}
+
+/* SCROLL PROGRESS */
+#scroll-bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,#1e40af,#3b82f6,#60a5fa,#3b82f6,#1e40af);background-size:300% 100%;animation:barShimmer 4s ease-in-out infinite;z-index:999;transition:width 0.1s;}
+
+/* APPROVAL BAR */
+.approval-bar{position:fixed;bottom:0;left:0;right:0;z-index:998;background:rgba(11,12,16,0.96);border-top:1px solid rgba(14,165,233,0.2);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.approval-text{font-family:monospace;font-size:11px;color:rgba(255,255,255,0.4);}
+.approval-text strong{color:#0EA5E9;}
+.approval-actions{display:flex;gap:10px;}
+.btn-approve{font-family:monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;background:rgba(14,165,233,0.15);border:1px solid #0EA5E9;color:#0EA5E9;border-radius:6px;padding:8px 20px;cursor:pointer;transition:background 0.2s;}
+.btn-approve:hover{background:rgba(14,165,233,0.3);}
+.btn-reject{font-family:monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;background:transparent;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.35);border-radius:6px;padding:8px 20px;cursor:pointer;}
+.btn-reject:hover{border-color:rgba(239,68,68,0.4);color:rgba(239,68,68,0.7);}
+
+/* ANNO */
+.anno{display:inline-flex;align-items:center;gap:6px;font-family:monospace;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:#0EA5E9;border:1px solid rgba(14,165,233,0.25);border-radius:20px;padding:4px 12px;margin-bottom:8px;}
+.anno-badge{font-size:8px;background:#0EA5E9;color:#0B0C10;border-radius:10px;padding:1px 6px;font-weight:700;}
+
+/* ════════════════════ 1. HERO ════════════════════ */
+#hero{position:relative;min-height:100vh;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:6rem;}
+.hero-bg{position:absolute;inset:0;background:url('https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1600&q=60') center/cover;z-index:0;}
+.hero-overlay{position:absolute;inset:0;background:linear-gradient(to top,#0B0C10 30%,rgba(11,12,16,0.65) 60%,rgba(11,12,16,0.2) 100%);z-index:1;}
+.hero-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(14,165,233,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(14,165,233,0.025) 1px,transparent 1px);background-size:48px 48px;z-index:2;}
+/* ANIMATION 1: scanline */
+.hero-scanline{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(14,165,233,0.06),transparent);z-index:3;pointer-events:none;animation:scanH 6s linear infinite;}
+
+.hero-content{position:relative;z-index:10;padding:0 3rem;}
+.hero-status{display:flex;align-items:center;gap:8px;font-family:monospace;font-size:11px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(14,165,233,0.85);margin-bottom:1.5rem;animation:fadeUp 0.6s ease 0.3s both;}
+/* ANIMATION 2: status dot pulse ring */
+.status-dot-wrap{position:relative;width:8px;height:8px;flex-shrink:0;}
+.status-dot-wrap .dot{position:absolute;inset:0;border-radius:50%;background:#0EA5E9;box-shadow:0 0 8px #0EA5E9;animation:pulse 2s ease-in-out infinite;}
+.status-dot-wrap::after{content:'';position:absolute;inset:-6px;border-radius:50%;border:1px solid rgba(14,165,233,0.7);animation:ringOut 2.4s ease-out 0.8s infinite;}
+.hero-h1{font-size:clamp(2.8rem,6vw,5rem);font-weight:700;line-height:1.08;color:#fff;margin-bottom:1rem;animation:fadeUp 0.7s ease 0.5s both;}
+.hero-h1 em{color:#0EA5E9;font-style:normal;}
+.hero-sub{font-size:1.05rem;color:rgba(255,255,255,0.65);max-width:480px;line-height:1.75;margin-bottom:2.5rem;animation:fadeUp 0.7s ease 0.7s both;}
+.hero-ctas{display:flex;gap:1rem;flex-wrap:wrap;animation:fadeUp 0.7s ease 0.9s both;}
+.btn-p{display:inline-flex;align-items:center;background:#0EA5E9;color:#0B0C10;font-weight:600;font-size:0.9rem;border-radius:999px;padding:0.7rem 2rem;text-decoration:none;transition:transform 0.2s,box-shadow 0.2s;}
+.btn-p:hover{transform:translateY(-2px) scale(1.02);box-shadow:0 0 24px var(--blue-glow);}
+.btn-g{display:inline-flex;align-items:center;border:1px solid rgba(255,255,255,0.28);color:#fff;font-weight:600;font-size:0.9rem;border-radius:999px;padding:0.7rem 2rem;text-decoration:none;transition:border-color 0.2s,color 0.2s;}
+.btn-g:hover{border-color:#0EA5E9;color:#0EA5E9;}
+/* ANIMATION 3: scroll hint float */
+.scroll-hint{position:absolute;bottom:2rem;right:2rem;font-family:monospace;font-size:10px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(255,255,255,0.25);animation:floatY 3s ease-in-out infinite;}
+
+/* ════════════════════ 2. STATS BAR ════════════════════ */
+/* ANIMATION 4: counter strip */
+#stats-bar{background:rgba(11,12,16,0.9);border-top:1px solid rgba(14,165,233,0.1);border-bottom:1px solid rgba(14,165,233,0.1);padding:1.5rem 2rem;}
+.stats-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:0;text-align:center;}
+.stat-item{padding:0 1.5rem;border-right:1px solid rgba(14,165,233,0.08);}
+.stat-item:last-child{border-right:none;}
+.stat-num{font-size:2rem;font-weight:900;font-family:monospace;color:#0EA5E9;line-height:1;}
+.stat-label{font-size:9px;font-family:monospace;text-transform:uppercase;letter-spacing:0.25em;color:rgba(255,255,255,0.35);margin-top:4px;}
+
+/* ════════════════════ 3. FEATURES ════════════════════ */
+#features{background:var(--midnight);padding:6rem 2rem;}
+.section-header{text-align:center;margin-bottom:4rem;}
+.section-mono{font-family:monospace;font-size:10px;letter-spacing:0.35em;text-transform:uppercase;color:rgba(14,165,233,0.55);margin-bottom:1rem;}
+.section-h2{font-size:clamp(2rem,4vw,3rem);font-weight:700;line-height:1.2;color:#fff;}
+.section-h2 em{color:#0EA5E9;font-style:normal;}
+.features-grid{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:2rem;}
+/* ANIMATION 5: card stagger on scroll */
+.feature-card{background:var(--surface);border:1px solid rgba(255,255,255,0.05);border-top:2px solid rgba(14,165,233,0.25);border-radius:20px;padding:2.5rem;display:flex;flex-direction:column;gap:1.2rem;transition:border-color 0.3s,box-shadow 0.3s,transform 0.3s;}
+.feature-card:hover{border-top-color:rgba(14,165,233,0.7);box-shadow:0 0 28px rgba(14,165,233,0.08);transform:translateY(-3px);}
+.card-tag{font-family:monospace;font-size:10px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(14,165,233,0.7);}
+.card-title{font-size:1.2rem;font-weight:700;color:#fff;}
+.card-desc{font-size:0.85rem;color:rgba(255,255,255,0.5);line-height:1.65;}
+.card-visual{background:rgba(11,12,16,0.6);border:1px solid rgba(14,165,233,0.1);border-radius:12px;padding:1.2rem;margin-top:auto;}
+/* mini live feed */
+.mini-feed{font-family:monospace;font-size:10px;color:rgba(255,255,255,0.35);display:flex;flex-direction:column;gap:4px;}
+.feed-line{display:flex;align-items:center;gap:6px;}
+.feed-dot{width:4px;height:4px;border-radius:50%;flex-shrink:0;background:#0EA5E9;}
+/* mini deploy nodes */
+.deploy-nodes{display:flex;align-items:center;gap:0;justify-content:center;}
+.node{width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;font-family:monospace;font-size:10px;font-weight:700;color:rgba(255,255,255,0.3);transition:all 0.5s;}
+.node.done{background:#0EA5E9;border-color:#0EA5E9;color:#0B0C10;}
+.node-line{flex:1;height:1px;background:rgba(255,255,255,0.08);transition:background 0.5s;}
+.node-line.done{background:#0EA5E9;}
+
+/* ════════════════════ 4. USE CASES ════════════════════ */
+#use-cases{background:var(--midnight);padding:6rem 2rem;}
+.use-cases-grid{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(2,1fr);gap:1.5rem;}
+/* ANIMATION 6: card stagger + hover HUD brackets + LIVE badge */
+.uc-card{position:relative;border-radius:16px;overflow:hidden;background:var(--surface);aspect-ratio:4/3;cursor:default;}
+.uc-bg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0.4;transition:opacity 0.5s,transform 0.5s;}
+.uc-card:hover .uc-bg{opacity:0.6;transform:scale(1.04);}
+.uc-overlay{position:absolute;inset:0;background:linear-gradient(to top,#0B0C10 35%,rgba(11,12,16,0.35) 70%,transparent);}
+/* HUD corner brackets — appear on hover */
+.hud-corner{position:absolute;width:20px;height:20px;opacity:0;transition:opacity 0.3s,transform 0.3s;}
+.hud-corner.tl{top:10px;left:10px;border-top:2px solid rgba(245,158,11,0.7);border-left:2px solid rgba(245,158,11,0.7);transform:translate(-4px,-4px);}
+.hud-corner.tr{top:10px;right:10px;border-top:2px solid rgba(245,158,11,0.7);border-right:2px solid rgba(245,158,11,0.7);transform:translate(4px,-4px);}
+.hud-corner.bl{bottom:10px;left:10px;border-bottom:2px solid rgba(245,158,11,0.7);border-left:2px solid rgba(245,158,11,0.7);transform:translate(-4px,4px);}
+.hud-corner.br{bottom:10px;right:10px;border-bottom:2px solid rgba(245,158,11,0.7);border-right:2px solid rgba(245,158,11,0.7);transform:translate(4px,4px);}
+.uc-card:hover .hud-corner{opacity:1;transform:translate(0,0);}
+/* LIVE badge */
+.live-badge{position:absolute;top:12px;right:12px;font-family:monospace;font-size:9px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);color:rgba(245,158,11,0.9);padding:3px 8px;border-radius:4px;display:flex;align-items:center;gap:5px;opacity:0;transition:opacity 0.3s 0.1s;animation:livePulse 2s ease-in-out infinite;}
+.uc-card:hover .live-badge{opacity:1;}
+.uc-content{position:absolute;bottom:0;left:0;right:0;padding:1.5rem;z-index:10;}
+.uc-descriptor{font-family:monospace;font-size:9px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:6px;}
+.uc-title{font-size:1.1rem;font-weight:700;color:#fff;}
+
+/* ════════════════════ 5. TWO OPTIONS ════════════════════ */
+#deployment{background:var(--midnight);padding:6rem 2rem;}
+.deploy-grid{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 80px 1fr;gap:0;border-radius:24px;overflow:hidden;border:1px solid rgba(255,255,255,0.05);}
+.deploy-panel{padding:3rem;display:flex;flex-direction:column;gap:1.5rem;}
+.deploy-p1{background:var(--surface);border-left:3px solid rgba(14,165,233,0.35);}
+.deploy-p2{background:#0EA5E9;color:#0B0C10;}
+.deploy-divider{background:var(--surface);display:flex;align-items:center;justify-content:center;position:relative;}
+/* ANIMATION 7: circuit SVG */
+.circuit-path{fill:none;stroke:rgba(14,165,233,0.5);stroke-width:1;stroke-dasharray:400;stroke-dashoffset:400;}
+.circuit-path.draw{animation:circuitDraw 1.8s ease 0.3s forwards;}
+.or-badge{position:absolute;width:36px;height:36px;border-radius:50%;background:var(--midnight);border:1px solid rgba(14,165,233,0.3);display:flex;align-items:center;justify-content:center;font-family:monospace;font-size:10px;color:#0EA5E9;}
+.deploy-tag{font-family:monospace;font-size:9px;letter-spacing:0.25em;text-transform:uppercase;opacity:0.5;}
+.deploy-h3{font-size:1.4rem;font-weight:700;}
+.deploy-p{font-size:0.85rem;opacity:0.65;line-height:1.65;}
+.deploy-list{list-style:none;display:flex;flex-direction:column;gap:8px;}
+.deploy-list li{display:flex;align-items:center;gap:10px;font-size:0.83rem;opacity:0.7;}
+.check{font-family:monospace;font-size:10px;background:rgba(11,12,16,0.15);border-radius:99px;padding:2px 8px;border:1px solid rgba(11,12,16,0.12);}
+.deploy-btn{align-self:flex-start;padding:0.6rem 1.8rem;border-radius:99px;font-size:0.85rem;font-weight:600;text-decoration:none;transition:transform 0.2s,box-shadow 0.2s,color 0.2s,border-color 0.2s;margin-top:auto;}
+.ghost{border:1px solid rgba(255,255,255,0.2);color:#fff;}
+.ghost:hover{border-color:#0EA5E9;color:#0EA5E9;}
+.solid{background:#0B0C10;color:#0EA5E9;}
+.solid:hover{box-shadow:0 0 20px var(--blue-glow);}
+
+/* ════════════════════ 6. CONTACT ════════════════════ */
+#contact{background:var(--surface);padding:6rem 2rem;padding-bottom:8rem;}
+.contact-inner{max-width:640px;margin:0 auto;}
+.contact-form{display:flex;flex-direction:column;gap:1.2rem;margin-top:2.5rem;}
+.form-group{display:flex;flex-direction:column;gap:6px;}
+.form-label{font-family:monospace;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.4);}
+/* ANIMATION 8: field glow */
+.form-input{background:rgba(11,12,16,0.6);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px 16px;color:#fff;font-size:0.9rem;outline:none;transition:border-color 0.25s,box-shadow 0.25s,background 0.25s;width:100%;}
+.form-input:focus{border-color:rgba(14,165,233,0.6);box-shadow:0 0 0 3px rgba(14,165,233,0.08);background:rgba(14,165,233,0.03);}
+.form-input::placeholder{color:rgba(255,255,255,0.15);}
+textarea.form-input{resize:vertical;min-height:100px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+/* ANIMATION 9: submit glow pulse */
+.submit-btn{background:#0EA5E9;color:#0B0C10;font-weight:700;font-size:0.9rem;border:none;border-radius:99px;padding:14px 2rem;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;animation:glowPulse 3s ease-in-out infinite;}
+.submit-btn:hover{transform:translateY(-2px);box-shadow:0 0 28px var(--blue-glow);}
+</style>
+</head>
+<body>
+
+<div id="scroll-bar"></div>
+
+<!-- ══════════════ 1. HERO ══════════════ -->
+<section id="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-overlay"></div>
+  <div class="hero-grid"></div>
+  <div class="hero-scanline"></div>
+
+  <div class="hero-content">
+    <div style="margin-bottom:0.75rem;">
+      <span class="anno"><span class="anno-badge">NEW</span>Scanline overlay &middot; Pulse ring &middot; Stagger entrance &middot; Scroll hint float</span>
+    </div>
+    <div class="hero-status">
+      <div class="status-dot-wrap"><div class="dot"></div></div>
+      <span id="typewriter"></span>
+      <span style="display:inline-block;width:1px;height:11px;background:rgba(14,165,233,0.85);animation:blink 1s step-end infinite;"></span>
+    </div>
+    <h1 class="hero-h1">Visibility without&nbsp;<em>boundaries.</em></h1>
+    <p class="hero-sub">Nomadxe deploys trailer-mounted surveillance systems to sites where traditional infrastructure doesn't reach &mdash; up and running in hours, not weeks.</p>
+    <div class="hero-ctas">
+      <a href="#contact" class="btn-p">Talk to Sales</a>
+      <a href="#features" class="btn-g">See How It Works</a>
+    </div>
+  </div>
+  <div class="scroll-hint">scroll &darr;</div>
+</section>
+
+<!-- ══════════════ 2. STATS BAR ══════════════ -->
+<div id="stats-bar">
+  <div style="margin-bottom:1rem;text-align:center;">
+    <span class="anno"><span class="anno-badge">NEW</span>Counter strip &mdash; numbers count up on scroll into view</span>
+  </div>
+  <div class="stats-inner">
+    <div class="stat-item reveal">
+      <div class="stat-num" data-target="2" data-suffix="h">0h</div>
+      <div class="stat-label">Deploy Time</div>
+    </div>
+    <div class="stat-item reveal reveal-d1">
+      <div class="stat-num" data-target="14" data-suffix="">0</div>
+      <div class="stat-label">Cameras / Trailer</div>
+    </div>
+    <div class="stat-item reveal reveal-d2">
+      <div class="stat-num" data-target="99.8" data-suffix="%" data-dec="1">0%</div>
+      <div class="stat-label">Uptime SLA</div>
+    </div>
+    <div class="stat-item reveal reveal-d3">
+      <div class="stat-num" data-target="24" data-suffix="/7">0/7</div>
+      <div class="stat-label">Monitoring</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ 3. FEATURES ══════════════ -->
+<section id="features" style="background:var(--midnight);padding:6rem 2rem;">
+  <div style="max-width:1100px;margin:0 auto;">
+    <div class="section-header reveal">
+      <span class="anno"><span class="anno-badge">NEW</span>Section headers &amp; feature cards fade &amp; stagger up on scroll</span>
+      <p class="section-mono" style="margin-top:1rem;">Platform Capabilities</p>
+      <h2 class="section-h2">Built for the site that <em>can't wait.</em></h2>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card reveal reveal-d1">
+        <div class="card-tag">01 &mdash; Your Setup</div>
+        <h3 class="card-title">Your Setup. Our Base.</h3>
+        <p class="card-desc">Plug in what you already own. Our platform wraps around your existing cameras and NVR &mdash; no rip-and-replace.</p>
+        <div class="card-visual">
+          <div style="font-family:monospace;font-size:10px;color:rgba(14,165,233,0.6);margin-bottom:8px;letter-spacing:0.1em;">YOUR CAMERAS</div>
+          <div style="height:4px;background:rgba(14,165,233,0.08);border-radius:2px;overflow:hidden;"><div style="height:100%;width:100%;background:rgba(14,165,233,0.5);border-radius:2px;animation:barShimmer 2s ease-in-out infinite;background-size:200%;"></div></div>
+        </div>
+      </div>
+      <div class="feature-card reveal reveal-d2">
+        <div class="card-tag">02 &mdash; Intelligence</div>
+        <h3 class="card-title">Intelligence, Not Just Footage.</h3>
+        <p class="card-desc">Powered by AlphaVision AGI7 — AI-augmented event classification, real-time alerts, and automated dispatch.</p>
+        <div class="card-visual mini-feed" id="mini-feed">
+          <div class="feed-line"><div class="feed-dot"></div><span>[ 08:42:01 ] Motion — Zone 4</span></div>
+          <div class="feed-line"><div class="feed-dot" style="background:#10B981;"></div><span>[ 08:42:03 ] Alert routed</span></div>
+          <div class="feed-line" id="feed-typing"><div class="feed-dot" style="background:#F59E0B;"></div><span id="feed-text"></span><span style="display:inline-block;width:1px;height:10px;background:rgba(14,165,233,0.7);animation:blink 1s step-end infinite;margin-left:2px;vertical-align:middle;"></span></div>
+        </div>
+      </div>
+      <div class="feature-card reveal reveal-d3">
+        <div class="card-tag">03 &mdash; Deployment</div>
+        <h3 class="card-title">Done-For-You Deployment.</h3>
+        <p class="card-desc">We handle site survey, trailer positioning, platform config, and partner handoff. You get a live site.</p>
+        <div class="card-visual">
+          <div class="deploy-nodes" id="deploy-nodes">
+            <div class="node" id="n1">1</div>
+            <div class="node-line" id="nl1"></div>
+            <div class="node" id="n2">2</div>
+            <div class="node-line" id="nl2"></div>
+            <div class="node" id="n3">3</div>
+          </div>
+          <div style="text-align:center;font-family:monospace;font-size:9px;letter-spacing:0.15em;text-transform:uppercase;color:rgba(14,165,233,0.6);margin-top:10px;height:14px;" id="deploy-label"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ 4. USE CASES ══════════════ -->
+<section id="use-cases" style="background:var(--midnight);padding:6rem 2rem;">
+  <div style="max-width:1100px;margin:0 auto;">
+    <div class="section-header reveal">
+      <span class="anno"><span class="anno-badge">NEW</span>Cards stagger up &middot; Hover reveals HUD brackets &amp; LIVE badge</span>
+      <p class="section-mono" style="margin-top:1rem;">Applications</p>
+      <h2 class="section-h2">Where Nomadxe <em>deploys.</em></h2>
+    </div>
+    <div class="use-cases-grid">
+      <article class="uc-card reveal reveal-d1">
+        <div class="uc-bg" style="background-image:url('https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=70');"></div>
+        <div class="uc-overlay"></div>
+        <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+        <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+        <div class="live-badge"><span style="width:5px;height:5px;border-radius:50%;background:#F59E0B;flex-shrink:0;"></span>LIVE</div>
+        <div class="uc-content"><p class="uc-descriptor">ACTIVE SITE MONITORING</p><h3 class="uc-title">Construction &amp; Civil</h3></div>
+      </article>
+      <article class="uc-card reveal reveal-d2">
+        <div class="uc-bg" style="background-image:url('https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=800&q=70');"></div>
+        <div class="uc-overlay"></div>
+        <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+        <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+        <div class="live-badge"><span style="width:5px;height:5px;border-radius:50%;background:#F59E0B;flex-shrink:0;"></span>LIVE</div>
+        <div class="uc-content"><p class="uc-descriptor">PERIMETER SURVEILLANCE</p><h3 class="uc-title">Remote Energy &amp; Utilities</h3></div>
+      </article>
+      <article class="uc-card reveal reveal-d1">
+        <div class="uc-bg" style="background-image:url('https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&q=70');"></div>
+        <div class="uc-overlay"></div>
+        <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+        <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+        <div class="live-badge"><span style="width:5px;height:5px;border-radius:50%;background:#F59E0B;flex-shrink:0;"></span>LIVE</div>
+        <div class="uc-content"><p class="uc-descriptor">CROWD &amp; ACCESS CONTROL</p><h3 class="uc-title">Events &amp; Temporary Venues</h3></div>
+      </article>
+      <article class="uc-card reveal reveal-d2">
+        <div class="uc-bg" style="background-image:url('https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800&q=70');"></div>
+        <div class="uc-overlay"></div>
+        <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+        <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+        <div class="live-badge"><span style="width:5px;height:5px;border-radius:50%;background:#F59E0B;flex-shrink:0;"></span>LIVE</div>
+        <div class="uc-content"><p class="uc-descriptor">INVENTORY PROTECTION</p><h3 class="uc-title">Asset Yards &amp; Logistics</h3></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ 5. TWO OPTIONS ══════════════ -->
+<section id="deployment">
+  <div style="max-width:1100px;margin:0 auto;padding:0 2rem 6rem;">
+    <div class="section-header reveal">
+      <span class="anno"><span class="anno-badge">NEW</span>Animated SVG circuit path connects the two panels</span>
+      <p class="section-mono" style="margin-top:1rem;">Deployment Options</p>
+      <h2 class="section-h2">Two ways to <em>deploy.</em></h2>
+    </div>
+    <div class="deploy-grid reveal">
+      <div class="deploy-panel deploy-p1">
+        <p class="deploy-tag">Option 01</p>
+        <h3 class="deploy-h3" style="color:#fff;">Trailer &amp; Power Base</h3>
+        <p class="deploy-p" style="color:rgba(255,255,255,0.55);">You bring your own cameras and NVR. We provide the mobile trailer and solar power infrastructure.</p>
+        <ul class="deploy-list">
+          <li><span class="check" style="color:rgba(255,255,255,0.5);">&#10003;</span><span style="color:rgba(255,255,255,0.65);">Integrates with existing cameras</span></li>
+          <li><span class="check" style="color:rgba(255,255,255,0.5);">&#10003;</span><span style="color:rgba(255,255,255,0.65);">Compatible with major NVR brands</span></li>
+          <li><span class="check" style="color:rgba(255,255,255,0.5);">&#10003;</span><span style="color:rgba(255,255,255,0.65);">Relocatable in under 2 hours</span></li>
+          <li><span class="check" style="color:rgba(255,255,255,0.5);">&#10003;</span><span style="color:rgba(255,255,255,0.65);">Full trailer servicing included</span></li>
+        </ul>
+        <a href="#contact" class="deploy-btn ghost">Learn More</a>
+      </div>
+      <div class="deploy-divider">
+        <svg id="circuit-svg" viewBox="0 0 80 400" width="80" height="100%" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+          <path class="circuit-path" d="M40 0 L40 160"/>
+          <path class="circuit-path" d="M40 160 L20 160 L20 200 L40 200" style="animation-delay:0.5s;"/>
+          <path class="circuit-path" d="M40 160 L60 160 L60 200 L40 200" style="animation-delay:0.5s;"/>
+          <path class="circuit-path" d="M40 200 L40 400" style="animation-delay:0.9s;"/>
+          <circle cx="40" cy="160" r="3" fill="rgba(14,165,233,0.6)" opacity="0" id="cj1"/>
+          <circle cx="40" cy="200" r="3" fill="rgba(14,165,233,0.6)" opacity="0" id="cj2"/>
+        </svg>
+        <div class="or-badge">OR</div>
+      </div>
+      <div class="deploy-panel deploy-p2">
+        <p class="deploy-tag" style="color:rgba(11,12,16,0.5);">Option 02</p>
+        <h3 class="deploy-h3">Fully Equipped</h3>
+        <p class="deploy-p">End-to-end. We supply the trailer, cameras, NVR, power system, monitoring platform, and partner coordination. Arrive on site. You're live.</p>
+        <ul class="deploy-list">
+          <li><span class="check">&#10003;</span><span>NOMADXE-spec trailer &amp; cameras</span></li>
+          <li><span class="check">&#10003;</span><span>Pre-configured monitoring platform</span></li>
+          <li><span class="check">&#10003;</span><span>Dedicated monitoring partner setup</span></li>
+          <li><span class="check">&#10003;</span><span>Turnkey &mdash; fully operational day one</span></li>
+        </ul>
+        <a href="#contact" class="deploy-btn solid">Get Started</a>
+      </div>
+    </div>
+    <p style="text-align:center;margin-top:1.5rem;font-family:monospace;font-size:10px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(255,255,255,0.2);">Every lease includes full trailer servicing &mdash; zero maintenance on your end.</p>
+  </div>
+</section>
+
+<!-- ══════════════ 6. CONTACT ══════════════ -->
+<section id="contact">
+  <div class="contact-inner">
+    <div class="reveal">
+      <span class="anno"><span class="anno-badge">NEW</span>Fields glow blue on focus &middot; Submit pulses</span>
+      <p class="section-mono" style="margin-top:1rem;">Get in Touch</p>
+      <h2 class="section-h2">Let's deploy <em>together.</em></h2>
+    </div>
+    <form class="contact-form" onsubmit="return false;">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Full Name</label><input class="form-input" type="text" placeholder="Your name"/></div>
+        <div class="form-group"><label class="form-label">Company</label><input class="form-input" type="text" placeholder="Company name"/></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Email</label><input class="form-input" type="email" placeholder="you@company.com"/></div>
+        <div class="form-group"><label class="form-label">Phone</label><input class="form-input" type="tel" placeholder="+1 (555) 000-0000"/></div>
+      </div>
+      <div class="form-group"><label class="form-label">Project Details</label><textarea class="form-input" placeholder="Describe your site, timeline, and requirements..."></textarea></div>
+      <button type="submit" class="submit-btn">Send Message &rarr;</button>
+    </form>
+  </div>
+</section>
+
+<div class="approval-bar">
+  <div class="approval-text"><strong>Landing page animation preview</strong> &middot; Scanline &middot; Pulse ring &middot; Stats counter &middot; Section reveals &middot; Card stagger &middot; Use-case HUD brackets &middot; LIVE badge &middot; Circuit connector &middot; Form glow &middot; Submit pulse</div>
+  <div class="approval-actions">
+    <button class="btn-reject" onclick="alert('Rejected.')">Reject &times;</button>
+    <button class="btn-approve" onclick="alert('Approved! Claude will implement into components.')">Approve &rarr;</button>
+  </div>
+</div>
+
+<script>
+// Scroll progress
+window.addEventListener('scroll',function(){
+  var max=document.body.scrollHeight-window.innerHeight;
+  document.getElementById('scroll-bar').style.width=(max>0?(window.scrollY/max)*100:0)+'%';
+},{passive:true});
+
+// Typewriter
+(function(){
+  var T='[ SYSTEM ACTIVE ] -- Mobile Surveillance Infrastructure';
+  var el=document.getElementById('typewriter');
+  var i=0;
+  function tick(){if(i<=T.length){el.textContent=T.slice(0,i++);setTimeout(tick,38);}}
+  setTimeout(tick,400);
+})();
+
+// IntersectionObserver for .reveal elements
+(function(){
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){e.target.classList.add('visible');obs.unobserve(e.target);}
+    });
+  },{threshold:0.12});
+  document.querySelectorAll('.reveal').forEach(function(el){obs.observe(el);});
+})();
+
+// Stats counter
+(function(){
+  var counters=document.querySelectorAll('[data-target]');
+  var started=false;
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting&&!started){
+        started=true;
+        counters.forEach(function(el){
+          var target=parseFloat(el.dataset.target);
+          var suffix=el.dataset.suffix||'';
+          var dec=parseInt(el.dataset.dec||'0');
+          var start=performance.now();
+          var dur=1600;
+          function tick(now){
+            var p=Math.min((now-start)/dur,1);
+            var ease=1-Math.pow(1-p,3);
+            el.textContent=((ease*target).toFixed(dec))+suffix;
+            if(p<1)requestAnimationFrame(tick);
+          }
+          requestAnimationFrame(tick);
+        });
+      }
+    });
+  },{threshold:0.4});
+  var bar=document.getElementById('stats-bar');
+  if(bar)obs.observe(bar);
+})();
+
+// Mini feed typewriter
+(function(){
+  var lines=['[ 08:42:08 ] Operator ETA 4m','[ 08:42:15 ] Cam 07 failover','[ 08:43:01 ] Zones nominal'];
+  var li=0,ci=0;
+  var el=document.getElementById('feed-text');
+  function tick(){
+    if(!el)return;
+    var src=lines[li%lines.length];
+    if(ci<src.length){el.textContent=src.slice(0,++ci);setTimeout(tick,45);}
+    else{setTimeout(function(){ci=0;li++;tick();},1800);}
+  }
+  setTimeout(tick,1200);
+})();
+
+// Deploy node animation
+(function(){
+  var step=0;
+  var nodes=[document.getElementById('n1'),document.getElementById('n2'),document.getElementById('n3')];
+  var lines=[document.getElementById('nl1'),document.getElementById('nl2')];
+  var label=document.getElementById('deploy-label');
+  var labels=['TRAILER','PLATFORM','PARTNER','-- READY TO DEPLOY --'];
+  function advance(){
+    if(step<3){
+      nodes[step].classList.add('done');
+      if(step<2)lines[step].classList.add('done');
+      label.textContent=labels[step];
+      label.style.color=step===2?'rgba(14,165,233,0.8)':'rgba(14,165,233,0.5)';
+      step++;
+      setTimeout(advance,1800);
+    } else {
+      label.textContent=labels[3];
+      label.style.color='rgba(14,165,233,0.9)';
+      setTimeout(function(){step=0;nodes.forEach(function(n){n.classList.remove('done');});lines.forEach(function(l){l.classList.remove('done');});label.textContent='';setTimeout(advance,400);},3000);
+    }
+  }
+  // Start when in view
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){advance();obs.disconnect();}});
+  },{threshold:0.4});
+  var feat=document.getElementById('features');
+  if(feat)obs.observe(feat);
+})();
+
+// Circuit SVG paths animate when in view
+(function(){
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){
+        document.querySelectorAll('.circuit-path').forEach(function(p){p.classList.add('draw');});
+        setTimeout(function(){document.getElementById('cj1').style.opacity='1';},700);
+        setTimeout(function(){document.getElementById('cj2').style.opacity='1';},1100);
+        obs.disconnect();
+      }
+    });
+  },{threshold:0.3});
+  var dep=document.getElementById('deployment');
+  if(dep)obs.observe(dep);
+})();
+</script>
+</body>
+</html>
