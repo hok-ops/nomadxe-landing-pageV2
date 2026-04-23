@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useLayoutEffect, useState, useRef } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -143,15 +143,34 @@ function FlowArrow({ active, color = '#3b82f6' }: { active: boolean; color?: str
 
 // ── Battery SOC bar ───────────────────────────────────────────────────────────
 
-function SocBar({ soc, light, animate }: { soc: number; light: boolean; animate: boolean }) {
+function SocBar({ soc, light, animate, shimmerKey }: { soc: number; light: boolean; animate: boolean; shimmerKey: number }) {
   const color = getBatteryColor(soc, light);
   const pct   = Math.max(0, Math.min(100, soc));
   return (
-    <div className="w-full h-1.5 bg-[#0a0f1e] rounded-full overflow-hidden border border-[#1e3a5f]/60">
+    <div className="relative w-full h-1.5 bg-[#0a0f1e] rounded-full overflow-hidden border border-[#1e3a5f]/60">
+      <style>{`
+        @keyframes nx-soc-shimmer {
+          0%   { transform: translateX(-40%); opacity: 0; }
+          30%  { opacity: 1; }
+          100% { transform: translateX(180%); opacity: 0; }
+        }
+        .nx-soc-shimmer { animation: nx-soc-shimmer 1100ms ease-out both; }
+      `}</style>
       <div
         className="h-full rounded-full transition-all duration-1000"
         style={{ width: `${animate ? pct : 0}%`, backgroundColor: color, boxShadow: light ? 'none' : `0 0 6px ${color}` }}
       />
+      {shimmerKey > 0 && (
+        <span
+          key={shimmerKey}
+          aria-hidden="true"
+          className="nx-soc-shimmer absolute top-0 left-0 h-full w-1/3 pointer-events-none"
+          style={{
+            background: `linear-gradient(90deg, transparent, ${light ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.35)'}, transparent)`,
+            mixBlendMode: 'screen',
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -213,14 +232,17 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
   const [data, setData]         = useState<VRMData | null>(initialData);
   const [lastPoll, setLastPoll] = useState(new Date());
   const [, setTick]             = useState(0);
+  const rootRef                 = useRef<HTMLDivElement>(null);
 
   // ── Animation ──────────────────────────────────────────────────────
   const [mounted, setMounted]       = useState(false);
   const [flashSolar, setFlashSolar] = useState(false);
   const [flashDc, setFlashDc]       = useState(false);
   const [flashSoc, setFlashSoc]     = useState(false);
+  const [shimmerSoc, setShimmerSoc] = useState(0); // bumps to retrigger sweep
   const prevDataRef                 = useRef<VRMData | null>(null);
   const countedUpRef                = useRef(false);
+  const tweenRafRef                 = useRef<number | null>(null);
   const [dispSolar, setDispSolar]   = useState(0);
   const [dispSoc,   setDispSoc]     = useState(0);
   const [dispDc,    setDispDc]      = useState(0);
@@ -230,33 +252,64 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
     return () => clearTimeout(t);
   }, []);
 
-  // Count-up on first mount
+  // Staggered GSAP entrance for the three power cards. Runs once per mount,
+  // respects prefers-reduced-motion, and tolerates GSAP failing to load.
+  useLayoutEffect(() => {
+    if (!rootRef.current) return;
+    const prefersReduced = typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced) return;
+    let ctx: { revert: () => void } | null = null;
+    let cancelled = false;
+    import('gsap').then(({ gsap }) => {
+      if (cancelled || !rootRef.current) return;
+      ctx = gsap.context(() => {
+        gsap.fromTo(
+          '[data-core-card]',
+          { opacity: 0, y: 18, scale: 0.985 },
+          { opacity: 1, y: 0, scale: 1, duration: 0.55, ease: 'power3.out', stagger: 0.12, delay: 0.12 }
+        );
+      }, rootRef);
+    }).catch(() => { /* animation is decorative — ignore load failures */ });
+    return () => { cancelled = true; ctx?.revert(); };
+  }, []);
+
+  // Tweened count-up — fires on first mount AND every poll.
+  // Interpolates from whatever was on screen to the new target so polled
+  // deltas glide rather than snap.
   useEffect(() => {
-    if (!mounted || countedUpRef.current || !data) return;
-    countedUpRef.current = true;
+    if (!mounted || !data) return;
+    const prefersReduced = typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const targets = { solar: data.solar.power, soc: data.battery.soc, dc: data.dcLoad };
-    const duration = 900;
-    const start = performance.now();
+    if (prefersReduced) {
+      setDispSolar(targets.solar); setDispSoc(targets.soc); setDispDc(targets.dc);
+      countedUpRef.current = true;
+      return;
+    }
+    const fromSolar = countedUpRef.current ? dispSolar : 0;
+    const fromSoc   = countedUpRef.current ? dispSoc   : 0;
+    const fromDc    = countedUpRef.current ? dispDc    : 0;
+    const duration  = countedUpRef.current ? 600 : 900;
+    const start     = performance.now();
     const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+    if (tweenRafRef.current) cancelAnimationFrame(tweenRafRef.current);
     const tick = (ts: number) => {
       const p = Math.min((ts - start) / duration, 1);
       const e = ease(p);
-      setDispSolar(targets.solar * e);
-      setDispSoc(targets.soc * e);
-      setDispDc(targets.dc * e);
-      if (p < 1) requestAnimationFrame(tick);
-      else { setDispSolar(targets.solar); setDispSoc(targets.soc); setDispDc(targets.dc); }
+      setDispSolar(fromSolar + (targets.solar - fromSolar) * e);
+      setDispSoc(  fromSoc   + (targets.soc   - fromSoc)   * e);
+      setDispDc(   fromDc    + (targets.dc    - fromDc)    * e);
+      if (p < 1) tweenRafRef.current = requestAnimationFrame(tick);
+      else {
+        setDispSolar(targets.solar); setDispSoc(targets.soc); setDispDc(targets.dc);
+        countedUpRef.current = true;
+      }
     };
-    requestAnimationFrame(tick);
+    tweenRafRef.current = requestAnimationFrame(tick);
+    return () => { if (tweenRafRef.current) cancelAnimationFrame(tweenRafRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, data]);
-
-  // Keep display values in sync after polls
-  useEffect(() => {
-    if (!countedUpRef.current || !data) return;
-    setDispSolar(data.solar.power);
-    setDispSoc(data.battery.soc);
-    setDispDc(data.dcLoad);
-  }, [data]);
 
   useEffect(() => {
     if (!prevDataRef.current || !data) { prevDataRef.current = data; return; }
@@ -264,7 +317,10 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
     const flash = (set: (v: boolean) => void) => { set(true); setTimeout(() => set(false), 650); };
     if (data.solar.power !== prev.solar.power) flash(setFlashSolar);
     if (data.dcLoad      !== prev.dcLoad)      flash(setFlashDc);
-    if (data.battery.soc !== prev.battery.soc) flash(setFlashSoc);
+    if (data.battery.soc !== prev.battery.soc) {
+      flash(setFlashSoc);
+      setShimmerSoc(v => v + 1); // trigger shimmer sweep
+    }
     prevDataRef.current = data;
   }, [data]);
 
@@ -291,33 +347,17 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
     setEditing(false);
   };
 
-  const poll = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/vrm/${device.siteId}`, { cache: 'no-store' });
-      if (res.status === 401) {
-        window.location.href = '/login?error=Session+expired.+Please+sign+in+again.';
-        return;
-      }
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data) {
-          setData(json.data);
-          onData?.(device.siteId, json.data);
-        }
-      } else {
-        console.error(`[VRM poll] ${device.siteId} => HTTP ${res.status}`);
-      }
-    } catch (err) {
-      console.error(`[VRM poll] ${device.siteId} fetch error:`, err);
-    }
-    setLastPoll(new Date());
-  }, [device.siteId, onData]);
-
+  // Parent (DashboardClient) handles polling and pushes fresh data via `initialData`.
+  // Syncing local `data` when `initialData` changes keeps flash/count-up animations
+  // firing on every poll tick without a second fetch per core view.
   useEffect(() => {
-    poll();
-    const id = setInterval(poll, 30_000);
-    return () => clearInterval(id);
-  }, [poll]);
+    if (initialData && initialData !== data) {
+      setData(initialData);
+      setLastPoll(new Date());
+      onData?.(device.siteId, initialData);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData]);
 
   useEffect(() => {
     const id = setInterval(() => setTick(t => t + 1), 1000);
@@ -348,6 +388,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
 
   return (
     <div
+      ref={rootRef}
       className="relative bg-[#0d1526] border border-[#1e3a5f] rounded-2xl overflow-hidden shadow-[0_20px_56px_rgba(0,0,0,0.55)]"
       style={{
         opacity: mounted ? 1 : 0,
@@ -445,7 +486,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
         <div className="flex flex-col lg:flex-row lg:items-stretch gap-3 lg:gap-0">
 
           {/* Solar Card */}
-          <div className="flex-1 min-w-0 bg-[#080c14] border border-[#1e3a5f]/50 rounded-xl p-5">
+          <div data-core-card="solar" className="flex-1 min-w-0 bg-[#080c14] border border-[#1e3a5f]/50 rounded-xl p-5">
             <div className="flex items-center gap-2 mb-4">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2">
                 <circle cx="12" cy="12" r="5" />
@@ -476,6 +517,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
 
           {/* Battery Hub */}
           <div
+            data-core-card="battery"
             className="flex-[1.15] min-w-0 bg-[#080c14] rounded-xl p-5 flex flex-col"
             style={{ border: `1px solid ${charging ? '#22c55e30' : discharging ? '#3b82f630' : '#1e3a5f80'}` }}
           >
@@ -501,7 +543,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
               <span className="text-xl font-bold text-[#93c5fd]/65">%</span>
             </div>
 
-            <SocBar soc={soc} light={isLight} animate={mounted} />
+            <SocBar soc={soc} light={isLight} animate={mounted} shimmerKey={shimmerSoc} />
 
             <div className="mt-2 mb-4 text-[10px] font-mono uppercase tracking-widest" style={{
               color: charging
@@ -535,7 +577,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
           <FlowArrow active={loadActive} color="#f59e0b" />
 
           {/* DC Loads Card */}
-          <div className="flex-1 min-w-0 bg-[#080c14] border border-[#1e3a5f]/50 rounded-xl p-5 flex flex-col">
+          <div data-core-card="dc" className="flex-1 min-w-0 bg-[#080c14] border border-[#1e3a5f]/50 rounded-xl p-5 flex flex-col">
             <div className="flex items-center gap-2 mb-4">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2">
                 <path d="M18 8h1a4 4 0 0 1 0 8h-1" />

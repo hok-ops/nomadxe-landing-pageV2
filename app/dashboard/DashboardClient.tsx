@@ -63,8 +63,19 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
   const devicesRef = useRef(devices);
   useEffect(() => { devicesRef.current = devices; }, [devices]);
 
+  // VRM logs telemetry every 1–5 min; polling faster wastes API quota and CPU.
+  // We tick every 5 min and jitter each device's fetch across a short window to
+  // avoid a thundering herd when many trailers are assigned.
   useEffect(() => {
-    const id = setInterval(() => devicesRef.current.forEach(d => pollDevice(d.siteId)), 30_000);
+    const POLL_MS = 5 * 60_000;
+    const JITTER_MAX_MS = 4_000;
+    const fanOut = () => {
+      devicesRef.current.forEach((d, i) => {
+        const delay = Math.min(i * 180, JITTER_MAX_MS) + Math.random() * 250;
+        setTimeout(() => pollDevice(d.siteId), delay);
+      });
+    };
+    const id = setInterval(fanOut, POLL_MS);
     return () => clearInterval(id);
   }, [pollDevice]);
 
@@ -220,8 +231,8 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 gap-3 items-start content-start">
-                      {sortedDevices.map(d => (
-                        <FleetTile key={d.siteId} device={d} data={dataMap[d.siteId] ?? null} selected={selectedIds.includes(d.siteId)} onClick={() => toggleSite(d.siteId)} />
+                      {sortedDevices.map((d, i) => (
+                        <FleetTile key={d.siteId} index={i} device={d} data={dataMap[d.siteId] ?? null} selected={selectedIds.includes(d.siteId)} onClick={() => toggleSite(d.siteId)} />
                       ))}
                     </div>
                   )}
@@ -266,8 +277,8 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
                     className={`overflow-y-auto pr-1 ${hasSelection ? 'space-y-2.5' : 'grid grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 items-start content-start'}`}
                     style={{ height: 'calc(100vh - 17rem)' }}
                   >
-                    {sortedDevices.map(d => (
-                      <FleetTile key={d.siteId} device={d} data={dataMap[d.siteId] ?? null} selected={selectedIds.includes(d.siteId)} onClick={() => toggleSite(d.siteId)} />
+                    {sortedDevices.map((d, i) => (
+                      <FleetTile key={d.siteId} index={i} device={d} data={dataMap[d.siteId] ?? null} selected={selectedIds.includes(d.siteId)} onClick={() => toggleSite(d.siteId)} />
                     ))}
                   </div>
                 )}

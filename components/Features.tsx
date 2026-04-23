@@ -233,7 +233,7 @@ function DeploymentScheduler() {
       <div className="font-mono text-xs tracking-widest uppercase text-blue/70">03 — Deployment</div>
       <h3 className="text-xl font-bold text-white">Done-For-You Deployment.</h3>
       <p className="text-sm text-white/50 leading-relaxed">
-        We handle site survey, trailer positioning, platform configuration, and partner handoff. You get a live site.
+        We handle trailer positioning, platform configuration, and partner handoff. You get a live site — site assessment only where needed.
       </p>
       {/* SVG timeline */}
       <svg viewBox="0 0 280 80" className="w-full" aria-hidden="true">

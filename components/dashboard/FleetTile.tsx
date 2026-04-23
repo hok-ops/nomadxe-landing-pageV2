@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { VRMData } from './NomadXECoreView';
 import { useTheme } from '@/components/ThemeProvider';
 
@@ -21,6 +21,8 @@ interface Props {
   data: VRMData | null;
   selected: boolean;
   onClick: () => void;
+  /** Position in the rendered list, used to stagger mount-in. */
+  index?: number;
 }
 
 // ── Hover detail popup (fixed positioning to escape overflow clipping) ─────────
@@ -101,12 +103,24 @@ function HoverDetail({
 
 // ── Tile ──────────────────────────────────────────────────────────────────────
 
-export default function FleetTile({ device, data, selected, onClick }: Props) {
+export default function FleetTile({ device, data, selected, onClick, index = 0 }: Props) {
   const { theme } = useTheme();
   const isLight = theme === 'light';
   const [hovered, setHovered] = useState(false);
   const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({});
+  const [entered, setEntered] = useState(false);
   const tileRef = useRef<HTMLDivElement>(null);
+
+  // Mount stagger — tiles appear in a gentle cascade. Cap delay so large
+  // fleets don't wait forever; respect reduced-motion by skipping the fade.
+  useEffect(() => {
+    if (typeof window === 'undefined') { setEntered(true); return; }
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced) { setEntered(true); return; }
+    const delay = Math.min(index * 35, 450);
+    const t = setTimeout(() => setEntered(true), delay);
+    return () => clearTimeout(t);
+  }, [index]);
 
   const nowS      = Date.now() / 1000;
   const lastSeenS = data?.lastSeen ?? 0;
@@ -137,7 +151,17 @@ export default function FleetTile({ device, data, selected, onClick }: Props) {
   };
 
   return (
-    <div ref={tileRef} className="relative" onMouseEnter={handleMouseEnter} onMouseLeave={() => setHovered(false)}>
+    <div
+      ref={tileRef}
+      className="relative"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        opacity: entered ? 1 : 0,
+        transform: entered ? 'translateY(0)' : 'translateY(8px)',
+        transition: 'opacity 0.35s cubic-bezier(.22,1,.36,1), transform 0.35s cubic-bezier(.22,1,.36,1)',
+      }}
+    >
       <button
         onClick={onClick}
         className={`w-full text-left rounded-xl border p-3 transition-all duration-200 focus:outline-none ${

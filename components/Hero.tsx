@@ -70,6 +70,7 @@ export default function Hero() {
         priority
         fill
         sizes="100vw"
+        quality={90}
         className="object-cover object-center"
         placeholder="blur"
         blurDataURL={BLUR_DATA}
@@ -122,7 +123,7 @@ export default function Hero() {
             href="#contact"
             className="inline-flex items-center bg-blue text-midnight font-semibold rounded-full px-8 py-3 transition-all duration-300 hover:scale-[1.02] hover:-translate-y-px hover:shadow-blue-glow active:scale-[0.98]"
           >
-            Talk to Sales
+            Get in touch
           </a>
           <a
             href="#how-it-works"
