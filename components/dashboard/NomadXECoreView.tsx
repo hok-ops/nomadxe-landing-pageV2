@@ -215,11 +215,43 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
   const [flashDc, setFlashDc]       = useState(false);
   const [flashSoc, setFlashSoc]     = useState(false);
   const prevDataRef                 = useRef<VRMData | null>(null);
+  const countedUpRef                = useRef(false);
+  const [dispSolar, setDispSolar]   = useState(0);
+  const [dispSoc,   setDispSoc]     = useState(0);
+  const [dispDc,    setDispDc]      = useState(0);
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 80);
     return () => clearTimeout(t);
   }, []);
+
+  // Count-up on first mount
+  useEffect(() => {
+    if (!mounted || countedUpRef.current || !data) return;
+    countedUpRef.current = true;
+    const targets = { solar: data.solar.power, soc: data.battery.soc, dc: data.dcLoad };
+    const duration = 900;
+    const start = performance.now();
+    const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+    const tick = (ts: number) => {
+      const p = Math.min((ts - start) / duration, 1);
+      const e = ease(p);
+      setDispSolar(targets.solar * e);
+      setDispSoc(targets.soc * e);
+      setDispDc(targets.dc * e);
+      if (p < 1) requestAnimationFrame(tick);
+      else { setDispSolar(targets.solar); setDispSoc(targets.soc); setDispDc(targets.dc); }
+    };
+    requestAnimationFrame(tick);
+  }, [mounted, data]);
+
+  // Keep display values in sync after polls
+  useEffect(() => {
+    if (!countedUpRef.current || !data) return;
+    setDispSolar(data.solar.power);
+    setDispSoc(data.battery.soc);
+    setDispDc(data.dcLoad);
+  }, [data]);
 
   useEffect(() => {
     if (!prevDataRef.current || !data) { prevDataRef.current = data; return; }
@@ -422,7 +454,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
             <div className="mb-0.5">
               <span className={`text-4xl font-black tabular-nums leading-none${flashSolar ? ' nx-flash' : ''}`}
                 style={{ color: solarActive ? (isLight ? '#16a34a' : '#22c55e') : (isLight ? '#94a3b8' : '#374151') }}>
-                {+(data?.solar.power ?? 0).toFixed(2)}
+                {+dispSolar.toFixed(2)}
               </span>
               <span className="text-sm font-bold text-[#22c55e]/70 ml-1">W</span>
             </div>
@@ -460,7 +492,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
             </div>
 
             <div className="flex items-baseline gap-1 mb-3">
-              <span className={`text-5xl font-black tabular-nums text-white leading-none${flashSoc ? ' nx-flash' : ''}`}>{soc}</span>
+              <span className={`text-5xl font-black tabular-nums text-white leading-none${flashSoc ? ' nx-flash' : ''}`}>{Math.round(dispSoc)}</span>
               <span className="text-xl font-bold text-[#93c5fd]/65">%</span>
             </div>
 
@@ -510,7 +542,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
             <div className="mb-0.5">
               <span className={`text-4xl font-black tabular-nums leading-none${flashDc ? ' nx-flash' : ''}`}
                 style={{ color: loadActive ? (isLight ? '#d97706' : '#f59e0b') : (isLight ? '#94a3b8' : '#374151') }}>
-                {+(data?.dcLoad ?? 0).toFixed(2)}
+                {+dispDc.toFixed(2)}
               </span>
               <span className="text-sm font-bold text-[#f59e0b]/70 ml-1">W</span>
             </div>
