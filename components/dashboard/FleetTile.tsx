@@ -145,7 +145,7 @@ export default function FleetTile({ device, data, selected, onClick }: Props) {
             ? isOffline
               ? 'border-red-500/50 bg-red-950/20 shadow-[0_0_0_2px_rgba(59,130,246,0.5),0_0_0_1px_rgba(239,68,68,0.3)]'
               : 'border-[#3b82f6]/70 bg-[#1e40af]/15 shadow-[0_0_0_2px_rgba(59,130,246,0.4)]'
-            : 'border-[#1e3a5f] bg-[#080c14] hover:border-[#1e3a5f]/80 hover:bg-[#0d1526]'
+            : 'border-[#1e3a5f] bg-[#080c14] hover:border-[#1e3a5f]/80 hover:bg-[#0d1526] hover:-translate-y-px hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)]'
         }`}
       >
         <div className="flex items-center justify-between mb-2">

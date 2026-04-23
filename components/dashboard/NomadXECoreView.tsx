@@ -138,14 +138,14 @@ function FlowArrow({ active, color = '#3b82f6' }: { active: boolean; color?: str
 
 // ── Battery SOC bar ───────────────────────────────────────────────────────────
 
-function SocBar({ soc, light }: { soc: number; light: boolean }) {
+function SocBar({ soc, light, animate }: { soc: number; light: boolean; animate: boolean }) {
   const color = getBatteryColor(soc, light);
   const pct   = Math.max(0, Math.min(100, soc));
   return (
     <div className="w-full h-1.5 bg-[#0a0f1e] rounded-full overflow-hidden border border-[#1e3a5f]/60">
       <div
         className="h-full rounded-full transition-all duration-1000"
-        style={{ width: `${pct}%`, backgroundColor: color, boxShadow: light ? 'none' : `0 0 6px ${color}` }}
+        style={{ width: `${animate ? pct : 0}%`, backgroundColor: color, boxShadow: light ? 'none' : `0 0 6px ${color}` }}
       />
     </div>
   );
@@ -208,6 +208,28 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
   const [data, setData]         = useState<VRMData | null>(initialData);
   const [lastPoll, setLastPoll] = useState(new Date());
   const [, setTick]             = useState(0);
+
+  // ── Animation ──────────────────────────────────────────────────────
+  const [mounted, setMounted]       = useState(false);
+  const [flashSolar, setFlashSolar] = useState(false);
+  const [flashDc, setFlashDc]       = useState(false);
+  const [flashSoc, setFlashSoc]     = useState(false);
+  const prevDataRef                 = useRef<VRMData | null>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => setMounted(true), 80);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (!prevDataRef.current || !data) { prevDataRef.current = data; return; }
+    const prev = prevDataRef.current;
+    const flash = (set: (v: boolean) => void) => { set(true); setTimeout(() => set(false), 650); };
+    if (data.solar.power !== prev.solar.power) flash(setFlashSolar);
+    if (data.dcLoad      !== prev.dcLoad)      flash(setFlashDc);
+    if (data.battery.soc !== prev.battery.soc) flash(setFlashSoc);
+    prevDataRef.current = data;
+  }, [data]);
 
   const [editing, setEditing]     = useState(false);
   const [draftName, setDraftName] = useState('');
@@ -288,7 +310,18 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
   const vrmUrl = `https://vrm.victronenergy.com/installation/${device.siteId}/dashboard`;
 
   return (
-    <div className="relative bg-[#0d1526] border border-[#1e3a5f] rounded-2xl overflow-hidden shadow-[0_20px_56px_rgba(0,0,0,0.55)]">
+    <div
+      className="relative bg-[#0d1526] border border-[#1e3a5f] rounded-2xl overflow-hidden shadow-[0_20px_56px_rgba(0,0,0,0.55)]"
+      style={{
+        opacity: mounted ? 1 : 0,
+        transform: mounted ? 'translateY(0)' : 'translateY(18px)',
+        transition: 'opacity 0.5s cubic-bezier(.22,1,.36,1), transform 0.5s cubic-bezier(.22,1,.36,1)',
+      }}
+    >
+      <style dangerouslySetInnerHTML={{__html:`
+        @keyframes nx-flash{0%{filter:brightness(2.2);color:#93c5fd}100%{filter:brightness(1)}}
+        .nx-flash{animation:nx-flash .65s ease forwards}
+      `}} />
 
       {isOffline && <OfflineOverlay staleSince={lastSeenS} deviceName={activeDisplayName} />}
 
@@ -390,7 +423,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
               <span className="text-[10px] font-bold text-[#22c55e]/85 uppercase tracking-[0.3em] font-mono">Solar</span>
             </div>
             <div className="mb-0.5">
-              <span className="text-4xl font-black tabular-nums leading-none"
+              <span className={`text-4xl font-black tabular-nums leading-none${flashSolar ? ' nx-flash' : ''}`}
                 style={{ color: solarActive ? (isLight ? '#16a34a' : '#22c55e') : (isLight ? '#94a3b8' : '#374151') }}>
                 {+(data?.solar.power ?? 0).toFixed(2)}
               </span>
@@ -430,11 +463,11 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
             </div>
 
             <div className="flex items-baseline gap-1 mb-3">
-              <span className="text-5xl font-black tabular-nums text-white leading-none">{soc}</span>
+              <span className={`text-5xl font-black tabular-nums text-white leading-none${flashSoc ? ' nx-flash' : ''}`}>{soc}</span>
               <span className="text-xl font-bold text-[#93c5fd]/65">%</span>
             </div>
 
-            <SocBar soc={soc} light={isLight} />
+            <SocBar soc={soc} light={isLight} animate={mounted} />
 
             <div className="mt-2 mb-4 text-[10px] font-mono uppercase tracking-widest" style={{
               color: charging
@@ -478,7 +511,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
               <span className="text-[10px] font-bold text-[#f59e0b]/85 uppercase tracking-[0.3em] font-mono">DC Loads</span>
             </div>
             <div className="mb-0.5">
-              <span className="text-4xl font-black tabular-nums leading-none"
+              <span className={`text-4xl font-black tabular-nums leading-none${flashDc ? ' nx-flash' : ''}`}
                 style={{ color: loadActive ? (isLight ? '#d97706' : '#f59e0b') : (isLight ? '#94a3b8' : '#374151') }}>
                 {+(data?.dcLoad ?? 0).toFixed(2)}
               </span>

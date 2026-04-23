@@ -141,11 +141,20 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
     <div className="nx-page bg-[#080c14] relative" style={{ minHeight: '100dvh' }}>
       <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.022]"
         style={{ backgroundImage: 'linear-gradient(#3b82f6 1px,transparent 1px),linear-gradient(to right,#3b82f6 1px,transparent 1px)', backgroundSize: '48px 48px' }} />
-      <div className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#1e40af] via-[#3b82f6] to-[#1e40af] z-[100]" />
+      <style dangerouslySetInnerHTML={{__html:`
+        @keyframes nx-bar{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+        @keyframes nx-hdr{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+        .nx-hdr{animation:nx-hdr 0.45s cubic-bezier(.22,1,.36,1) .1s both}
+      `}} />
+      <div className="fixed top-0 left-0 right-0 h-[3px] z-[100]" style={{
+        background:'linear-gradient(90deg,#1e40af,#3b82f6,#60a5fa,#3b82f6,#1e40af)',
+        backgroundSize:'300% 100%',
+        animation:'nx-bar 4s ease-in-out infinite'
+      }} />
 
       <div className="relative z-10 max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-12 pt-6">
 
-        <header className="flex items-center justify-between py-5 border-b border-[#1e3a5f]/60 mb-6 mt-16">
+        <header className="nx-hdr flex items-center justify-between py-5 border-b border-[#1e3a5f]/60 mb-6 mt-16">
           <div>
             <Link href="/" className="flex items-center gap-2.5 mb-1.5 group w-fit">
               <span className="w-2 h-2 rounded-full bg-[#3b82f6] shadow-[0_0_8px_#3b82f6]" />
