@@ -407,13 +407,6 @@ export default function RelocateFormClient() {
           <SectionBlue title="Unit Identification">
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="r-unit" className={LABEL}>Unit Name / Identifier <span className="text-red-400/80">*</span></label>
-                <input id="r-unit" name="unit_identifier" type="text" required
-                  value={fields.unit_identifier} onChange={handleChange} placeholder="Unit Alpha"
-                  aria-invalid={!!errors.unit_identifier} className={INPUT(!!errors.unit_identifier)} />
-                {errors.unit_identifier && <p className={ERR}>{errors.unit_identifier}</p>}
-              </div>
-              <div>
                 <label htmlFor="r-qty" className={LABEL}>Quantity Being Relocated <span className="text-red-400/80">*</span></label>
                 <select id="r-qty" name="quantity" required value={fields.quantity} onChange={handleChange}
                   aria-invalid={!!errors.quantity}
@@ -423,6 +416,13 @@ export default function RelocateFormClient() {
                   {QUANTITIES.map(q => <option key={q} value={q} style={{ color: 'white', background: '#080c14' }}>{q}</option>)}
                 </select>
                 {errors.quantity && <p className={ERR}>{errors.quantity}</p>}
+              </div>
+              <div>
+                <label htmlFor="r-unit" className={LABEL}>Unit Name / Identifier <span className="text-red-400/80">*</span></label>
+                <input id="r-unit" name="unit_identifier" type="text" required
+                  value={fields.unit_identifier} onChange={handleChange} placeholder="Unit Alpha"
+                  aria-invalid={!!errors.unit_identifier} className={INPUT(!!errors.unit_identifier)} />
+                {errors.unit_identifier && <p className={ERR}>{errors.unit_identifier}</p>}
               </div>
             </div>
           </SectionBlue>
