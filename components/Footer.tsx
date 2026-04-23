@@ -94,8 +94,8 @@ export default function Footer() {
       </div>
 
       {/* Bottom bar */}
-      <div className="border-t border-white/5 mx-12 md:mx-16">
-        <div className="max-w-7xl mx-auto py-6 flex flex-col md:flex-row justify-between items-center gap-4">
+      <div className="border-t border-white/5">
+        <div className="max-w-7xl mx-auto px-12 md:px-16 py-6 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-xs text-white/30">
             © 2026 Nomadxe. All rights reserved.
           </p>
