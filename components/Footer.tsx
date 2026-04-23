@@ -27,7 +27,7 @@ export default function Footer() {
   return (
     <footer
       id="footer"
-      className="bg-midnight rounded-t-3xl border-t border-blue/20"
+      className="bg-midnight border-t border-blue/20"
       aria-label="Site footer"
     >
       {/* Main grid */}
