@@ -188,7 +188,7 @@ export default function FleetTile({ device, data, selected, onClick }: Props) {
               <line x1="4.93" y1="4.93" x2="6.34" y2="6.34" /><line x1="17.66" y1="17.66" x2="19.07" y2="19.07" />
             </svg>
             <span className="text-[11px] font-mono font-bold" style={{ color: solarActive ? (isLight ? '#16a34a' : '#22c55e') : (isLight ? '#94a3b8' : '#6b7280') }}>
-              {solarW}W
+              {solarW.toFixed(2)}W
             </span>
           </div>
           <span className="text-[9px] font-mono uppercase tracking-widest" style={{

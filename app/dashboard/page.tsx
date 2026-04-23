@@ -52,15 +52,29 @@ async function fetchInitialVRMData(siteId: string): Promise<VRMData | null> {
       : Math.max(0, Math.round(solarW - batteryW));
     const mpptRaw = pick(A.MPPT_STATE);
 
-    const sparklineRaw = statsJson?.records?.[String(A.SOLAR_W)]?.avg;
-    const sparkline = Array.isArray(sparklineRaw)
-      ? (sparklineRaw as (number | null)[]).slice(-6).map(v => v ?? 0)
-      : [];
-
-    const socSparkRaw = statsJson?.records?.[String(A.BATTERY_SOC)]?.avg;
-    const batterySparkline = Array.isArray(socSparkRaw)
-      ? (socSparkRaw as (number | null)[]).slice(-6).map(v => v ?? 0)
-      : [];
+    // extractSpark handles both VRM response shapes (object-keyed or array)
+    const extractSpark = (json: any, code: number): number[] => {
+      if (!json) return [];
+      const recs = json.records;
+      if (!recs) return [];
+      const k = String(code);
+      if (typeof recs === 'object' && !Array.isArray(recs)) {
+        const attr = recs[k];
+        const arr = attr?.avg ?? attr?.data;
+        if (Array.isArray(arr)) return (arr as (number|null)[]).slice(-6).map(v => v ?? 0);
+      }
+      if (Array.isArray(recs)) {
+        const entry = recs.find((r: any) => r[k] !== undefined);
+        if (entry) {
+          const stats = entry[k]?.stats ?? entry[k]?.avg;
+          if (Array.isArray(stats))
+            return stats.slice(-6).map((row: any) => Array.isArray(row) ? (row[1] ?? 0) : (row ?? 0));
+        }
+      }
+      return [];
+    };
+    const sparkline        = extractSpark(statsJson, A.SOLAR_W);
+    const batterySparkline = extractSpark(statsJson, A.BATTERY_SOC);
 
     return {
       siteId,

@@ -1,9 +1,8 @@
 /**
  * GET /api/vrm/[siteId]/debug
  *
- * Admin-only diagnostic route. Returns the full raw VRM API response so we
- * can identify which idDataAttribute codes are present for a given installation
- * and verify the token/auth is working.
+ * Admin-only diagnostic route. Returns the full raw VRM API response for both
+ * diagnostics and stats endpoints so we can verify attribute codes and response shape.
  *
  * Usage: open in browser while logged in as admin:
  *   https://www.nomadxe.com/api/vrm/810801/debug
@@ -38,10 +37,13 @@ export async function GET(
   }
 
   const { siteId } = params;
-  const base = `https://vrmapi.victronenergy.com/v2`;
+  const base    = `https://vrmapi.victronenergy.com/v2`;
   const headers = { 'X-Authorization': `Token ${token}` };
 
-  // Hit diagnostics endpoint
+  const now       = Math.floor(Date.now() / 1000);
+  const sixHrsAgo = now - 6 * 3600;
+
+  // ── Diagnostics ─────────────────────────────────────────────────────────────
   const diagUrl = `${base}/installations/${siteId}/diagnostics`;
   let diagStatus = 0, diagBody: any = null, diagError: string | null = null;
   try {
@@ -52,7 +54,6 @@ export async function GET(
     diagError = e.message;
   }
 
-  // Summarise attributes found (sorted by idDataAttribute)
   const records: any[] = diagBody?.records ?? [];
   const attributes = records
     .map((r: any) => ({
@@ -66,15 +67,37 @@ export async function GET(
     }))
     .sort((a: any, b: any) => a.id - b.id);
 
+  // ── Stats (6h hourly) ────────────────────────────────────────────────────────
+  const statsUrl =
+    `${base}/installations/${siteId}/stats` +
+    `?type=custom&attributeCodes[]=442&attributeCodes[]=51` +
+    `&interval=hours&start=${sixHrsAgo}&end=${now}`;
+
+  let statsStatus = 0, statsBody: any = null, statsError: string | null = null;
+  try {
+    const res = await fetch(statsUrl, { headers, cache: 'no-store' });
+    statsStatus = res.status;
+    statsBody   = await res.json();
+  } catch (e: any) {
+    statsError = e.message;
+  }
+
   return NextResponse.json({
     siteId,
-    token_prefix: 'Token (✓)',
-    diag_url:    diagUrl,
-    diag_status: diagStatus,
-    diag_error:  diagError,
-    success:     diagBody?.success,
+    token_ok:         true,
+    // Diagnostics
+    diag_url:         diagUrl,
+    diag_status:      diagStatus,
+    diag_error:       diagError,
+    diag_success:     diagBody?.success,
     total_attributes: attributes.length,
-    attributes,          // full list — inspect to find the IDs we need
-    raw_diag: diagBody,  // full raw response if something looks off
+    attributes,
+    // Stats — inspect records shape to fix extractSparkline
+    stats_url:        statsUrl,
+    stats_status:     statsStatus,
+    stats_error:      statsError,
+    stats_success:    statsBody?.success,
+    stats_records_type: Array.isArray(statsBody?.records) ? 'array' : typeof statsBody?.records,
+    stats_raw:        statsBody,   // full raw stats response
   }, { status: 200 });
 }

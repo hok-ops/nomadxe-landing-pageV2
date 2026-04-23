@@ -63,10 +63,53 @@ function deriveDCLoad(solarW: number, batteryW: number): number {
   return Math.max(0, Math.round(solarW - batteryW));
 }
 
+/**
+ * Extract a 6-point sparkline from the VRM stats response.
+ *
+ * VRM API response shape is underdocumented. We handle two observed formats:
+ *
+ * Format A (object-keyed):
+ *   { records: { "442": { avg: [number|null, ...] } } }
+ *
+ * Format B (array, 4-element sub-arrays):
+ *   { records: [ { "442": { stats: [[timestamp, value, null, null], ...] } } ] }
+ *
+ * If the format is unrecognised, returns [] and logs the raw shape for debugging.
+ */
 function extractSparkline(statsJson: any, attrCode: number): number[] {
-  const attr = statsJson?.records?.[String(attrCode)];
-  if (!attr?.avg) return [];
-  return (attr.avg as (number | null)[]).slice(-6).map(v => v ?? 0);
+  if (!statsJson) return [];
+  const records = statsJson.records;
+  if (!records) return [];
+  const key = String(attrCode);
+
+  // Format A — object keyed by attribute code string
+  if (typeof records === 'object' && !Array.isArray(records)) {
+    const attr = records[key];
+    if (attr?.avg && Array.isArray(attr.avg)) {
+      return (attr.avg as (number | null)[]).slice(-6).map(v => (v === null ? 0 : v));
+    }
+    // Some installs return 'data' instead of 'avg'
+    if (attr?.data && Array.isArray(attr.data)) {
+      return (attr.data as (number | null)[]).slice(-6).map(v => (v === null ? 0 : v));
+    }
+  }
+
+  // Format B — array where each element is { [attrCode]: { stats: [[ts, val, ...], ...] } }
+  if (Array.isArray(records)) {
+    const entry = records.find((r: any) => r[key] !== undefined);
+    if (entry) {
+      const stats = entry[key]?.stats ?? entry[key]?.avg;
+      if (Array.isArray(stats)) {
+        // stats rows are either [timestamp, value, ...] or bare numbers
+        const vals = stats.slice(-6).map((row: any) =>
+          Array.isArray(row) ? (row[1] ?? 0) : (row ?? 0)
+        );
+        return vals as number[];
+      }
+    }
+  }
+
+  return [];
 }
 
 export const dynamic = 'force-dynamic';
@@ -116,12 +159,20 @@ export async function GET(
     ]);
 
     const records: any[] = diagJson?.records ?? [];
-    const solarW   = pick(records, A.SOLAR_W);
-    const batteryW = pick(records, A.BATTERY_W);
-    const dcLoad   = hasAttr(records, A.DC_SYSTEM)
+    const solarW         = pick(records, A.SOLAR_W);
+    const batteryW       = pick(records, A.BATTERY_W);
+    const dcLoad         = hasAttr(records, A.DC_SYSTEM)
       ? pick(records, A.DC_SYSTEM)
       : deriveDCLoad(solarW, batteryW);
-    const mpptStateRaw = pick(records, A.MPPT_STATE);
+    const mpptStateRaw   = pick(records, A.MPPT_STATE);
+
+    const sparkline        = extractSparkline(statsJson, A.SOLAR_W);
+    const batterySparkline = extractSparkline(statsJson, A.BATTERY_SOC);
+
+    // Log if stats came back but produced no sparkline data (helps diagnose format issues)
+    if (statsJson && sparkline.length === 0) {
+      console.warn(`[VRM stats] ${siteId}: stats returned but no sparkline extracted. records type=${Array.isArray(statsJson.records) ? 'array' : typeof statsJson.records}`);
+    }
 
     const data: VRMData = {
       siteId,
@@ -141,8 +192,8 @@ export async function GET(
         mpptStateLabel: MPPT_LABELS[mpptStateRaw] ?? 'Off',
       },
       dcLoad,
-      sparkline:        extractSparkline(statsJson, A.SOLAR_W),
-      batterySparkline: extractSparkline(statsJson, A.BATTERY_SOC),
+      sparkline,
+      batterySparkline,
     };
 
     return NextResponse.json({ data, ok: true });

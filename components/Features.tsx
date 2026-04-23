@@ -157,7 +157,7 @@ function TelemetryTypewriter() {
         aria-label="Live telemetry feed"
       >
         {lines.map((line, i) => (
-          <div key={i} className="text-white/40">{line}</div>
+          <div key={line.slice(0,24) + i} className="text-white/40">{line}</div>
         ))}
         <div className="text-white/80">
           {currentLine}
