@@ -37,7 +37,7 @@ export default function Hero() {
     return () => cancelAnimationFrame(rafId);
   }, []);
 
-  // GSAP entrance + scroll-out parallax
+  // GSAP entrance
   useLayoutEffect(() => {
     let ctx: { revert: () => void } | null = null;
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -46,8 +46,6 @@ export default function Hero() {
       import('gsap/ScrollTrigger').then(({ ScrollTrigger }) => {
         gsap.registerPlugin(ScrollTrigger);
         ctx = gsap.context(() => {
-
-          // ── Entrance animations ────────────────────────────────────
           gsap.fromTo('[data-hero-animate]',
             { opacity: 0, y: 30 },
             { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out', stagger: 0.15, delay: 0.3 }
@@ -56,23 +54,6 @@ export default function Hero() {
             { opacity: 0, scale: 1.04 },
             { opacity: 1, scale: 1, duration: 1.2, ease: 'power3.out', delay: 0.1 }
           );
-
-          // ── Scroll-out parallax ────────────────────────────────────
-          // Image: positive Y nudges the layer DOWN relative to the
-          // scrolling section, so it appears to move up SLOWER than the
-          // page — classic depth parallax.
-          gsap.to('[data-hero-image]', {
-            y: 60,
-            ease: 'none',
-            scrollTrigger: {
-              trigger: heroRef.current,
-              start: 'top top',
-              end: 'bottom top',
-              scrub: 0.8,
-            },
-          });
-
-
         }, heroRef);
       })
     );
@@ -288,16 +269,13 @@ function HeroCopy({ statusRef }: { statusRef: React.RefObject<HTMLSpanElement> }
         </a>
       </div>
 
-      {/* Alpha Vision AGI7 partner badge — Physical AI platform powering
-          autonomous patrol, deterrence, and investigation on every trailer. */}
+      {/* Alpha Vision AGI7 AI — feature badge replaces the credentials strip.
+          The product story beats compliance trivia as a lower-anchor element.
+          Pill with a pulsing accent, short product name, and a tight
+          descriptor in the same monospace tracking the rest of the page
+          uses for instrumentation labels. */}
       <div data-hero-animate className="mt-10 flex flex-wrap items-center gap-3">
-        <a
-          href="https://alphavision.ai"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Alpha Vision AGI7 — AI Security Platform (opens in new tab)"
-          className="inline-flex items-center gap-2.5 rounded-full border border-blue/30 bg-blue/[0.06] backdrop-blur-sm pl-3 pr-4 py-1.5 shadow-[0_0_0_1px_rgba(14,165,233,0.05),0_8px_28px_-12px_rgba(14,165,233,0.55)] transition-colors duration-200 hover:border-blue/50 hover:bg-blue/[0.10]"
-        >
+        <div className="inline-flex items-center gap-2.5 rounded-full border border-blue/30 bg-blue/[0.06] backdrop-blur-sm pl-3 pr-4 py-1.5 shadow-[0_0_0_1px_rgba(14,165,233,0.05),0_8px_28px_-12px_rgba(14,165,233,0.55)]">
           <span className="relative inline-flex items-center justify-center w-2 h-2 flex-shrink-0" aria-hidden="true">
             <span className="absolute inline-block w-2 h-2 rounded-full bg-blue animate-pulseRing" />
             <span className="relative inline-block w-1.5 h-1.5 rounded-full bg-blue" />
@@ -307,11 +285,11 @@ function HeroCopy({ statusRef }: { statusRef: React.RefObject<HTMLSpanElement> }
           </span>
           <span className="w-px h-3 bg-blue/30" aria-hidden="true" />
           <span className="font-mono text-[10px] tracking-[0.18em] uppercase text-white/70">
-            Physical AI Platform
+            Onboard AI Vision
           </span>
-        </a>
+        </div>
         <span className="text-[11px] text-white/45 leading-snug max-w-xs">
-          AI agents that patrol, deter, and investigate — autonomous security operations, 24/7.
+          Autonomous detection &amp; tracking at the edge — sees, classifies, and alerts without pinging a cloud.
         </span>
       </div>
     </>
