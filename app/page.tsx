@@ -3,7 +3,6 @@ import AuthHashProcessor from '../components/AuthHashProcessor';
 import JsonLd from '../components/JsonLd';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
-import StatsBar from '../components/StatsBar';
 import Features from '../components/Features';
 import HowItWorks from '../components/HowItWorks';
 import Manifesto from '../components/Manifesto';
@@ -42,7 +41,6 @@ export default function Home({
       <Navbar />
       <main id="main">
         <Hero />
-        <StatsBar />
         <Features />
         <HowItWorks />
         <Manifesto />
