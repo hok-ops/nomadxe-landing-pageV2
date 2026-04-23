@@ -21,20 +21,19 @@ export default function MonitoringPartners() {
         {/* ── Partnership Header ───────────────────────────────────── */}
         <div className="text-center mb-16">
           <p className="font-mono text-xs tracking-widest uppercase text-blue/60 mb-4">
-            AI Partnership
+            Option 02 · Fully Equipped
           </p>
           <h2 className="text-3xl md:text-5xl font-sans font-bold tracking-tight text-white leading-tight mb-6">
-            Go fully equipped.{' '}
-            <span className="text-blue">AI included.</span>
+            Your site is secured{' '}
+            <span className="text-blue">before you arrive.</span>
           </h2>
-          <p className="text-base md:text-lg text-white/50 max-w-2xl mx-auto leading-relaxed">
-            Our{' '}
+          <p className="text-base md:text-lg text-white/50 max-w-xl mx-auto leading-relaxed">
+            The{' '}
             <a href="#deployment" className="text-white/70 hover:text-blue transition-colors duration-200 underline underline-offset-2 decoration-white/20">
-              Option 02 Fully Equipped
+              Fully Equipped lease
             </a>
-            {' '}lease comes pre-configured with Alpha Vision AGI7 — autonomous patrol,
-            deterrence, and investigation built in before the trailer arrives on site.
-            No integration work. No add-ons. Just deploy.
+            {' '}ships with AI already running on the trailer.
+            You pull up. You&apos;re live. No setup, no integration, no on-site IT.
           </p>
         </div>
 
@@ -77,11 +76,12 @@ export default function MonitoringPartners() {
 
             {/* Description */}
             <p className="text-base text-white/55 leading-relaxed max-w-3xl mb-10">
-              Alpha Vision AGI7 is the AI platform powering our Fully Equipped (Option 02) lease —
-              a unified Physical AI system that autonomously patrols sites, deters threats in real time,
-              and delivers incident intelligence without waiting for a human operator to act.
-              Backed by NEC and partnered with Axis Communications, it arrives pre-configured
-              so your site is protected from the moment the trailer is deployed.
+              Alpha Vision AGI7 is built for exactly this environment — remote sites, mobile
+              infrastructure, and no on-site IT. Its Physical AI agents work the site continuously:
+              patrolling on schedule, issuing real-time audio deterrents when a threat appears,
+              and making every recorded incident searchable by natural language in seconds.
+              This isn&apos;t a camera system with alerts bolted on. It&apos;s an autonomous security
+              workforce running 24/7 from the trailer mast.
             </p>
 
             {/* Feature grid */}
