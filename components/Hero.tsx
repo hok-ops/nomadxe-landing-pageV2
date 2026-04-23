@@ -72,20 +72,6 @@ export default function Hero() {
             },
           });
 
-          // Copy: begins fading and lifting once the user is halfway
-          // through scrolling past the hero, so it clears the frame
-          // gracefully rather than snapping out.
-          gsap.to('[data-hero-animate]', {
-            opacity: 0,
-            y: -28,
-            ease: 'power1.in',
-            scrollTrigger: {
-              trigger: heroRef.current,
-              start: '55% top',
-              end: 'bottom top',
-              scrub: 0.6,
-            },
-          });
 
         }, heroRef);
       })
@@ -302,13 +288,16 @@ function HeroCopy({ statusRef }: { statusRef: React.RefObject<HTMLSpanElement> }
         </a>
       </div>
 
-      {/* Alpha Vision AGI7 AI — feature badge replaces the credentials strip.
-          The product story beats compliance trivia as a lower-anchor element.
-          Pill with a pulsing accent, short product name, and a tight
-          descriptor in the same monospace tracking the rest of the page
-          uses for instrumentation labels. */}
+      {/* Alpha Vision AGI7 partner badge — Physical AI platform powering
+          autonomous patrol, deterrence, and investigation on every trailer. */}
       <div data-hero-animate className="mt-10 flex flex-wrap items-center gap-3">
-        <div className="inline-flex items-center gap-2.5 rounded-full border border-blue/30 bg-blue/[0.06] backdrop-blur-sm pl-3 pr-4 py-1.5 shadow-[0_0_0_1px_rgba(14,165,233,0.05),0_8px_28px_-12px_rgba(14,165,233,0.55)]">
+        <a
+          href="https://alphavision.ai"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Alpha Vision AGI7 — AI Security Platform (opens in new tab)"
+          className="inline-flex items-center gap-2.5 rounded-full border border-blue/30 bg-blue/[0.06] backdrop-blur-sm pl-3 pr-4 py-1.5 shadow-[0_0_0_1px_rgba(14,165,233,0.05),0_8px_28px_-12px_rgba(14,165,233,0.55)] transition-colors duration-200 hover:border-blue/50 hover:bg-blue/[0.10]"
+        >
           <span className="relative inline-flex items-center justify-center w-2 h-2 flex-shrink-0" aria-hidden="true">
             <span className="absolute inline-block w-2 h-2 rounded-full bg-blue animate-pulseRing" />
             <span className="relative inline-block w-1.5 h-1.5 rounded-full bg-blue" />
@@ -318,11 +307,11 @@ function HeroCopy({ statusRef }: { statusRef: React.RefObject<HTMLSpanElement> }
           </span>
           <span className="w-px h-3 bg-blue/30" aria-hidden="true" />
           <span className="font-mono text-[10px] tracking-[0.18em] uppercase text-white/70">
-            Onboard AI Vision
+            Physical AI Platform
           </span>
-        </div>
+        </a>
         <span className="text-[11px] text-white/45 leading-snug max-w-xs">
-          Autonomous detection &amp; tracking at the edge — sees, classifies, and alerts without pinging a cloud.
+          AI agents that patrol, deter, and investigate — autonomous security operations, 24/7.
         </span>
       </div>
     </>
