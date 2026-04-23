@@ -24,13 +24,17 @@ export default function MonitoringPartners() {
             AI Partnership
           </p>
           <h2 className="text-3xl md:text-5xl font-sans font-bold tracking-tight text-white leading-tight mb-6">
-            Every trailer ships{' '}
-            <span className="text-blue">fully equipped.</span>
+            Go fully equipped.{' '}
+            <span className="text-blue">AI included.</span>
           </h2>
           <p className="text-base md:text-lg text-white/50 max-w-2xl mx-auto leading-relaxed">
-            Our partnership with Alpha Vision AGI7 means autonomous AI security is built into
-            every NomadXE deployment — not sold separately, not configured on-site.
-            You get patrol, deterrence, and investigation running from day one.
+            Our{' '}
+            <a href="#deployment" className="text-white/70 hover:text-blue transition-colors duration-200 underline underline-offset-2 decoration-white/20">
+              Option 02 Fully Equipped
+            </a>
+            {' '}lease comes pre-configured with Alpha Vision AGI7 — autonomous patrol,
+            deterrence, and investigation built in before the trailer arrives on site.
+            No integration work. No add-ons. Just deploy.
           </p>
         </div>
 
@@ -73,10 +77,11 @@ export default function MonitoringPartners() {
 
             {/* Description */}
             <p className="text-base text-white/55 leading-relaxed max-w-3xl mb-10">
-              Alpha Vision&apos;s Physical AI platform is the intelligence layer behind every NomadXE
-              trailer — a unified system that autonomously patrols sites, deters threats in real time,
-              and delivers incident intelligence without waiting for a human operator to act. Backed by NEC
-              and partnered with Axis Communications, it&apos;s the AI backbone of our mobile surveillance stack.
+              Alpha Vision AGI7 is the AI platform powering our Fully Equipped (Option 02) lease —
+              a unified Physical AI system that autonomously patrols sites, deters threats in real time,
+              and delivers incident intelligence without waiting for a human operator to act.
+              Backed by NEC and partnered with Axis Communications, it arrives pre-configured
+              so your site is protected from the moment the trailer is deployed.
             </p>
 
             {/* Feature grid */}
