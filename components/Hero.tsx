@@ -116,7 +116,11 @@ export default function Hero() {
             />
           </div>
 
-          {/* Sharp centered trailer — whole image visible, no crop */}
+          {/* Sharp centered trailer — whole image visible, scaled up so it
+              stretches wider on screen. Uniform scale keeps the trailer's
+              aspect (no distortion); the edge fades below dissolve the
+              image's rectangular boundary into midnight so it feels like
+              it's part of the backdrop, not a standalone photo. */}
           <Image
             src="/trailer-hires.jpg"
             alt=""
@@ -124,7 +128,7 @@ export default function Hero() {
             fill
             sizes="100vw"
             quality={94}
-            className="object-contain object-center opacity-[0.92]"
+            className="object-contain object-center opacity-[0.95] scale-[1.3] md:scale-[1.25] lg:scale-[1.22] xl:scale-[1.18]"
             placeholder="blur"
             blurDataURL={BLUR_DATA}
           />
@@ -134,18 +138,39 @@ export default function Hero() {
             className="absolute inset-0"
             style={{
               backgroundImage:
-                'radial-gradient(ellipse 65% 55% at 50% 45%, rgba(14,165,233,0.22), transparent 72%)',
+                'radial-gradient(ellipse 60% 50% at 50% 45%, rgba(14,165,233,0.22), transparent 72%)',
             }}
           />
 
-          {/* Vertical transparency gradient — image is clear up top and
-              fades to solid midnight toward the bottom, giving the copy a
-              clean dark plinth to sit on without hiding the trailer. */}
+          {/* Edge vignette — darkens left, right, top corners so the
+              trailer's rectangular boundary dissolves into the background
+              instead of reading as a distinct photo in a box. */}
           <div
             className="absolute inset-0"
             style={{
               background:
-                'linear-gradient(to bottom, rgba(4,7,14,0.05) 0%, rgba(4,7,14,0.15) 30%, rgba(4,7,14,0.55) 55%, rgba(4,7,14,0.88) 78%, #04070e 100%)',
+                'radial-gradient(ellipse 85% 90% at 50% 50%, transparent 38%, rgba(4,7,14,0.55) 72%, #04070e 100%)',
+            }}
+          />
+
+          {/* Left and right side fades — additional darkening at the
+              horizontal edges so wide viewports feel immersive. */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(to right, #04070e 0%, rgba(4,7,14,0.6) 8%, transparent 22%, transparent 78%, rgba(4,7,14,0.6) 92%, #04070e 100%)',
+            }}
+          />
+
+          {/* Vertical transparency gradient — image fades to solid midnight
+              at the top and bottom, giving the copy a clean dark plinth
+              and hiding the clipped top/bottom from the uniform scale. */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(to bottom, #04070e 0%, rgba(4,7,14,0.55) 8%, rgba(4,7,14,0.12) 25%, rgba(4,7,14,0.45) 58%, rgba(4,7,14,0.9) 80%, #04070e 100%)',
             }}
           />
 
