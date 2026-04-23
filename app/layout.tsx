@@ -25,7 +25,7 @@ const jetbrains = JetBrains_Mono({
 const DESCRIPTION =
   'Solar-powered mobile security trailers deployed to construction sites, events, and remote locations. Operational within hours — no grid power or fixed infrastructure required. 24/7 remote monitoring included.';
 
-const OG_IMAGE = 'https://nomadxe.com/trailer.jpg';
+const OG_IMAGE = 'https://nomadxe.com/trailer-hires.jpg';
 
 export const metadata: Metadata = {
   other: { 'x-build': 'v2-anim-apr22' },

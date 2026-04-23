@@ -65,7 +65,7 @@ export default function Hero() {
     >
       {/* Actual Nomadxe trailer photo */}
       <Image
-        src="/trailer.jpg"
+        src="/trailer-hires.jpg"
         alt="NomadXE solar surveillance trailer deploying mobile security infrastructure"
         priority
         fill

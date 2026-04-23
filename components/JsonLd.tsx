@@ -14,7 +14,7 @@ export default function JsonLd() {
     url: BASE,
     logo: {
       '@type': 'ImageObject',
-      url: `${BASE}/trailer.jpg`,
+      url: `${BASE}/trailer-hires.jpg`,
       width: 1200,
       height: 630,
     },
@@ -38,7 +38,7 @@ export default function JsonLd() {
     '@id': `${BASE}/#business`,
     name: 'NomadXE',
     url: BASE,
-    image: `${BASE}/trailer.jpg`,
+    image: `${BASE}/trailer-hires.jpg`,
     description:
       'Mobile security trailer deployment and solar-powered surveillance infrastructure for construction sites, events, utility sites, and remote locations.',
     priceRange: '$$',
