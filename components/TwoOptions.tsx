@@ -63,9 +63,8 @@ export default function TwoOptions() {
         {/* Header */}
         <div className="mb-16 text-center">
           <p className="font-mono text-xs tracking-widest uppercase text-blue/60 mb-4">Deployment Options</p>
-          <h2 className="text-4xl md:text-5xl font-bold text-white">
-            Two ways to{' '}
-            <em className="font-display italic text-blue not-italic">deploy.</em>
+          <h2 className="text-4xl md:text-5xl font-sans font-bold tracking-tight text-white">
+            Two ways to <span className="text-blue">deploy.</span>
           </h2>
         </div>
 

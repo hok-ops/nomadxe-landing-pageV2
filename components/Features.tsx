@@ -42,32 +42,69 @@ function DiagnosticShuffler() {
   }, []);
 
   return (
-    <div ref={containerRef} className="bg-surface border border-white/5 rounded-2xl p-8 shadow-2xl border-t-2 border-t-blue/30 flex flex-col gap-6" aria-label="Diagnostic Shuffler feature card">
+    <div ref={containerRef} data-feature-tile className="group relative bg-surface border border-white/5 rounded-2xl p-8 shadow-2xl border-t-2 border-t-blue/40 flex flex-col gap-6 transition-all duration-500 hover:border-blue/30 hover:-translate-y-1 hover:shadow-[0_30px_60px_-30px_rgba(14,165,233,0.35)]" aria-label="Diagnostic Shuffler feature card">
       <div className="font-mono text-xs tracking-widest uppercase text-blue/70">01 — Your Setup</div>
       <h3 className="text-xl font-bold text-white">Your Setup. Our Base.</h3>
       <p className="text-sm text-white/50 leading-relaxed">
         Plug in what you already own. Our platform wraps around your existing cameras and NVR — no rip-and-replace.
       </p>
-      {/* Stacked cards */}
-      <div className="relative h-28 mt-2" aria-live="polite" aria-label={`Currently showing: ${SETUP_CARDS[active]}`}>
-        {SETUP_CARDS.map((label, i) => {
-          const offset = i - active;
-          const isActive = i === active;
-          return (
-            <div
-              key={label}
-              className="absolute inset-x-0 rounded-xl border border-white/10 px-6 py-4 font-mono text-sm text-white/80 bg-midnight"
-              style={{
-                transform: `translateY(${offset * 10}px) scale(${isActive ? 1 : 0.95 - Math.abs(offset) * 0.03})`,
-                opacity: isActive ? 1 : Math.max(0, 0.4 - Math.abs(offset) * 0.15),
-                zIndex: SETUP_CARDS.length - Math.abs(offset),
-                transition: 'transform 500ms ease, opacity 500ms ease',
-              }}
-            >
-              {label}
-            </div>
-          );
-        })}
+      {/* Wrap-around diagram — existing gear nodes feeding a central NOMADXE hub. */}
+      <div className="relative mt-1" aria-live="polite" aria-label={`Currently connecting: ${SETUP_CARDS[active]}`}>
+        <svg viewBox="0 0 280 150" className="w-full" aria-hidden="true">
+          <defs>
+            <linearGradient id="setup-line" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#0EA5E9" stopOpacity="0.1" />
+              <stop offset="100%" stopColor="#0EA5E9" stopOpacity="0.9" />
+            </linearGradient>
+          </defs>
+
+          {/* Three source nodes on the left */}
+          {SETUP_CARDS.map((label, i) => {
+            const y = 20 + i * 45;
+            const isActive = i === active;
+            return (
+              <g key={label}>
+                <rect
+                  x={6} y={y - 12} width={86} height={24} rx={12}
+                  fill={isActive ? 'rgba(14,165,233,0.15)' : 'rgba(255,255,255,0.03)'}
+                  stroke={isActive ? '#0EA5E9' : 'rgba(255,255,255,0.1)'}
+                  strokeWidth={1}
+                  style={{ transition: 'all 500ms ease' }}
+                />
+                <text
+                  x={49} y={y + 1} textAnchor="middle" dominantBaseline="middle"
+                  fill={isActive ? '#0EA5E9' : 'rgba(255,255,255,0.45)'}
+                  fontSize="8" fontFamily="var(--font-jetbrains), monospace" letterSpacing="1"
+                  style={{ transition: 'all 500ms ease' }}
+                >
+                  {label}
+                </text>
+                <line
+                  x1={92} y1={y} x2={180} y2={75}
+                  stroke={isActive ? 'url(#setup-line)' : 'rgba(255,255,255,0.08)'}
+                  strokeWidth={isActive ? 1.5 : 1}
+                  strokeDasharray={isActive ? '0' : '3 3'}
+                  style={{ transition: 'all 500ms ease' }}
+                />
+              </g>
+            );
+          })}
+
+          {/* Central NomadXE hub */}
+          <g>
+            <circle cx={210} cy={75} r={32} fill="rgba(14,165,233,0.08)" stroke="rgba(14,165,233,0.25)" strokeWidth={1} />
+            <circle cx={210} cy={75} r={22} fill="#0B0C10" stroke="#0EA5E9" strokeWidth={1.5} />
+            <text x={210} y={72} textAnchor="middle" fill="#0EA5E9" fontSize="6.5" fontFamily="var(--font-jetbrains), monospace" letterSpacing="1.5">NOMADXE</text>
+            <text x={210} y={82} textAnchor="middle" fill="rgba(255,255,255,0.45)" fontSize="5.5" fontFamily="var(--font-jetbrains), monospace" letterSpacing="1">PLATFORM</text>
+          </g>
+
+          {/* Output chip — live */}
+          <g>
+            <rect x={244} y={63} width={30} height={24} rx={4} fill="rgba(14,165,233,0.12)" stroke="rgba(14,165,233,0.4)" strokeWidth={0.8} />
+            <text x={259} y={72} textAnchor="middle" fill="#0EA5E9" fontSize="5.5" fontFamily="var(--font-jetbrains), monospace" letterSpacing="1">LIVE</text>
+            <text x={259} y={82} textAnchor="middle" fill="rgba(255,255,255,0.55)" fontSize="5" fontFamily="var(--font-jetbrains), monospace">24/7</text>
+          </g>
+        </svg>
       </div>
     </div>
   );
@@ -138,7 +175,7 @@ function TelemetryTypewriter() {
   }, [lines, currentLine]);
 
   return (
-    <div ref={containerRef} className="bg-surface border border-white/5 rounded-2xl p-8 shadow-2xl border-t-2 border-t-blue/30 flex flex-col gap-6" aria-label="Telemetry typewriter feature card">
+    <div ref={containerRef} data-feature-tile className="group relative bg-surface border border-white/5 rounded-2xl p-8 shadow-2xl border-t-2 border-t-blue/40 flex flex-col gap-6 transition-all duration-500 hover:border-blue/30 hover:-translate-y-1 hover:shadow-[0_30px_60px_-30px_rgba(14,165,233,0.35)]" aria-label="Telemetry typewriter feature card">
       <div className="font-mono text-xs tracking-widest uppercase text-blue/70">02 — Intelligence</div>
       <h3 className="text-xl font-bold text-white">Intelligence, Not Just Footage.</h3>
       <p className="text-sm text-white/50 leading-relaxed -mt-4">
@@ -229,7 +266,7 @@ function DeploymentScheduler() {
   }, []);
 
   return (
-    <div ref={containerRef} className="bg-surface border border-white/5 rounded-2xl p-8 shadow-2xl border-t-2 border-t-blue/30 flex flex-col gap-6" aria-label="Deployment scheduler feature card">
+    <div ref={containerRef} data-feature-tile className="group relative bg-surface border border-white/5 rounded-2xl p-8 shadow-2xl border-t-2 border-t-blue/40 flex flex-col gap-6 transition-all duration-500 hover:border-blue/30 hover:-translate-y-1 hover:shadow-[0_30px_60px_-30px_rgba(14,165,233,0.35)]" aria-label="Deployment scheduler feature card">
       <div className="font-mono text-xs tracking-widest uppercase text-blue/70">03 — Deployment</div>
       <h3 className="text-xl font-bold text-white">Done-For-You Deployment.</h3>
       <p className="text-sm text-white/50 leading-relaxed">
@@ -325,7 +362,32 @@ export default function Features() {
       revealEls.push(el);
       obs.observe(el);
     });
-    return () => obs.disconnect();
+
+    // Per-tile staggered entrance
+    const tiles = gridRef.current?.querySelectorAll<HTMLElement>('[data-feature-tile]') ?? [];
+    const tileObs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            (e.target as HTMLElement).style.opacity = '1';
+            (e.target as HTMLElement).style.transform = 'translateY(0) scale(1)';
+            tileObs.unobserve(e.target);
+          }
+        });
+      },
+      { threshold: 0.15 }
+    );
+    tiles.forEach((el, i) => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(24px) scale(0.985)';
+      el.style.transition = `opacity 0.7s cubic-bezier(.22,1,.36,1) ${0.15 + i * 0.12}s, transform 0.7s cubic-bezier(.22,1,.36,1) ${0.15 + i * 0.12}s`;
+      tileObs.observe(el);
+    });
+
+    return () => {
+      obs.disconnect();
+      tileObs.disconnect();
+    };
   }, []);
 
   return (
@@ -340,10 +402,12 @@ export default function Features() {
           <p className="font-mono text-xs tracking-widest uppercase text-blue/60 mb-4">
             Platform Capabilities
           </p>
-          <h2 className="text-4xl md:text-5xl font-bold text-white">
-            Built for the site that{' '}
-            <em className="font-display italic text-blue not-italic">can&apos;t wait.</em>
+          <h2 className="text-4xl md:text-5xl font-sans font-bold tracking-tight text-white leading-tight">
+            Built for the site that <span className="text-blue">can&apos;t wait.</span>
           </h2>
+          <p className="mt-5 text-white/55 text-base max-w-xl mx-auto">
+            Three capabilities that turn a rollout timeline from weeks into a single mobilization day.
+          </p>
         </div>
         {/* Cards grid */}
         <div ref={gridRef} className="grid md:grid-cols-3 gap-8">

@@ -35,9 +35,8 @@ export default function MonitoringPartners() {
         {/* Header */}
         <div className="text-center mb-16">
           <p className="font-mono text-xs tracking-widest uppercase text-blue/60 mb-4">Network</p>
-          <h2 className="text-3xl md:text-4xl font-bold text-white">
-            We work with leading monitoring partners —{' '}
-            <em className="font-display italic text-blue not-italic">or yours.</em>
+          <h2 className="text-3xl md:text-4xl font-sans font-bold tracking-tight text-white">
+            We work with leading monitoring partners — <span className="text-blue">or yours.</span>
           </h2>
           <p className="mt-6 text-white/50 max-w-xl mx-auto leading-relaxed">
             Nomadxe integrates with your preferred monitoring station. If you don&apos;t have one,

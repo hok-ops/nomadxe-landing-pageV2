@@ -105,9 +105,8 @@ export default function ContactForm() {
             <p className="font-mono text-xs tracking-widest uppercase text-blue/60 mb-4">
               Start with a conversation
             </p>
-            <h2 className="text-4xl md:text-5xl font-bold text-white leading-tight">
-              We&apos;ll tailor the deployment{' '}
-              <em className="font-display italic text-blue not-italic">to your site.</em>
+            <h2 className="text-4xl md:text-5xl font-sans font-bold tracking-tight text-white leading-tight">
+              We&apos;ll tailor the deployment <span className="text-blue">to your site.</span>
             </h2>
           </div>
 

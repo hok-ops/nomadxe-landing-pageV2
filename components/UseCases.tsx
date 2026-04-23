@@ -86,9 +86,8 @@ export default function UseCases() {
         {/* Header */}
         <div className="mb-16 text-center">
           <p className="font-mono text-xs tracking-widest uppercase text-blue/60 mb-4">Applications</p>
-          <h2 className="text-4xl md:text-5xl font-bold text-white">
-            Where Nomadxe{' '}
-            <em className="font-display italic text-blue not-italic">deploys.</em>
+          <h2 className="text-4xl md:text-5xl font-sans font-bold tracking-tight text-white">
+            Where Nomadxe <span className="text-blue">deploys.</span>
           </h2>
         </div>
 
