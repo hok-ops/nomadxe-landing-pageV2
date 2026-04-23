@@ -116,11 +116,12 @@ export default function Hero() {
             />
           </div>
 
-          {/* Sharp centered trailer — whole image visible, scaled up so it
-              stretches wider on screen. Uniform scale keeps the trailer's
-              aspect (no distortion); the edge fades below dissolve the
-              image's rectangular boundary into midnight so it feels like
-              it's part of the backdrop, not a standalone photo. */}
+          {/* Sharp trailer — anchored to the UPPER portion of the frame so
+              the solar panels and chassis live in the top ~60% and the
+              bottom ~40% becomes a dedicated dark plinth for copy. This is
+              the cinematic composition used by Rivian / Anduril hero shots:
+              the subject occupies the cinematic upper frame, copy lives in
+              an uncontested lower band. No more headline across panels. */}
           <Image
             src="/trailer-hires.jpg"
             alt=""
@@ -128,17 +129,18 @@ export default function Hero() {
             fill
             sizes="100vw"
             quality={94}
-            className="object-contain object-center opacity-[0.95] scale-[1.3] md:scale-[1.25] lg:scale-[1.22] xl:scale-[1.18]"
+            className="object-contain object-top opacity-[0.95] scale-[1.08] md:scale-[1.05] lg:scale-[1.02] xl:scale-100 translate-y-[-6%]"
             placeholder="blur"
             blurDataURL={BLUR_DATA}
           />
 
-          {/* Soft central halo behind the trailer to lift it off the page */}
+          {/* Soft halo behind the trailer body — positioned HIGHER to match
+              the repositioned subject. */}
           <div
             className="absolute inset-0"
             style={{
               backgroundImage:
-                'radial-gradient(ellipse 60% 50% at 50% 45%, rgba(14,165,233,0.22), transparent 72%)',
+                'radial-gradient(ellipse 55% 40% at 50% 30%, rgba(14,165,233,0.22), transparent 70%)',
             }}
           />
 
@@ -149,7 +151,7 @@ export default function Hero() {
             className="absolute inset-0"
             style={{
               background:
-                'radial-gradient(ellipse 85% 90% at 50% 50%, transparent 38%, rgba(4,7,14,0.55) 72%, #04070e 100%)',
+                'radial-gradient(ellipse 85% 90% at 50% 40%, transparent 38%, rgba(4,7,14,0.55) 72%, #04070e 100%)',
             }}
           />
 
@@ -163,14 +165,15 @@ export default function Hero() {
             }}
           />
 
-          {/* Vertical transparency gradient — image fades to solid midnight
-              at the top and bottom, giving the copy a clean dark plinth
-              and hiding the clipped top/bottom from the uniform scale. */}
+          {/* Vertical plinth gradient — the bottom 40% transitions to solid
+              midnight, creating a dedicated uncontested band for the copy.
+              The trailer lives in the upper frame; the copy lives in the
+              plinth. No visual collision. */}
           <div
             className="absolute inset-0"
             style={{
               background:
-                'linear-gradient(to bottom, #04070e 0%, rgba(4,7,14,0.55) 8%, rgba(4,7,14,0.12) 25%, rgba(4,7,14,0.45) 58%, rgba(4,7,14,0.9) 80%, #04070e 100%)',
+                'linear-gradient(to bottom, #04070e 0%, rgba(4,7,14,0.5) 6%, rgba(4,7,14,0.08) 22%, rgba(4,7,14,0.12) 48%, rgba(4,7,14,0.78) 62%, #04070e 78%, #04070e 100%)',
             }}
           />
 
@@ -184,17 +187,19 @@ export default function Hero() {
           />
         </div>
 
-        {/* Copy — centered horizontally and overlaid toward the bottom of the image */}
-        <div className="relative z-10 px-8 lg:px-16 pb-20 lg:pb-28">
+        {/* Copy — sits in the dedicated lower plinth zone, well clear of the
+            trailer's solar panels. Centered horizontally. */}
+        <div className="relative z-10 px-8 lg:px-16 pb-20 lg:pb-24">
           <div className="max-w-[44rem] mx-auto">
             <HeroCopy statusRef={statusRef} />
           </div>
         </div>
 
-        {/* Floating telemetry chip — annotates the trailer on large screens */}
+        {/* Floating telemetry chip — annotates the trailer on large screens.
+            Positioned top-right in the sky zone above the trailer. */}
         <div
           aria-hidden="true"
-          className="hidden lg:flex absolute top-28 right-8 z-20 items-center gap-3 rounded-lg bg-midnight/80 backdrop-blur-md border border-white/10 px-4 py-2.5 font-mono text-[11px] tracking-wider text-white/80 shadow-[0_10px_40px_-10px_rgba(14,165,233,0.45)]"
+          className="hidden lg:flex absolute top-20 right-8 z-20 items-center gap-3 rounded-lg bg-midnight/80 backdrop-blur-md border border-white/10 px-4 py-2.5 font-mono text-[11px] tracking-wider text-white/80 shadow-[0_10px_40px_-10px_rgba(14,165,233,0.45)]"
         >
           <span className="relative inline-flex items-center justify-center w-1.5 h-1.5">
             <span className="absolute inline-block w-1.5 h-1.5 rounded-full bg-blue animate-pulseRing" />
@@ -264,13 +269,28 @@ function HeroCopy({ statusRef }: { statusRef: React.RefObject<HTMLSpanElement> }
         </a>
       </div>
 
-      {/* Credentials strip — small sans, trust signals */}
-      <div data-hero-animate className="mt-10 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] font-mono tracking-widest uppercase text-white/35">
-        <span>UL-Listed Equipment</span>
-        <span className="w-1 h-1 rounded-full bg-white/20" aria-hidden="true" />
-        <span>FCC-Registered Uplink</span>
-        <span className="w-1 h-1 rounded-full bg-white/20" aria-hidden="true" />
-        <span>Victron Professional Dealer</span>
+      {/* Alpha Vision AGI7 AI — feature badge replaces the credentials strip.
+          The product story beats compliance trivia as a lower-anchor element.
+          Pill with a pulsing accent, short product name, and a tight
+          descriptor in the same monospace tracking the rest of the page
+          uses for instrumentation labels. */}
+      <div data-hero-animate className="mt-10 flex flex-wrap items-center gap-3">
+        <div className="inline-flex items-center gap-2.5 rounded-full border border-blue/30 bg-blue/[0.06] backdrop-blur-sm pl-3 pr-4 py-1.5 shadow-[0_0_0_1px_rgba(14,165,233,0.05),0_8px_28px_-12px_rgba(14,165,233,0.55)]">
+          <span className="relative inline-flex items-center justify-center w-2 h-2 flex-shrink-0" aria-hidden="true">
+            <span className="absolute inline-block w-2 h-2 rounded-full bg-blue animate-pulseRing" />
+            <span className="relative inline-block w-1.5 h-1.5 rounded-full bg-blue" />
+          </span>
+          <span className="font-mono text-[10px] tracking-[0.22em] uppercase text-blue/90 font-bold">
+            Alpha Vision AGI7
+          </span>
+          <span className="w-px h-3 bg-blue/30" aria-hidden="true" />
+          <span className="font-mono text-[10px] tracking-[0.18em] uppercase text-white/70">
+            Onboard AI Vision
+          </span>
+        </div>
+        <span className="text-[11px] text-white/45 leading-snug max-w-xs">
+          Autonomous detection &amp; tracking at the edge — sees, classifies, and alerts without pinging a cloud.
+        </span>
       </div>
     </>
   );
