@@ -28,6 +28,7 @@ const DESCRIPTION =
 const OG_IMAGE = 'https://nomadxe.com/trailer.jpg';
 
 export const metadata: Metadata = {
+  other: { 'x-build': 'v2-anim-apr22' },
   metadataBase: new URL('https://nomadxe.com'),
   title: {
     default: 'Mobile Security Trailers | NomadXE Surveillance Solutions',
