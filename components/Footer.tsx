@@ -111,6 +111,7 @@ export default function Footer() {
           </div>
         </div>
       </div>
-    </footer>
+      {/* build:v2.anim */}
+</footer>
   );
 }

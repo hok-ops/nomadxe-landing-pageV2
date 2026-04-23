@@ -142,10 +142,9 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
       <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.022]"
         style={{ backgroundImage: 'linear-gradient(#3b82f6 1px,transparent 1px),linear-gradient(to right,#3b82f6 1px,transparent 1px)', backgroundSize: '48px 48px' }} />
 
-      <div className="fixed top-0 left-0 right-0 h-[3px] z-[100]" style={{
+      <div className="fixed top-0 left-0 right-0 h-[3px] z-[100] animate-nx-bar" style={{
         background:'linear-gradient(90deg,#1e40af,#3b82f6,#60a5fa,#3b82f6,#1e40af)',
         backgroundSize:'300% 100%',
-        animation:'nx-bar 4s ease-in-out infinite'
       }} />
 
       <div className="relative z-10 max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-12 pt-6">

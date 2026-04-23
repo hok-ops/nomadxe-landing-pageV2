@@ -83,11 +83,8 @@ export default function Hero() {
 
 
       {/* Scanline sweep */}
-      <div aria-hidden="true" style={{
-        position:'absolute',left:0,right:0,height:'2px',zIndex:3,pointerEvents:'none',
-        background:'linear-gradient(90deg,transparent,rgba(14,165,233,0.09),transparent)',
-        animation:'scanH 8s linear infinite',
-      }} />
+      <div aria-hidden="true" className="absolute left-0 right-0 h-px z-[3] pointer-events-none animate-scanH"
+        style={{ background:'linear-gradient(90deg,transparent,rgba(14,165,233,0.09),transparent)' }} />
 
       {/* Content */}
       <div className="relative z-10 px-8 md:px-16 pb-16 md:pb-24 max-w-3xl">
@@ -98,7 +95,7 @@ export default function Hero() {
           aria-label="System status"
         >
           <span className="relative inline-flex items-center justify-center w-1.5 h-1.5 flex-shrink-0" aria-hidden="true">
-            <span className="absolute inline-block w-1.5 h-1.5 rounded-full bg-blue" style={{animation:'pulseRing 2s ease-out infinite'}} />
+            <span className="absolute inline-block w-1.5 h-1.5 rounded-full bg-blue animate-pulseRing" />
             <span className="relative inline-block w-1.5 h-1.5 rounded-full bg-blue" />
           </span>
           <span ref={statusRef} aria-live="polite" />
@@ -139,7 +136,7 @@ export default function Hero() {
       </div>
 
       {/* Scroll hint */}
-      <div aria-hidden="true" className="absolute bottom-8 right-8 font-mono text-xs text-white/30 tracking-widest uppercase hidden md:block" style={{animation:"floatY 2.4s ease-in-out infinite"}}>
+      <div aria-hidden="true" className="absolute bottom-8 right-8 font-mono text-xs text-white/30 tracking-widest uppercase hidden md:block animate-floatY">
         scroll ↓
       </div>
     </section>
