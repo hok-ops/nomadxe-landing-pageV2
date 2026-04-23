@@ -37,7 +37,7 @@ export default function Hero() {
     return () => cancelAnimationFrame(rafId);
   }, []);
 
-  // GSAP entrance
+  // GSAP entrance + scroll-out parallax
   useLayoutEffect(() => {
     let ctx: { revert: () => void } | null = null;
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -46,6 +46,8 @@ export default function Hero() {
       import('gsap/ScrollTrigger').then(({ ScrollTrigger }) => {
         gsap.registerPlugin(ScrollTrigger);
         ctx = gsap.context(() => {
+
+          // ── Entrance animations ────────────────────────────────────
           gsap.fromTo('[data-hero-animate]',
             { opacity: 0, y: 30 },
             { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out', stagger: 0.15, delay: 0.3 }
@@ -54,6 +56,37 @@ export default function Hero() {
             { opacity: 0, scale: 1.04 },
             { opacity: 1, scale: 1, duration: 1.2, ease: 'power3.out', delay: 0.1 }
           );
+
+          // ── Scroll-out parallax ────────────────────────────────────
+          // Image: positive Y nudges the layer DOWN relative to the
+          // scrolling section, so it appears to move up SLOWER than the
+          // page — classic depth parallax.
+          gsap.to('[data-hero-image]', {
+            y: 60,
+            ease: 'none',
+            scrollTrigger: {
+              trigger: heroRef.current,
+              start: 'top top',
+              end: 'bottom top',
+              scrub: 0.8,
+            },
+          });
+
+          // Copy: begins fading and lifting once the user is halfway
+          // through scrolling past the hero, so it clears the frame
+          // gracefully rather than snapping out.
+          gsap.to('[data-hero-animate]', {
+            opacity: 0,
+            y: -28,
+            ease: 'power1.in',
+            scrollTrigger: {
+              trigger: heroRef.current,
+              start: '55% top',
+              end: 'bottom top',
+              scrub: 0.6,
+            },
+          });
+
         }, heroRef);
       })
     );
