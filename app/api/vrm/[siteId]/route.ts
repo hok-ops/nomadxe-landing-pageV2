@@ -9,6 +9,7 @@ const A = {
   BATTERY_W:     243,
   BATTERY_STATE: 215,
   SOLAR_W:       442,
+  SOLAR_W_SYS:   113,  // system-level PV DC-coupled — more reliably tracked in stats
   SOLAR_V:       86,
   SOLAR_TODAY:   94,
   MPPT_STATE:    85,
@@ -66,15 +67,18 @@ function deriveDCLoad(solarW: number, batteryW: number): number {
 /**
  * Extract a 6-point sparkline from the VRM stats response.
  *
- * VRM API response shape is underdocumented. We handle two observed formats:
+ * VRM API returns false for an attribute when no data exists in the requested
+ * time window (e.g. attribute not yet logged, or interval too coarse).
  *
- * Format A (object-keyed):
+ * Format A (object-keyed, most common):
  *   { records: { "442": { avg: [number|null, ...] } } }
+ *   { records: { "442": false } }   <- no data for this attribute/interval
  *
- * Format B (array, 4-element sub-arrays):
+ * Format B (array of row objects):
  *   { records: [ { "442": { stats: [[timestamp, value, null, null], ...] } } ] }
  *
- * If the format is unrecognised, returns [] and logs the raw shape for debugging.
+ * Format C (flat array of values):
+ *   { records: { "442": [v1, v2, ...] } }
  */
 function extractSparkline(statsJson: any, attrCode: number): number[] {
   if (!statsJson) return [];
@@ -82,29 +86,40 @@ function extractSparkline(statsJson: any, attrCode: number): number[] {
   if (!records) return [];
   const key = String(attrCode);
 
-  // Format A — object keyed by attribute code string
+  // Format A -- object keyed by attribute code string
   if (typeof records === 'object' && !Array.isArray(records)) {
     const attr = records[key];
-    if (attr?.avg && Array.isArray(attr.avg)) {
-      return (attr.avg as (number | null)[]).slice(-6).map(v => (v === null ? 0 : v));
+    // VRM returns false when the attribute has no data for this interval/window
+    if (!attr || attr === false) return [];
+
+    // Format C -- bare array of values
+    if (Array.isArray(attr)) {
+      return (attr as (number | null)[]).slice(-6).map(v => (v === null ? 0 : Number(v)));
     }
-    // Some installs return 'data' instead of 'avg'
-    if (attr?.data && Array.isArray(attr.data)) {
-      return (attr.data as (number | null)[]).slice(-6).map(v => (v === null ? 0 : v));
+
+    // Format A standard -- { avg: [...] } or { data: [...] } or { values: [...] }
+    const arr: (number | null)[] | undefined = attr.avg ?? attr.data ?? attr.values;
+    if (Array.isArray(arr)) {
+      return arr.slice(-6).map(v => (v === null ? 0 : Number(v)));
+    }
+
+    // Format A with nested records array: { records: [[ts, val], ...] }
+    if (Array.isArray(attr.records)) {
+      return (attr.records as any[]).slice(-6).map((row: any) =>
+        Array.isArray(row) ? Number(row[1] ?? 0) : Number(row ?? 0)
+      );
     }
   }
 
-  // Format B — array where each element is { [attrCode]: { stats: [[ts, val, ...], ...] } }
+  // Format B -- array where each element is { [attrCode]: { stats: [[ts, val, ...], ...] } }
   if (Array.isArray(records)) {
     const entry = records.find((r: any) => r[key] !== undefined);
     if (entry) {
-      const stats = entry[key]?.stats ?? entry[key]?.avg;
+      const stats = entry[key]?.stats ?? entry[key]?.avg ?? entry[key]?.data;
       if (Array.isArray(stats)) {
-        // stats rows are either [timestamp, value, ...] or bare numbers
-        const vals = stats.slice(-6).map((row: any) =>
-          Array.isArray(row) ? (row[1] ?? 0) : (row ?? 0)
+        return stats.slice(-6).map((row: any) =>
+          Array.isArray(row) ? Number(row[1] ?? 0) : Number(row ?? 0)
         );
-        return vals as number[];
       }
     }
   }
@@ -145,16 +160,20 @@ export async function GET(
   }
 
   try {
-    const now       = Math.floor(Date.now() / 1000);
-    const sixHrsAgo = now - 6 * 3600;
+    const now         = Math.floor(Date.now() / 1000);
+    const threeHrsAgo = now - 3 * 3600;
 
     const [diagJson, statsJson] = await Promise.all([
       fetchVRM(`/installations/${siteId}/diagnostics`),
+      // Use 15min interval -- device logs every 900s; hourly buckets often return false
+      // Request both solar codes (442=solarcharger, 113=system DC PV) as fallback
       fetchVRM(
         `/installations/${siteId}/stats` +
-        `?type=custom&attributeCodes[]=${A.SOLAR_W}` +
+        `?type=custom` +
+        `&attributeCodes[]=${A.SOLAR_W}` +
+        `&attributeCodes[]=${A.SOLAR_W_SYS}` +
         `&attributeCodes[]=${A.BATTERY_SOC}` +
-        `&interval=hours&start=${sixHrsAgo}&end=${now}`
+        `&interval=15mins&start=${threeHrsAgo}&end=${now}`
       ).catch(() => null),
     ]);
 
@@ -166,12 +185,18 @@ export async function GET(
       : deriveDCLoad(solarW, batteryW);
     const mpptStateRaw   = pick(records, A.MPPT_STATE);
 
-    const sparkline        = extractSparkline(statsJson, A.SOLAR_W);
+    // Try primary solar attribute; fall back to system-level PV if no data
+    const sparklineRaw     = extractSparkline(statsJson, A.SOLAR_W);
+    const sparkline        = sparklineRaw.length > 0
+      ? sparklineRaw
+      : extractSparkline(statsJson, A.SOLAR_W_SYS);
     const batterySparkline = extractSparkline(statsJson, A.BATTERY_SOC);
 
     // Log if stats came back but produced no sparkline data (helps diagnose format issues)
     if (statsJson && sparkline.length === 0) {
-      console.warn(`[VRM stats] ${siteId}: stats returned but no sparkline extracted. records type=${Array.isArray(statsJson.records) ? 'array' : typeof statsJson.records}`);
+      const recType = Array.isArray(statsJson.records) ? 'array' : typeof statsJson.records;
+      const sample  = JSON.stringify(statsJson.records).slice(0, 200);
+      console.warn(`[VRM stats] ${siteId}: no sparkline. records type=${recType} sample=${sample}`);
     }
 
     const data: VRMData = {

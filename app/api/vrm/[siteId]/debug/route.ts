@@ -40,10 +40,10 @@ export async function GET(
   const base    = `https://vrmapi.victronenergy.com/v2`;
   const headers = { 'X-Authorization': `Token ${token}` };
 
-  const now       = Math.floor(Date.now() / 1000);
-  const sixHrsAgo = now - 6 * 3600;
+  const now         = Math.floor(Date.now() / 1000);
+  const threeHrsAgo = now - 3 * 3600;
 
-  // ── Diagnostics ─────────────────────────────────────────────────────────────
+  // -- Diagnostics -------------------------------------------------------------
   const diagUrl = `${base}/installations/${siteId}/diagnostics`;
   let diagStatus = 0, diagBody: any = null, diagError: string | null = null;
   try {
@@ -67,11 +67,13 @@ export async function GET(
     }))
     .sort((a: any, b: any) => a.id - b.id);
 
-  // ── Stats (6h hourly) ────────────────────────────────────────────────────────
+  // -- Stats (3h @ 15min -- mirrors production query) --------------------------
+  // Device logs every 900s; interval=hours returns false until full bucket forms.
+  // Requesting 442 (solarcharger power), 113 (system DC PV), and 51 (battery SOC).
   const statsUrl =
     `${base}/installations/${siteId}/stats` +
-    `?type=custom&attributeCodes[]=442&attributeCodes[]=51` +
-    `&interval=hours&start=${sixHrsAgo}&end=${now}`;
+    `?type=custom&attributeCodes[]=442&attributeCodes[]=113&attributeCodes[]=51` +
+    `&interval=15mins&start=${threeHrsAgo}&end=${now}`;
 
   let statsStatus = 0, statsBody: any = null, statsError: string | null = null;
   try {
@@ -80,6 +82,23 @@ export async function GET(
     statsBody   = await res.json();
   } catch (e: any) {
     statsError = e.message;
+  }
+
+  // Summarise the shape of each attribute entry for easy inspection
+  const statsShapes: Record<string, string> = {};
+  if (statsBody?.records && typeof statsBody.records === 'object' && !Array.isArray(statsBody.records)) {
+    for (const [k, v] of Object.entries(statsBody.records)) {
+      if (v === false || v === null) {
+        statsShapes[k] = 'false -- no data';
+      } else if (Array.isArray(v)) {
+        statsShapes[k] = `array[${(v as any[]).length}]`;
+      } else if (v && typeof v === 'object') {
+        const keys = Object.keys(v as object).join(', ');
+        statsShapes[k] = `object{${keys}}`;
+      } else {
+        statsShapes[k] = String(v);
+      }
+    }
   }
 
   return NextResponse.json({
@@ -92,12 +111,13 @@ export async function GET(
     diag_success:     diagBody?.success,
     total_attributes: attributes.length,
     attributes,
-    // Stats — inspect records shape to fix extractSparkline
-    stats_url:        statsUrl,
-    stats_status:     statsStatus,
-    stats_error:      statsError,
-    stats_success:    statsBody?.success,
+    // Stats -- inspect records shape to fix extractSparkline
+    stats_url:          statsUrl,
+    stats_status:       statsStatus,
+    stats_error:        statsError,
+    stats_success:      statsBody?.success,
     stats_records_type: Array.isArray(statsBody?.records) ? 'array' : typeof statsBody?.records,
-    stats_raw:        statsBody,   // full raw stats response
+    stats_attr_shapes:  statsShapes,
+    stats_raw:          statsBody,
   }, { status: 200 });
 }
