@@ -94,12 +94,29 @@ export default function Hero() {
       {/* ─── DESKTOP: centered full-width trailer, vertical fade, copy at bottom ─── */}
       <div className="hidden md:flex relative min-h-dvh overflow-hidden flex-col justify-end">
 
-        {/* Trailer background — centered and stretched to fill the viewport
-            width. Using object-cover with object-top keeps the trailer body
-            in frame (bottom of the portrait — which is mostly ground — is
-            what gets cropped, and our vertical fade gradient covers that
-            zone anyway where the copy sits). */}
+        {/* Trailer background — two layers so the whole trailer is visible
+            AND the side gutters never go flat black on wide viewports.
+            Layer 1: blurred, darkened cover-fill behind the image (fills
+            any empty horizontal space a contained portrait would leave).
+            Layer 2: sharp, object-contain image centered — the full
+            trailer, top to bottom, with no cropping. */}
         <div data-hero-image aria-hidden="true" className="absolute inset-0 z-0 pointer-events-none">
+          {/* Blurred letterbox fill — same image, cover, heavily blurred */}
+          <div className="absolute inset-0 scale-110">
+            <Image
+              src="/trailer-hires.jpg"
+              alt=""
+              priority
+              fill
+              sizes="100vw"
+              quality={60}
+              className="object-cover object-center opacity-50 blur-2xl"
+              placeholder="blur"
+              blurDataURL={BLUR_DATA}
+            />
+          </div>
+
+          {/* Sharp centered trailer — whole image visible, no crop */}
           <Image
             src="/trailer-hires.jpg"
             alt=""
@@ -107,7 +124,7 @@ export default function Hero() {
             fill
             sizes="100vw"
             quality={94}
-            className="object-cover object-top opacity-70"
+            className="object-contain object-center opacity-[0.92]"
             placeholder="blur"
             blurDataURL={BLUR_DATA}
           />
@@ -117,7 +134,7 @@ export default function Hero() {
             className="absolute inset-0"
             style={{
               backgroundImage:
-                'radial-gradient(ellipse 65% 55% at 50% 38%, rgba(14,165,233,0.22), transparent 72%)',
+                'radial-gradient(ellipse 65% 55% at 50% 45%, rgba(14,165,233,0.22), transparent 72%)',
             }}
           />
 
