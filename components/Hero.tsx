@@ -82,9 +82,7 @@ export default function Hero() {
       />
 
 
-      {/* Scanline sweep */}
-      <div aria-hidden="true" className="absolute left-0 right-0 h-px z-[3] pointer-events-none animate-scanH"
-        style={{ background:'linear-gradient(90deg,transparent,rgba(14,165,233,0.09),transparent)' }} />
+
 
       {/* Content */}
       <div className="relative z-10 px-8 md:px-16 pb-16 md:pb-24 max-w-3xl">
