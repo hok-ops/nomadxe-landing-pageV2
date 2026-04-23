@@ -57,11 +57,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid destination longitude.', fields: ['dest_gps_lng'] }, { status: 422, headers: corsHeaders() });
   }
 
-  // Use a dedicated relocation webhook if configured, otherwise fall back to
-  // the shared Make.com webhook — form_type: 'relocation' lets Make.com route it.
-  const webhookUrl = process.env.MAKE_RELOCATE_WEBHOOK_URL ?? process.env.MAKE_WEBHOOK_URL;
+  const webhookUrl = process.env.MAKE_RELOCATE_WEBHOOK_URL;
   if (!webhookUrl) {
-    console.error('[relocate] Neither MAKE_RELOCATE_WEBHOOK_URL nor MAKE_WEBHOOK_URL is set.');
+    console.error('[relocate] MAKE_RELOCATE_WEBHOOK_URL not set.');
     return NextResponse.json({ error: 'Webhook not configured.' }, { status: 500, headers: corsHeaders() });
   }
 
