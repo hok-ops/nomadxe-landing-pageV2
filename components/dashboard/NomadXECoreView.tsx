@@ -318,10 +318,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
         transition: 'opacity 0.5s cubic-bezier(.22,1,.36,1), transform 0.5s cubic-bezier(.22,1,.36,1)',
       }}
     >
-      <style dangerouslySetInnerHTML={{__html:`
-        @keyframes nx-flash{0%{filter:brightness(2.2);color:#93c5fd}100%{filter:brightness(1)}}
-        .nx-flash{animation:nx-flash .65s ease forwards}
-      `}} />
+
 
       {isOffline && <OfflineOverlay staleSince={lastSeenS} deviceName={activeDisplayName} />}
 

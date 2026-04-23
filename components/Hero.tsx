@@ -81,12 +81,7 @@ export default function Hero() {
         className="absolute inset-0 bg-gradient-to-t from-midnight via-midnight/70 to-midnight/20"
       />
 
-      {/* Scanline + float keyframes */}
-      <style dangerouslySetInnerHTML={{__html:`
-        @keyframes scanH{0%{top:-2px;opacity:0}10%{opacity:1}90%{opacity:1}100%{top:100%;opacity:0}}
-        @keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-        @keyframes pulseRing{0%{transform:scale(1);opacity:0.7}100%{transform:scale(2.2);opacity:0}}
-      `}} />
+
       {/* Scanline sweep */}
       <div aria-hidden="true" style={{
         position:'absolute',left:0,right:0,height:'2px',zIndex:3,pointerEvents:'none',

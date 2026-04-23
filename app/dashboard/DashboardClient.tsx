@@ -141,11 +141,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
     <div className="nx-page bg-[#080c14] relative" style={{ minHeight: '100dvh' }}>
       <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.022]"
         style={{ backgroundImage: 'linear-gradient(#3b82f6 1px,transparent 1px),linear-gradient(to right,#3b82f6 1px,transparent 1px)', backgroundSize: '48px 48px' }} />
-      <style dangerouslySetInnerHTML={{__html:`
-        @keyframes nx-bar{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
-        @keyframes nx-hdr{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
-        .nx-hdr{animation:nx-hdr 0.45s cubic-bezier(.22,1,.36,1) .1s both}
-      `}} />
+
       <div className="fixed top-0 left-0 right-0 h-[3px] z-[100]" style={{
         background:'linear-gradient(90deg,#1e40af,#3b82f6,#60a5fa,#3b82f6,#1e40af)',
         backgroundSize:'300% 100%',
