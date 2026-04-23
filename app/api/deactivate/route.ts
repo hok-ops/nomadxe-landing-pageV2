@@ -45,9 +45,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid email address.', fields: ['email'] }, { status: 422, headers: corsHeaders() });
   }
 
-  const webhookUrl = process.env.MAKE_DEACTIVATE_WEBHOOK_URL;
+  // Use a dedicated deactivation webhook if configured, otherwise fall back to
+  // the shared Make.com webhook — form_type: 'deactivation' lets Make.com route it.
+  const webhookUrl = process.env.MAKE_DEACTIVATE_WEBHOOK_URL ?? process.env.MAKE_WEBHOOK_URL;
   if (!webhookUrl) {
-    console.error('[deactivate] MAKE_DEACTIVATE_WEBHOOK_URL not set.');
+    console.error('[deactivate] Neither MAKE_DEACTIVATE_WEBHOOK_URL nor MAKE_WEBHOOK_URL is set.');
     return NextResponse.json({ error: 'Webhook not configured.' }, { status: 500, headers: corsHeaders() });
   }
 
