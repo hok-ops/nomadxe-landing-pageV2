@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef, useEffect, useState } from 'react';
 
 const PANEL1_FEATURES = [
   'Integrates with existing cameras',
@@ -19,7 +19,19 @@ const PANEL2_FEATURES = [
 ];
 
 export default function TwoOptions() {
-  const sectionRef = useRef<HTMLElement>(null);
+  const sectionRef  = useRef<HTMLElement>(null);
+  const circuitRef  = useRef<SVGPathElement>(null);
+  const [drawn, setDrawn] = useState(false);
+
+  useEffect(() => {
+    const el = circuitRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { setDrawn(true); obs.disconnect(); }
+    }, { threshold: 0.4 });
+    obs.observe(el.closest('div') ?? el);
+    return () => obs.disconnect();
+  }, []);
 
   useLayoutEffect(() => {
     let ctx: { revert: () => void } | null = null;
@@ -70,7 +82,28 @@ export default function TwoOptions() {
         </div>
 
         {/* Panels */}
-        <div className="grid md:grid-cols-2 gap-0 rounded-3xl overflow-hidden border border-white/5">
+        <div className="relative grid md:grid-cols-2 gap-0 rounded-3xl overflow-hidden border border-white/5">
+          {/* Circuit connector */}
+          <div className="hidden md:flex absolute inset-y-0 left-1/2 -translate-x-1/2 flex-col items-center justify-center z-10 pointer-events-none" style={{width:48}}>
+            <svg width="48" height="200" viewBox="0 0 48 200" fill="none" style={{overflow:'visible'}}>
+              <path
+                ref={circuitRef}
+                d="M24 0 L24 80 L8 80 L8 120 L24 120 L24 200"
+                stroke="rgba(14,165,233,0.45)" strokeWidth="1" fill="none"
+                strokeDasharray="400"
+                style={{
+                  strokeDashoffset: drawn ? 0 : 400,
+                  transition: drawn ? 'stroke-dashoffset 1.8s ease 0.2s' : 'none',
+                }}
+              />
+              <circle cx="8" cy="80" r="2" fill="rgba(14,165,233,0.6)" style={{opacity: drawn ? 1 : 0, transition:'opacity 0.5s ease 0.8s'}} />
+              <circle cx="8" cy="120" r="2" fill="rgba(14,165,233,0.6)" style={{opacity: drawn ? 1 : 0, transition:'opacity 0.5s ease 1.2s'}} />
+            </svg>
+            <div className="absolute top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center"
+              style={{background:'#0B0C10', border:'1px solid rgba(14,165,233,0.3)', opacity: drawn ? 1 : 0, transition:'opacity 0.4s ease 0.6s'}}>
+              <span className="font-mono text-[10px] font-bold text-blue/80">OR</span>
+            </div>
+          </div>
           {/* Panel 1 — Trailer & Power Base */}
           <div
             data-option-panel

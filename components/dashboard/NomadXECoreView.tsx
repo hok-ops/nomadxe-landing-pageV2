@@ -97,7 +97,13 @@ function Sparkline({ data, color, label, unit, height = 36 }: SparklineProps) {
         </defs>
         <path d={area} fill={`url(#sg-${uid})`} />
         <polyline points={polyline} fill="none" stroke={color} strokeWidth="1.5"
-          strokeLinecap="round" strokeLinejoin="round" />
+          strokeLinecap="round" strokeLinejoin="round"
+          style={{
+            strokeDasharray: W * 2,
+            strokeDashoffset: W * 2,
+            animation: `sparkDraw 1.2s ease 0.1s forwards`,
+          }} />
+        <style>{`@keyframes sparkDraw{to{stroke-dashoffset:0}}`}</style>
         <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="2.5" fill={color} />
       </svg>
     </div>
