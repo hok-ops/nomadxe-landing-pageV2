@@ -589,4 +589,3 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
     </div>
   );
 }
-                                                                           
