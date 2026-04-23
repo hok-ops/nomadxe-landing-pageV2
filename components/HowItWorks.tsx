@@ -224,7 +224,7 @@ const STEPS = [
     label: 'Configure',
     title: 'Dialed in before dispatch.',
     description:
-      'We survey the site remotely, spec the trailer configuration, and pre-configure your platform — so by the time a trailer rolls out, everything is already wired to work.',
+      'We spec the trailer configuration and pre-configure your platform to match the job — so by the time a trailer rolls out, everything is already wired to work.',
     bg: 'bg-surface',
   },
   {

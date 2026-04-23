@@ -91,20 +91,43 @@ export default function Hero() {
         </div>
       </div>
 
-      {/* ─── DESKTOP: split layout — copy left, portrait trailer fully visible right ─── */}
-      <div className="hidden md:grid relative min-h-dvh md:grid-cols-12 items-center overflow-hidden">
+      {/* ─── DESKTOP: trailer as atmospheric background, copy on top ─── */}
+      <div className="hidden md:block relative min-h-dvh overflow-hidden">
 
-        {/* Ambient backdrop layers (behind everything) */}
-        <div aria-hidden="true" className="absolute inset-0 z-0 pointer-events-none">
-          {/* Deep radial halo anchored behind trailer column */}
+        {/* Trailer background — nearly the whole portrait image is visible,
+            positioned right of center so copy reads cleanly on the left.
+            Reduced opacity + top/left gradient wash keeps it backdrop-y. */}
+        <div data-hero-image aria-hidden="true" className="absolute inset-0 z-0 pointer-events-none">
+          <Image
+            src="/trailer-hires.jpg"
+            alt=""
+            priority
+            fill
+            sizes="100vw"
+            quality={94}
+            className="object-contain object-[78%_center] lg:object-[72%_center] opacity-45"
+            placeholder="blur"
+            blurDataURL={BLUR_DATA}
+          />
+
+          {/* Soft halo behind the trailer to lift it off the page */}
           <div
             className="absolute inset-0"
             style={{
               backgroundImage:
-                'radial-gradient(ellipse 45% 70% at 72% 50%, rgba(14,165,233,0.22), transparent 70%)',
+                'radial-gradient(ellipse 48% 65% at 72% 50%, rgba(14,165,233,0.18), transparent 72%)',
             }}
           />
-          {/* Subtle scan-line texture */}
+
+          {/* Left-side wash — keeps copy readable while letting the trailer
+              peek through on the right. Tuned so ~90% of the image stays
+              visible rather than getting cropped. */}
+          <div className="absolute inset-0 bg-gradient-to-r from-midnight via-midnight/70 to-transparent" />
+
+          {/* Subtle vertical feather */}
+          <div className="absolute inset-0 bg-gradient-to-b from-midnight/30 via-transparent to-midnight/55" />
+
+          {/* Scan-line texture */}
           <div
             className="absolute inset-0 opacity-[0.04] mix-blend-overlay"
             style={{
@@ -114,72 +137,28 @@ export default function Hero() {
           />
         </div>
 
-        {/* LEFT — copy panel */}
-        <div className="relative z-20 md:col-span-6 lg:col-span-7 px-8 lg:px-16 py-24">
-          <div className="max-w-[34rem] lg:max-w-[38rem]">
-            <HeroCopy statusRef={statusRef} />
+        {/* Copy panel — left-anchored over the backdrop */}
+        <div className="relative z-10 grid grid-cols-12 items-center min-h-dvh">
+          <div className="col-span-12 lg:col-span-7 xl:col-span-6 px-8 lg:px-16 py-24">
+            <div className="max-w-[34rem] lg:max-w-[38rem]">
+              <HeroCopy statusRef={statusRef} />
+            </div>
           </div>
         </div>
 
-        {/* RIGHT — trailer showcase */}
-        <div data-hero-image className="relative md:col-span-6 lg:col-span-5 h-[min(80vh,720px)] md:h-[92vh] z-10">
-          {/* Soft halo directly behind the trailer for lift */}
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              backgroundImage:
-                'radial-gradient(ellipse 60% 55% at 50% 55%, rgba(14,165,233,0.25), transparent 70%)',
-            }}
-          />
-
-          <Image
-            src="/trailer-hires.jpg"
-            alt="NomadXE solar surveillance trailer deployed on site"
-            priority
-            fill
-            sizes="(min-width:1024px) 42vw, 50vw"
-            quality={94}
-            className="object-contain object-center opacity-[0.95] drop-shadow-[0_30px_60px_rgba(14,165,233,0.25)]"
-            placeholder="blur"
-            blurDataURL={BLUR_DATA}
-          />
-
-          {/* Left-edge fade so the trailer blends into the copy panel */}
-          <div
-            aria-hidden="true"
-            className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-midnight to-transparent pointer-events-none"
-          />
-          {/* Top/bottom feather */}
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 bg-gradient-to-b from-midnight/30 via-transparent to-midnight/60 pointer-events-none"
-          />
-
-          {/* Floating telemetry chip — annotates the trailer */}
-          <div
-            aria-hidden="true"
-            className="hidden lg:flex absolute bottom-8 right-8 z-10 items-center gap-3 rounded-lg bg-midnight/80 backdrop-blur-md border border-white/10 px-4 py-2.5 font-mono text-[11px] tracking-wider text-white/80 shadow-[0_10px_40px_-10px_rgba(14,165,233,0.45)]"
-          >
-            <span className="relative inline-flex items-center justify-center w-1.5 h-1.5">
-              <span className="absolute inline-block w-1.5 h-1.5 rounded-full bg-blue animate-pulseRing" />
-              <span className="relative inline-block w-1.5 h-1.5 rounded-full bg-blue" />
-            </span>
-            <span>NX-07 &middot; ONLINE</span>
-            <span className="w-px h-3 bg-white/20" />
-            <span className="text-blue/90">SOC 78% &middot; 412W</span>
-          </div>
-        </div>
-
-        {/* Thin accent rule along the right edge — subtle, frames the trailer side */}
+        {/* Floating telemetry chip — annotates the trailer on large screens */}
         <div
           aria-hidden="true"
-          className="absolute top-24 bottom-24 right-0 w-px z-10 pointer-events-none"
-          style={{
-            background:
-              'linear-gradient(to bottom, transparent, rgba(14,165,233,0.35), transparent)',
-          }}
-        />
+          className="hidden lg:flex absolute bottom-8 right-8 z-20 items-center gap-3 rounded-lg bg-midnight/80 backdrop-blur-md border border-white/10 px-4 py-2.5 font-mono text-[11px] tracking-wider text-white/80 shadow-[0_10px_40px_-10px_rgba(14,165,233,0.45)]"
+        >
+          <span className="relative inline-flex items-center justify-center w-1.5 h-1.5">
+            <span className="absolute inline-block w-1.5 h-1.5 rounded-full bg-blue animate-pulseRing" />
+            <span className="relative inline-block w-1.5 h-1.5 rounded-full bg-blue" />
+          </span>
+          <span>NX-07 &middot; ONLINE</span>
+          <span className="w-px h-3 bg-white/20" />
+          <span className="text-blue/90">SOC 78% &middot; 412W</span>
+        </div>
       </div>
 
       {/* Scroll hint */}
