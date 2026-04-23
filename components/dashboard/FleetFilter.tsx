@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import type { VRMData } from './NomadXECoreView';
 
 const MPPT_OPTIONS = [
@@ -107,6 +108,10 @@ interface Props {
 }
 
 export default function FleetFilter({ filters, onChange }: Props) {
+  // Panel collapsed by default — user explicitly requested "menus collapsed by default".
+  // Auto-opens whenever the user types in the always-visible search input so the chip
+  // rows are immediately in view.
+  const [open, setOpen] = useState(false);
 
   const toggleMppt = (value: MpptFilter) => {
     const next = new Set(filters.mppt);
@@ -130,22 +135,56 @@ export default function FleetFilter({ filters, onChange }: Props) {
 
   const clearAll = () => onChange({ mppt: new Set(), connection: new Set(), search: '', sort: 'name-asc' });
   const active = hasActiveFilters(filters);
+  const activeCount = filters.mppt.size + filters.connection.size + (filters.search.trim() ? 1 : 0);
 
   return (
     <div className="mb-4 bg-[#080c14]/60 border border-[#1e3a5f]/50 rounded-xl px-4 py-3 space-y-2.5">
 
-      <div className="flex items-center justify-between">
-        <span className="text-[9px] font-mono font-bold text-[#3b82f6]/70 uppercase tracking-[0.4em]">
-          Filters
-        </span>
-        {active && (
-          <button onClick={clearAll} className="text-[9px] font-mono font-bold text-[#93c5fd]/40 hover:text-white uppercase tracking-widest transition-colors">
-            &#x2715; Clear all
-          </button>
-        )}
-      </div>
+      {/* Collapsed header row — always visible */}
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        aria-controls="fleet-filter-panel"
+        className="w-full flex items-center justify-between gap-2 group"
+      >
+        <div className="flex items-center gap-2">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+            className="text-[#3b82f6]/70 group-hover:text-[#3b82f6] transition-colors" aria-hidden="true">
+            <line x1="4" y1="6" x2="20" y2="6" /><line x1="8" y1="12" x2="16" y2="12" /><line x1="10" y1="18" x2="14" y2="18" />
+          </svg>
+          <span className="text-[9px] font-mono font-bold text-[#3b82f6]/70 group-hover:text-[#3b82f6] uppercase tracking-[0.4em] transition-colors">
+            Filters
+          </span>
+          {activeCount > 0 && (
+            <span className="text-[9px] font-mono font-black text-white bg-[#3b82f6]/30 border border-[#3b82f6]/60 rounded-full px-1.5 py-[1px] leading-tight">
+              {activeCount}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {active && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); clearAll(); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); clearAll(); } }}
+              className="text-[9px] font-mono font-bold text-[#93c5fd]/40 hover:text-white uppercase tracking-widest transition-colors cursor-pointer"
+            >
+              &#x2715; Clear
+            </span>
+          )}
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+            className="text-[#93c5fd]/50 group-hover:text-white transition-all duration-200"
+            style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+            aria-hidden="true">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+      </button>
 
-      <div className="relative">
+      {/* Search — always visible even when collapsed */}
+      <div className="relative" onClick={(e) => { e.stopPropagation(); if (!open) setOpen(true); }}>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
           className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#93c5fd]/40 pointer-events-none" aria-hidden="true">
           <circle cx="11" cy="11" r="7" />
@@ -154,7 +193,10 @@ export default function FleetFilter({ filters, onChange }: Props) {
         <input
           type="search"
           value={filters.search}
-          onChange={(e) => onChange({ ...filters, search: e.target.value })}
+          onChange={(e) => {
+            onChange({ ...filters, search: e.target.value });
+            if (e.target.value && !open) setOpen(true);
+          }}
           placeholder="Search by name, site ID, or status..."
           aria-label="Search fleet"
           className="w-full bg-[#0b1220]/70 border border-[#1e3a5f]/60 focus:border-[#3b82f6]/60 focus:outline-none focus:ring-1 focus:ring-[#3b82f6]/30 rounded-md pl-8 pr-8 py-1.5 text-[11px] font-mono text-white placeholder:text-[#93c5fd]/30 transition-colors"
@@ -167,41 +209,53 @@ export default function FleetFilter({ filters, onChange }: Props) {
         )}
       </div>
 
-      <div className="border-t border-[#1e3a5f]/40" />
+      {/* Collapsible chip panel */}
+      <div
+        id="fleet-filter-panel"
+        className="overflow-hidden transition-all duration-300 ease-out"
+        style={{
+          maxHeight: open ? '520px' : '0px',
+          opacity: open ? 1 : 0,
+        }}
+      >
+        <div className="space-y-2.5 pt-1">
+          <div className="border-t border-[#1e3a5f]/40" />
 
-      <FilterRow label="Connection">
-        {CONNECTION_OPTIONS.map(opt => (
-          <Chip key={opt.value} label={opt.label} color={opt.color}
-            active={filters.connection.has(opt.value)} onClick={() => toggleConnection(opt.value)} />
-        ))}
-      </FilterRow>
+          <FilterRow label="Connection">
+            {CONNECTION_OPTIONS.map(opt => (
+              <Chip key={opt.value} label={opt.label} color={opt.color}
+                active={filters.connection.has(opt.value)} onClick={() => toggleConnection(opt.value)} />
+            ))}
+          </FilterRow>
 
-      <div className="border-t border-[#1e3a5f]/40" />
+          <div className="border-t border-[#1e3a5f]/40" />
 
-      <FilterRow label="Charge State">
-        {MPPT_OPTIONS.map(opt => (
-          <Chip key={opt.value} label={opt.label} color={opt.color}
-            active={filters.mppt.has(opt.value)} onClick={() => toggleMppt(opt.value)} />
-        ))}
-      </FilterRow>
+          <FilterRow label="Charge State">
+            {MPPT_OPTIONS.map(opt => (
+              <Chip key={opt.value} label={opt.label} color={opt.color}
+                active={filters.mppt.has(opt.value)} onClick={() => toggleMppt(opt.value)} />
+            ))}
+          </FilterRow>
 
-      <div className="border-t border-[#1e3a5f]/40" />
+          <div className="border-t border-[#1e3a5f]/40" />
 
-      <FilterRow label="Sort By">
-        {SORT_OPTIONS.map(opt => {
-          const isNameOpt = opt.key === 'name-asc';
-          const isActive  = isNameOpt
-            ? (filters.sort === 'name-asc' || filters.sort === 'name-desc')
-            : filters.sort === opt.key;
-          const lbl = isNameOpt
-            ? (filters.sort === 'name-desc' ? 'Name Z-A' : 'Name A-Z')
-            : opt.label;
-          return (
-            <Chip key={opt.key} label={lbl} color="#3b82f6"
-              active={isActive} onClick={() => setSort(opt.key)} />
-          );
-        })}
-      </FilterRow>
+          <FilterRow label="Sort By">
+            {SORT_OPTIONS.map(opt => {
+              const isNameOpt = opt.key === 'name-asc';
+              const isActive  = isNameOpt
+                ? (filters.sort === 'name-asc' || filters.sort === 'name-desc')
+                : filters.sort === opt.key;
+              const lbl = isNameOpt
+                ? (filters.sort === 'name-desc' ? 'Name Z-A' : 'Name A-Z')
+                : opt.label;
+              return (
+                <Chip key={opt.key} label={lbl} color="#3b82f6"
+                  active={isActive} onClick={() => setSort(opt.key)} />
+              );
+            })}
+          </FilterRow>
+        </div>
+      </div>
 
     </div>
   );

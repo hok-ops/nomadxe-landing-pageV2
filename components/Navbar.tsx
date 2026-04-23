@@ -87,10 +87,10 @@ export default function Navbar() {
 
         {/* ── CTA buttons — right-aligned ── */}
         <div className="hidden md:flex items-center gap-2.5 flex-shrink-0">
-          {/* CLIENT PORTAL — solid accent button, clearly distinct from nav links */}
+          {/* DASHBOARD LOGIN — solid accent button, clearly distinct from nav links */}
           <a
             href="/login"
-            aria-label="Client Portal login"
+            aria-label="Sign in to the Nomadxe dashboard"
             className="inline-flex items-center gap-1.5 text-[11.5px] font-bold tracking-wider uppercase px-4 py-2 rounded-full transition-all duration-200 hover:scale-[1.03] active:scale-[0.97]"
             style={{
               color: '#0B0C10',
@@ -104,7 +104,7 @@ export default function Navbar() {
               (e.currentTarget as HTMLElement).style.boxShadow = `0 0 14px ${accentColor}55`;
             }}
           >
-            {isOps ? 'Portal' : 'Client Portal'}
+            {isOps ? 'Portal' : 'Dashboard Login'}
           </a>
         </div>
 
@@ -147,11 +147,11 @@ export default function Navbar() {
           </a>
         ))}
 
-        {/* Mobile: Client Portal — solid filled pill */}
+        {/* Mobile: Dashboard Login — solid filled pill */}
         <a
           href="/login"
           onClick={() => setMenuOpen(false)}
-          aria-label="Client Portal login"
+          aria-label="Sign in to the Nomadxe dashboard"
           className="mt-2 text-[#0B0C10] text-base font-bold uppercase tracking-widest rounded-full px-8 py-3 transition-all duration-300"
           style={{
             backgroundColor: accentColor,
@@ -160,7 +160,7 @@ export default function Navbar() {
             opacity: menuOpen ? 1 : 0,
           }}
         >
-          {isOps ? 'Portal' : 'Client Portal'}
+          {isOps ? 'Portal' : 'Dashboard Login'}
         </a>
       </div>
     </>

@@ -210,9 +210,23 @@ function TelemetryTypewriter() {
 }
 
 /* ── Card 3: Deployment Scheduler ────────────────────────────────── */
-const NODES = ['TRAILER', 'PLATFORM', 'PARTNER'];
+/* A horizontal route-map: a trailer travels from DISPATCH → ON-SITE → LIVE.
+   Each waypoint lights up as the convoy arrives; route line fills behind it;
+   at the end, the LIVE node pulses with radio-wave rings and a READY badge
+   rises. More cinematic than three static circles. */
+
+const DEPLOY_STEPS = [
+  { label: 'DISPATCH', caption: 'Route planned' },
+  { label: 'ON-SITE',  caption: 'Trailer staged' },
+  { label: 'LIVE',     caption: 'Cameras online' },
+] as const;
+
+/* Waypoint positions on the 320-wide canvas. */
+const WP_X = [50, 160, 270];
+const WP_Y = 62;
 
 function DeploymentScheduler() {
+  // -1 = idle (trailer offscreen), 0/1/2 = currently arrived at waypoint idx
   const [activeNode, setActiveNode] = useState(-1);
   const [allDone, setAllDone] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -220,7 +234,7 @@ function DeploymentScheduler() {
   useEffect(() => {
     let rafId: number;
     let lastTime = 0;
-    const STEP_DURATION = 1800;
+    const STEP_DURATION = 1700;
     let stepIdx = 0;
     let running = false;
 
@@ -228,16 +242,16 @@ function DeploymentScheduler() {
       if (!running) return;
       if (ts - lastTime >= STEP_DURATION) {
         lastTime = ts;
-        if (stepIdx < NODES.length) {
+        if (stepIdx < DEPLOY_STEPS.length) {
           setActiveNode(stepIdx);
+          if (stepIdx === DEPLOY_STEPS.length - 1) setAllDone(true);
           stepIdx++;
         } else {
-          setAllDone(true);
           setTimeout(() => {
             stepIdx = 0;
             setActiveNode(-1);
             setAllDone(false);
-          }, 3000);
+          }, 2600);
         }
       }
       rafId = requestAnimationFrame(tick);
@@ -265,69 +279,187 @@ function DeploymentScheduler() {
     };
   }, []);
 
+  // Smoothly interpolated trailer X — glides toward the currently active waypoint.
+  const targetX = activeNode < 0 ? WP_X[0] - 38 : WP_X[Math.min(activeNode, 2)];
+  const filledRouteX = activeNode < 0 ? WP_X[0] : WP_X[Math.min(activeNode, 2)];
+
   return (
-    <div ref={containerRef} data-feature-tile className="group relative bg-surface border border-white/5 rounded-2xl p-8 shadow-2xl border-t-2 border-t-blue/40 flex flex-col gap-6 transition-all duration-500 hover:border-blue/30 hover:-translate-y-1 hover:shadow-[0_30px_60px_-30px_rgba(14,165,233,0.35)]" aria-label="Deployment scheduler feature card">
+    <div
+      ref={containerRef}
+      data-feature-tile
+      className="group relative bg-surface border border-white/5 rounded-2xl p-8 shadow-2xl border-t-2 border-t-blue/40 flex flex-col gap-6 transition-all duration-500 hover:border-blue/30 hover:-translate-y-1 hover:shadow-[0_30px_60px_-30px_rgba(14,165,233,0.35)]"
+      aria-label="Deployment route animation card"
+    >
       <div className="font-mono text-xs tracking-widest uppercase text-blue/70">03 — Deployment</div>
       <h3 className="text-xl font-bold text-white">Done-For-You Deployment.</h3>
       <p className="text-sm text-white/50 leading-relaxed">
-        We handle trailer positioning, platform configuration, and partner handoff. You get a live site — site assessment only where needed.
+        We handle trailer positioning, platform configuration, and partner handoff. You get a live site —
+        site assessment only where needed.
       </p>
-      {/* SVG timeline */}
-      <svg viewBox="0 0 280 80" className="w-full" aria-hidden="true">
-        <line x1="80" y1="32" x2="140" y2="32" stroke="#ffffff20" strokeWidth="1.5" strokeDasharray="4 3" />
-        <line x1="200" y1="32" x2="260" y2="32" stroke="#ffffff20" strokeWidth="1.5" strokeDasharray="4 3" />
-        {activeNode >= 1 && (
-          <line x1="80" y1="32" x2="140" y2="32" stroke="#0EA5E9" strokeWidth="1.5"
-            style={{ transition: 'all 600ms ease' }} />
-        )}
-        {activeNode >= 2 && (
-          <line x1="200" y1="32" x2="260" y2="32" stroke="#0EA5E9" strokeWidth="1.5"
-            style={{ transition: 'all 600ms ease' }} />
-        )}
-        {NODES.map((label, i) => {
-          const x = 20 + i * 120;
-          const isActive = i <= activeNode;
+
+      {/* ─── Deployment route SVG ─── */}
+      <svg viewBox="0 0 320 120" className="w-full" aria-hidden="true">
+        <defs>
+          <linearGradient id="deploy-route" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%"   stopColor="#0EA5E9" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.9" />
+          </linearGradient>
+          <radialGradient id="deploy-pulse" cx="50%" cy="50%" r="50%">
+            <stop offset="0%"   stopColor="#0EA5E9" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="#0EA5E9" stopOpacity="0" />
+          </radialGradient>
+          <filter id="deploy-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="2.4" />
+          </filter>
+          <style>{`
+            @keyframes deployPulse {
+              0%   { transform: scale(0.6); opacity: 0.8; }
+              100% { transform: scale(2.4); opacity: 0; }
+            }
+            .deploy-ring {
+              transform-origin: center;
+              transform-box: fill-box;
+              animation: deployPulse 1.8s ease-out infinite;
+            }
+            .deploy-ring-2 { animation-delay: 0.6s; }
+            .deploy-ring-3 { animation-delay: 1.2s; }
+            @keyframes deployBadgeRise {
+              from { opacity: 0; transform: translateY(6px); }
+              to   { opacity: 1; transform: translateY(0); }
+            }
+          `}</style>
+        </defs>
+
+        {/* Base route — dashed */}
+        <line
+          x1={WP_X[0]} y1={WP_Y} x2={WP_X[2]} y2={WP_Y}
+          stroke="#ffffff18" strokeWidth="1.5" strokeDasharray="3 3"
+        />
+
+        {/* Filled route (animates as trailer progresses) */}
+        <line
+          x1={WP_X[0]} y1={WP_Y} x2={filledRouteX} y2={WP_Y}
+          stroke="url(#deploy-route)" strokeWidth="2" strokeLinecap="round"
+          style={{ transition: 'all 900ms cubic-bezier(.22,1,.36,1)' }}
+        />
+
+        {/* Waypoints */}
+        {DEPLOY_STEPS.map((step, i) => {
+          const x = WP_X[i];
+          const isActive   = i <= activeNode;
+          const isCurrent  = i === activeNode;
+          const isLiveNode = i === DEPLOY_STEPS.length - 1 && allDone;
           return (
-            <g key={label}>
+            <g key={step.label}>
+              {/* Pulse rings on the LIVE node once reached */}
+              {isLiveNode && (
+                <g style={{ transformOrigin: `${x}px ${WP_Y}px` }}>
+                  <circle cx={x} cy={WP_Y} r={16} fill="none" stroke="#0EA5E9" strokeWidth="1" className="deploy-ring" />
+                  <circle cx={x} cy={WP_Y} r={16} fill="none" stroke="#0EA5E9" strokeWidth="1" className="deploy-ring deploy-ring-2" />
+                  <circle cx={x} cy={WP_Y} r={16} fill="none" stroke="#0EA5E9" strokeWidth="1" className="deploy-ring deploy-ring-3" />
+                </g>
+              )}
+
+              {/* Glow backing for active waypoints */}
+              {isActive && (
+                <circle cx={x} cy={WP_Y} r={16} fill="url(#deploy-pulse)" />
+              )}
+
+              {/* Core circle */}
               <circle
-                cx={x} cy={32} r={14}
+                cx={x} cy={WP_Y} r={isCurrent ? 12 : 10}
                 fill={isActive ? '#0EA5E9' : '#13151A'}
                 stroke={isActive ? '#0EA5E9' : '#ffffff20'}
-                strokeWidth="1.5"
-                style={{ transition: 'all 600ms ease' }}
+                strokeWidth="1.25"
+                style={{ transition: 'all 500ms cubic-bezier(.22,1,.36,1)' }}
               />
+
+              {/* Index number */}
               <text
-                x={x} y={32}
+                x={x} y={WP_Y + 0.5}
                 textAnchor="middle" dominantBaseline="middle"
-                fill={isActive ? '#0B0C10' : '#ffffff40'}
+                fill={isActive ? '#0B0C10' : '#ffffff50'}
                 fontSize="8" fontFamily="monospace" fontWeight="bold"
-                style={{ transition: 'all 600ms ease' }}
+                style={{ transition: 'fill 500ms ease' }}
               >
-                {i + 1}
+                {String(i + 1).padStart(2, '0')}
               </text>
+
+              {/* Waypoint label */}
               <text
-                x={x} y={56}
+                x={x} y={WP_Y - 22}
                 textAnchor="middle"
-                fill={isActive ? '#0EA5E9' : '#ffffff30'}
-                fontSize="7" fontFamily="monospace"
-                style={{ transition: 'all 600ms ease' }}
+                fill={isActive ? '#0EA5E9' : '#ffffff45'}
+                fontSize="7.5" fontFamily="monospace" fontWeight="700"
+                style={{ transition: 'fill 500ms ease', letterSpacing: '0.14em' }}
               >
-                {label}
+                {step.label}
+              </text>
+
+              {/* Sub-caption */}
+              <text
+                x={x} y={WP_Y + 26}
+                textAnchor="middle"
+                fill={isActive ? '#93c5fd' : '#ffffff25'}
+                fontSize="6.5" fontFamily="monospace"
+                style={{ transition: 'fill 500ms ease', letterSpacing: '0.1em' }}
+              >
+                {step.caption}
               </text>
             </g>
           );
         })}
+
+        {/* Trailer convoy — glides along the route */}
+        <g
+          style={{
+            transform: `translate(${targetX - WP_X[0]}px, 0)`,
+            transition: 'transform 1100ms cubic-bezier(.65,.05,.36,1)',
+          }}
+        >
+          {/* Soft shadow */}
+          <ellipse cx={WP_X[0]} cy={WP_Y + 14} rx="16" ry="2.2" fill="#0EA5E9" opacity="0.12" />
+
+          {/* Trailer body (tiny) */}
+          <g transform={`translate(${WP_X[0] - 14}, ${WP_Y - 12})`}>
+            {/* Main box */}
+            <rect x="0" y="3" width="20" height="9" rx="1.5" fill="#13151A" stroke="#0EA5E9" strokeWidth="0.9" />
+            {/* Solar panel on top */}
+            <rect x="2" y="1" width="16" height="2.5" fill="#0EA5E9" opacity="0.85" />
+            {/* Tow tongue */}
+            <line x1="20" y1="7.5" x2="24" y2="7.5" stroke="#0EA5E9" strokeWidth="0.9" />
+            {/* Wheels */}
+            <circle cx="5"  cy="13" r="1.4" fill="#0EA5E9" />
+            <circle cx="15" cy="13" r="1.4" fill="#0EA5E9" />
+            {/* Antenna — only visible when deployed (arrived at final node) */}
+            {allDone && (
+              <g filter="url(#deploy-glow)">
+                <line x1="10" y1="1" x2="10" y2="-5" stroke="#0EA5E9" strokeWidth="0.8" />
+                <circle cx="10" cy="-6" r="1.2" fill="#0EA5E9" />
+              </g>
+            )}
+          </g>
+        </g>
       </svg>
+
+      {/* Status badge — rises in when LIVE reached */}
       <div
-        className="font-mono text-xs tracking-widest uppercase text-blue text-center"
+        className="font-mono text-[11px] tracking-[0.25em] uppercase text-center inline-flex items-center justify-center gap-2 self-center rounded-full px-4 py-1.5 border"
         style={{
           opacity: allDone ? 1 : 0,
-          transform: allDone ? 'translateY(0)' : 'translateY(8px)',
+          transform: allDone ? 'translateY(0)' : 'translateY(6px)',
           transition: 'opacity 600ms ease, transform 600ms ease',
+          color: '#0EA5E9',
+          borderColor: 'rgba(14,165,233,0.35)',
+          background: 'rgba(14,165,233,0.08)',
         }}
         aria-live="polite"
       >
-        ✓ READY TO DEPLOY
+        <span className="relative inline-flex w-1.5 h-1.5">
+          <span className="absolute inline-block w-1.5 h-1.5 rounded-full bg-blue animate-pulseRing" />
+          <span className="relative inline-block w-1.5 h-1.5 rounded-full bg-blue" />
+        </span>
+        Live &middot; Monitoring active
       </div>
     </div>
   );

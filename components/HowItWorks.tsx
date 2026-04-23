@@ -245,22 +245,26 @@ const STEPS = [
   },
 ];
 
-const VISUALS = [<RadarCanvas key="radar" />, <DotMatrixScan key="dot" />, <EKGWaveform key="ekg" />];
+const VISUAL_COMPONENTS = [RadarCanvas, DotMatrixScan, EKGWaveform] as const;
 
 /* ── HowItWorks Section ──────────────────────────────────────────── */
 export default function HowItWorks() {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const mobileRef = useRef<HTMLDivElement>(null);
+  const desktopRef = useRef<HTMLDivElement>(null);
 
+  // ── Mobile: stacked scroll-pin experience (user said mobile is perfect) ──
   useLayoutEffect(() => {
     let ctx: { revert: () => void } | null = null;
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReduced) return;
+    // Only run pin logic for mobile viewport
+    if (window.matchMedia('(min-width: 768px)').matches) return;
 
     import('gsap').then(({ gsap }) =>
       import('gsap/ScrollTrigger').then(({ ScrollTrigger }) => {
         gsap.registerPlugin(ScrollTrigger);
         ctx = gsap.context(() => {
-          const cards = containerRef.current?.querySelectorAll('[data-step-card]');
+          const cards = mobileRef.current?.querySelectorAll('[data-step-card]');
           if (!cards) return;
           cards.forEach((card, i) => {
             if (i === cards.length - 1) {
@@ -288,11 +292,37 @@ export default function HowItWorks() {
               },
             });
           });
-        }, containerRef);
+        }, mobileRef);
       })
     );
 
     return () => ctx?.revert();
+  }, []);
+
+  // ── Desktop: light scroll-triggered reveal, no pinning ──
+  useEffect(() => {
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced) return;
+    const cards = desktopRef.current?.querySelectorAll<HTMLElement>('[data-step-desktop]') ?? [];
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            (e.target as HTMLElement).style.opacity = '1';
+            (e.target as HTMLElement).style.transform = 'translateY(0)';
+            obs.unobserve(e.target);
+          }
+        });
+      },
+      { threshold: 0.15 }
+    );
+    cards.forEach((el, i) => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(32px)';
+      el.style.transition = `opacity 0.6s cubic-bezier(.22,1,.36,1) ${i * 0.12}s, transform 0.6s cubic-bezier(.22,1,.36,1) ${i * 0.12}s`;
+      obs.observe(el);
+    });
+    return () => obs.disconnect();
   }, []);
 
   return (
@@ -301,45 +331,108 @@ export default function HowItWorks() {
       className="bg-midnight"
       aria-label="How Nomadxe works"
     >
-      <div className="max-w-5xl mx-auto px-8 pt-24 pb-8">
-        <div className="mb-16 text-center">
+      <div className="max-w-6xl mx-auto px-8 pt-24 pb-8">
+        <div className="mb-12 md:mb-16 text-center">
           <p className="font-mono text-xs tracking-widest uppercase text-blue/60 mb-4">Process</p>
           <h2 className="text-4xl md:text-5xl font-bold text-white">How it works</h2>
+          <p className="hidden md:block mt-4 text-white/55 max-w-2xl mx-auto leading-relaxed">
+            Remote configuration, rapid deployment, and 24/7 monitoring — a three-step process,
+            condensed to hours.
+          </p>
         </div>
       </div>
 
-      <div ref={containerRef}>
-        {STEPS.map((step, idx) => (
-          <div
-            key={step.number}
-            data-step-card
-            className={`min-h-screen ${step.bg} rounded-3xl overflow-hidden flex flex-col md:flex-row items-center gap-12 px-8 md:px-20 py-20 relative`}
-            aria-label={`Step ${step.number}: ${step.label}`}
-          >
-            {/* Watermark number — blue */}
-            <span
-              aria-hidden="true"
-              className="absolute top-8 right-8 font-mono font-bold text-blue/10 select-none pointer-events-none"
-              style={{ fontSize: '10rem', lineHeight: 1 }}
+      {/* ── Mobile (<md): scroll-pinned full-screen cards ── */}
+      <div ref={mobileRef} className="md:hidden">
+        {STEPS.map((step, idx) => {
+          const Visual = VISUAL_COMPONENTS[idx];
+          return (
+            <div
+              key={step.number}
+              data-step-card
+              className={`min-h-screen ${step.bg} rounded-3xl overflow-hidden flex flex-col items-center gap-12 px-8 py-20 relative`}
+              aria-label={`Step ${step.number}: ${step.label}`}
             >
-              {step.number}
-            </span>
-
-            {/* Text */}
-            <div className="flex-1 z-10">
-              <p className="font-mono text-xs tracking-[0.3em] uppercase text-blue mb-4">
-                {step.number} — {step.label}
-              </p>
-              <h3 className="text-3xl md:text-5xl font-bold text-white mb-6">{step.title}</h3>
-              <p className="text-lg text-white/60 max-w-md leading-relaxed">{step.description}</p>
+              <span
+                aria-hidden="true"
+                className="absolute top-8 right-8 font-mono font-bold text-blue/10 select-none pointer-events-none"
+                style={{ fontSize: '10rem', lineHeight: 1 }}
+              >
+                {step.number}
+              </span>
+              <div className="flex-1 z-10">
+                <p className="font-mono text-xs tracking-[0.3em] uppercase text-blue mb-4">
+                  {step.number} — {step.label}
+                </p>
+                <h3 className="text-3xl font-bold text-white mb-6">{step.title}</h3>
+                <p className="text-lg text-white/60 max-w-md leading-relaxed">{step.description}</p>
+              </div>
+              <div className="flex-1 z-10 w-full max-w-md">
+                <Visual />
+              </div>
             </div>
+          );
+        })}
+      </div>
 
-            {/* Visual */}
-            <div className="flex-1 z-10 w-full max-w-md">
-              {VISUALS[idx]}
-            </div>
-          </div>
-        ))}
+      {/* ── Desktop (≥md): compact 3-column timeline, one viewport ── */}
+      <div ref={desktopRef} className="hidden md:block max-w-6xl mx-auto px-8 pb-24">
+        <div className="relative grid md:grid-cols-3 gap-6 lg:gap-8">
+
+          {/* Connector rail behind the cards */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute top-[22%] left-[16.5%] right-[16.5%] h-px"
+            style={{
+              background:
+                'linear-gradient(to right, transparent, rgba(14,165,233,0.35) 20%, rgba(14,165,233,0.35) 80%, transparent)',
+            }}
+          />
+
+          {STEPS.map((step, idx) => {
+            const Visual = VISUAL_COMPONENTS[idx];
+            return (
+              <div
+                key={step.number}
+                data-step-desktop
+                className={`relative ${step.bg} rounded-2xl border border-white/5 p-7 lg:p-8 flex flex-col gap-5 transition-all duration-300 hover:border-blue/30 hover:-translate-y-0.5 hover:shadow-[0_20px_60px_-30px_rgba(14,165,233,0.35)]`}
+                aria-label={`Step ${step.number}: ${step.label}`}
+              >
+                {/* Numbered marker */}
+                <div className="relative flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="flex items-center justify-center w-9 h-9 rounded-full font-mono text-xs font-bold text-midnight"
+                      style={{
+                        backgroundColor: '#0EA5E9',
+                        boxShadow: '0 0 16px rgba(14,165,233,0.45)',
+                      }}
+                      aria-hidden="true"
+                    >
+                      {step.number}
+                    </div>
+                    <p className="font-mono text-[11px] tracking-[0.3em] uppercase text-blue">
+                      {step.label}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Visual */}
+                <div className="flex items-center justify-center min-h-[140px]">
+                  <Visual />
+                </div>
+
+                {/* Copy */}
+                <div>
+                  <h3 className="text-xl lg:text-2xl font-bold text-white mb-2 leading-tight">
+                    {step.title}
+                  </h3>
+                  <p className="text-sm text-white/55 leading-relaxed">{step.description}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );

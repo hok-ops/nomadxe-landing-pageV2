@@ -56,9 +56,11 @@ interface SparklineProps {
   label: string;
   unit: string;
   height?: number;
+  /** Bumping this replays the draw-in animation (e.g. on device select). */
+  pulseKey?: number;
 }
 
-function Sparkline({ data, color, label, unit, height = 36 }: SparklineProps) {
+function Sparkline({ data, color, label, unit, height = 36, pulseKey = 0 }: SparklineProps) {
   if (data.length < 2) {
     return (
       <div className="h-9 flex items-center">
@@ -96,14 +98,22 @@ function Sparkline({ data, color, label, unit, height = 36 }: SparklineProps) {
           </linearGradient>
         </defs>
         <path d={area} fill={`url(#sg-${uid})`} />
-        <polyline points={polyline} fill="none" stroke={color} strokeWidth="1.5"
+        {/* key is pulseKey-scoped so bumping it re-mounts the element and replays sparkDraw */}
+        <polyline
+          key={`line-${pulseKey}`}
+          points={polyline} fill="none" stroke={color} strokeWidth="1.5"
           strokeLinecap="round" strokeLinejoin="round"
           style={{
             strokeDasharray: 2000,
             strokeDashoffset: 2000,
             animation: `sparkDraw 1.2s ease 0.1s forwards`,
+            filter: `drop-shadow(0 0 3px ${color}55)`,
           }} />
-        <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="2.5" fill={color} />
+        <circle
+          key={`dot-${pulseKey}`}
+          cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="2.5" fill={color}
+          style={{ animation: `sparkDot 900ms ease 1s both` }}
+        />
       </svg>
     </div>
   );
@@ -486,7 +496,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
         <div className="flex flex-col lg:flex-row lg:items-stretch gap-3 lg:gap-0">
 
           {/* Solar Card */}
-          <div data-core-card="solar" className="flex-1 min-w-0 bg-[#080c14] border border-[#1e3a5f]/50 rounded-xl p-5">
+          <div data-core-card="solar" className="group/core flex-1 min-w-0 bg-[#080c14] border border-[#1e3a5f]/50 rounded-xl p-5 transition-all duration-300 hover:border-[#22c55e]/40 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-12px_rgba(34,197,94,0.35)]">
             <div className="flex items-center gap-2 mb-4">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2">
                 <circle cx="12" cy="12" r="5" />
@@ -518,7 +528,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
           {/* Battery Hub */}
           <div
             data-core-card="battery"
-            className="flex-[1.15] min-w-0 bg-[#080c14] rounded-xl p-5 flex flex-col"
+            className="group/core flex-[1.15] min-w-0 bg-[#080c14] rounded-xl p-5 flex flex-col transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-12px_rgba(59,130,246,0.35)]"
             style={{ border: `1px solid ${charging ? '#22c55e30' : discharging ? '#3b82f630' : '#1e3a5f80'}` }}
           >
             <div className="flex items-center justify-between mb-4">
@@ -577,7 +587,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
           <FlowArrow active={loadActive} color="#f59e0b" />
 
           {/* DC Loads Card */}
-          <div data-core-card="dc" className="flex-1 min-w-0 bg-[#080c14] border border-[#1e3a5f]/50 rounded-xl p-5 flex flex-col">
+          <div data-core-card="dc" className="group/core flex-1 min-w-0 bg-[#080c14] border border-[#1e3a5f]/50 rounded-xl p-5 flex flex-col transition-all duration-300 hover:border-[#f59e0b]/40 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-12px_rgba(245,158,11,0.35)]">
             <div className="flex items-center gap-2 mb-4">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2">
                 <path d="M18 8h1a4 4 0 0 1 0 8h-1" />

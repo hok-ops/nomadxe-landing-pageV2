@@ -5,6 +5,7 @@ import Link from 'next/link';
 import NomadXECoreView, { type VRMData } from '@/components/dashboard/NomadXECoreView';
 import FleetTile from '@/components/dashboard/FleetTile';
 import FleetFilter, { type FleetFilters, EMPTY_FILTERS, deviceMatchesFilters, hasActiveFilters } from '@/components/dashboard/FleetFilter';
+import FleetSummary from '@/components/dashboard/FleetSummary';
 import ReadingKey from '@/components/dashboard/ReadingKey';
 import ThemeToggle from '@/components/ThemeToggle';
 
@@ -202,7 +203,8 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
         )}
 
         {devices.length > 1 && !hasMany && (
-          <div className="space-y-8 pb-10">
+          <div className="space-y-6 pb-10">
+            <FleetSummary devices={devices} dataMap={dataMap} />
             {devices.map(d => (
               <NomadXECoreView key={d.siteId} device={d} initialData={dataMap[d.siteId] ?? null} displayName={displayNames[d.siteId] ?? null} onRename={handleRename} onData={handleDeviceData} />
             ))}
@@ -211,6 +213,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
 
         {hasMany && (
           <>
+            <FleetSummary devices={devices} dataMap={dataMap} />
             <div className="lg:hidden pb-10">
               {mobileView === 'detail' && (
                 <div className="flex items-center justify-between mb-4">
