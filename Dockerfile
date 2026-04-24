@@ -13,6 +13,10 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED 1
+# CI=true tells env-check.mjs to emit warnings only (not exit 1) when secrets
+# are absent at build time. Runtime secrets are injected by the container
+# orchestrator at run time — they must NOT be baked into the image.
+ENV CI true
 RUN npm run build
 
 # Production image, copy all the files and run next
