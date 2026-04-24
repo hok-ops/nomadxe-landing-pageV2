@@ -32,15 +32,15 @@ const FORKLIFT_OPTIONS = [
 
 const QUANTITIES = ['1', '2', '3', '4+'];
 
-const LABEL = 'block text-[10.5px] font-semibold text-white/50 uppercase tracking-[0.12em] mb-1.5';
+const LABEL = 'block text-[10.5px] font-semibold text-slate-500 uppercase tracking-[0.12em] mb-1.5';
 const INPUT = (err: boolean) =>
-  `w-full bg-midnight border rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/20 outline-none transition-all duration-200 focus:ring-2 ${
+  `w-full bg-white border rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 outline-none transition-all duration-200 focus:ring-2 ${
     err
-      ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/15'
-      : 'border-white/[0.08] focus:border-blue/60 focus:ring-blue/20'
+      ? 'border-red-300 focus:border-red-500 focus:ring-red-500/15'
+      : 'border-slate-200 focus:border-blue/70 focus:ring-blue/15'
   }`;
-const ERR = 'mt-1 text-[11px] text-red-400 font-mono';
-const SEL = (val: string) => ({ color: val ? 'white' : 'rgba(255,255,255,0.2)' });
+const ERR = 'mt-1 text-[11px] text-red-500 font-mono';
+const SEL = (val: string) => ({ color: val ? '#0f172a' : '#94a3b8' });
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error';
 interface SiteContact { name: string; phone: string; }
@@ -105,10 +105,10 @@ function validate(f: Fields): FE {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-surface border border-white/[0.06] rounded-2xl overflow-hidden">
-      <div className="h-px w-full bg-gradient-to-r from-transparent via-red-500/20 to-transparent" />
-      <div className="px-6 py-5 border-b border-white/[0.05]">
-        <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-white/40">{title}</span>
+    <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+      <div className="h-px w-full bg-gradient-to-r from-transparent via-red-300/50 to-transparent" />
+      <div className="px-6 py-4 border-b border-slate-100">
+        <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-slate-400">{title}</span>
       </div>
       <div className="px-6 py-5 space-y-4">{children}</div>
     </div>
@@ -204,10 +204,8 @@ export default function DeactivateFormClient() {
 
   if (formState === 'success') {
     return (
-      <div className="min-h-screen bg-midnight flex flex-col items-center justify-center p-6 relative overflow-hidden">
-        <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.025]"
-          style={{ backgroundImage: 'radial-gradient(circle, #ef4444 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
-        <div className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-red-900 via-red-500 to-red-900 z-[100]" />
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        <div className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-red-700 via-red-500 to-red-700 z-[100]" />
         <div className="relative z-10 w-full max-w-lg text-center space-y-8">
           <div className="flex justify-center">
             <div className="relative">
@@ -219,24 +217,24 @@ export default function DeactivateFormClient() {
               <div className="absolute inset-0 rounded-full border border-red-500/20 animate-ping" style={{ animationDuration: '2.5s' }} />
             </div>
           </div>
-          <div className="inline-flex items-center gap-2 bg-red-900/15 border border-red-500/25 rounded-full px-5 py-2">
+          <div className="inline-flex items-center gap-2 bg-red-50 border border-red-200 rounded-full px-5 py-2">
             <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-            <span className="font-mono text-[11px] tracking-[0.2em] uppercase text-red-400/80">Call-Off Received</span>
+            <span className="font-mono text-[11px] tracking-[0.2em] uppercase text-red-500/80">Call-Off Received</span>
           </div>
-          <div><span className="font-mono text-2xl font-black tracking-[0.18em] uppercase text-white">NOMAD<span className="text-blue">XE</span></span></div>
-          <div className="bg-surface border border-white/[0.06] rounded-2xl overflow-hidden">
-            <div className="h-px w-full bg-gradient-to-r from-transparent via-red-500/25 to-transparent" />
+          <div><span className="font-mono text-2xl font-black tracking-[0.18em] uppercase text-slate-900">NOMAD<span className="text-blue">XE</span></span></div>
+          <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+            <div className="h-px w-full bg-gradient-to-r from-transparent via-red-300/50 to-transparent" />
             <div className="px-8 py-8 space-y-4">
-              <h1 className="text-xl font-bold text-white">Pick-Up Request Logged</h1>
-              <p className="text-[13.5px] text-white/50 leading-relaxed">
+              <h1 className="text-xl font-bold text-slate-900">Pick-Up Request Logged</h1>
+              <p className="text-[13.5px] text-slate-500 leading-relaxed">
                 Your deactivation request has been received. Our logistics team will contact the on-site pick-up contact to confirm a window within 1–2 business days.
               </p>
             </div>
           </div>
-          <div className="bg-surface border border-white/[0.06] rounded-2xl overflow-hidden text-left">
-            <div className="h-px w-full bg-gradient-to-r from-transparent via-red-500/25 to-transparent" />
-            <div className="px-6 py-4 border-b border-white/[0.05]">
-              <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-white/40">Summary</span>
+          <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm text-left">
+            <div className="h-px w-full bg-gradient-to-r from-transparent via-red-300/50 to-transparent" />
+            <div className="px-6 py-4 border-b border-slate-100">
+              <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-slate-400">Summary</span>
             </div>
             <div className="px-6 py-5 grid grid-cols-2 gap-x-6 gap-y-4">
               {[
@@ -248,8 +246,8 @@ export default function DeactivateFormClient() {
                 { label: 'Last Use Date', value: fields.last_use_date ? new Date(fields.last_use_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '' },
               ].map(({ label, value }) => (
                 <div key={label}>
-                  <p className="font-mono text-[9.5px] uppercase tracking-[0.15em] text-white/30 mb-0.5">{label}</p>
-                  <p className="text-[13px] text-white/80">{value || '—'}</p>
+                  <p className="font-mono text-[9.5px] uppercase tracking-[0.15em] text-slate-400 mb-0.5">{label}</p>
+                  <p className="text-[13px] text-slate-700">{value || '—'}</p>
                 </div>
               ))}
             </div>
@@ -257,7 +255,7 @@ export default function DeactivateFormClient() {
           <button onClick={handleReset} className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3.5 rounded-xl text-sm tracking-wide transition-all duration-200 active:scale-[0.98]">
             Submit Another Request
           </button>
-          <Link href="/" className="block text-[11px] text-white/30 hover:text-white/60 transition-colors font-mono uppercase tracking-[0.15em]">
+          <Link href="/" className="block text-[11px] text-slate-400 hover:text-slate-600 transition-colors font-mono uppercase tracking-[0.15em]">
             Back to NomadXE.com
           </Link>
         </div>
@@ -266,27 +264,25 @@ export default function DeactivateFormClient() {
   }
 
   return (
-    <div className="min-h-screen bg-midnight relative overflow-x-hidden">
-      <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.025]"
-        style={{ backgroundImage: 'radial-gradient(circle, #ef4444 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+    <div className="min-h-screen bg-slate-50 relative overflow-x-hidden">
       <div className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-red-900 via-red-500 to-red-900 z-[100]" />
 
       <div className="relative z-10 max-w-2xl mx-auto px-5 py-16 sm:py-20">
         <div className="text-center mb-10">
           <Link href="/" className="inline-flex flex-col items-center gap-3 group mb-8">
-            <div className="w-11 h-11 rounded-xl bg-red-900/20 border border-red-500/20 flex items-center justify-center group-hover:border-red-500/50 transition-all duration-300">
+            <div className="w-11 h-11 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center group-hover:border-red-400 transition-all duration-300">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 10V8a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h7" />
                 <path d="M16 2v4M8 2v4M3 10h18" />
                 <path d="m17 17 2 2 4-4" />
               </svg>
             </div>
-            <span className="font-mono text-[21px] font-black tracking-[0.18em] uppercase text-white leading-none">
+            <span className="font-mono text-[21px] font-black tracking-[0.18em] uppercase text-slate-900 leading-none">
               NOMAD<span className="text-blue">XE</span>
             </span>
           </Link>
-          <h1 className="text-[22px] font-bold text-white tracking-tight mb-2">Deactivation & Pick-Up Request</h1>
-          <p className="text-[12.5px] text-white/40 leading-relaxed max-w-sm mx-auto">
+          <h1 className="text-[22px] font-bold text-slate-900 tracking-tight mb-2">Deactivation & Pick-Up Request</h1>
+          <p className="text-[12.5px] text-slate-500 leading-relaxed max-w-sm mx-auto">
             Submit a call-off request to schedule retrieval of your NomadXE unit. Allow a minimum of 3 business days for logistics coordination.
           </p>
         </div>
@@ -328,12 +324,12 @@ export default function DeactivateFormClient() {
               </div>
             </div>
             <div>
-              <label htmlFor="d-cc" className={LABEL}>CC Recipients <span className="normal-case text-white/35 font-normal tracking-normal">(optional)</span></label>
+              <label htmlFor="d-cc" className={LABEL}>CC Recipients <span className="normal-case text-slate-400 font-normal tracking-normal">(optional)</span></label>
               <textarea id="d-cc" name="cc_emails" rows={2}
                 value={fields.cc_emails} onChange={handleChange}
                 placeholder="ops@company.com, manager@company.com"
                 className={`${INPUT(false)} resize-none`} />
-              <p className="mt-1 font-mono text-[10px] text-white/25">Comma-separated — additional addresses to receive a copy of this request</p>
+              <p className="mt-1 font-mono text-[10px] text-slate-400">Comma-separated — additional addresses to receive a copy of this request</p>
             </div>
           </Section>
 
@@ -347,7 +343,7 @@ export default function DeactivateFormClient() {
                   className={`${INPUT(!!errors.quantity)} appearance-none cursor-pointer`}
                   style={SEL(fields.quantity)}>
                   <option value="" disabled>Select…</option>
-                  {QUANTITIES.map(q => <option key={q} value={q} style={{ color: 'white', background: '#0B0C10' }}>{q}</option>)}
+                  {QUANTITIES.map(q => <option key={q} value={q} style={{ color: '#0f172a', background: '#ffffff' }}>{q}</option>)}
                 </select>
                 {errors.quantity && <p className={ERR}>{errors.quantity}</p>}
               </div>
@@ -410,9 +406,9 @@ export default function DeactivateFormClient() {
                 <input id="d-pickup-date" name="pickup_date" type="date" required min={today}
                   value={fields.pickup_date} onChange={handleChange}
                   aria-invalid={!!errors.pickup_date}
-                  className={`${INPUT(!!errors.pickup_date)} [color-scheme:dark]`} />
+                  className={`${INPUT(!!errors.pickup_date)} [color-scheme:light]`} />
                 {errors.pickup_date && <p className={ERR}>{errors.pickup_date}</p>}
-                <p className="mt-1 font-mono text-[10px] text-white/25">Min. 3 business days from today</p>
+                <p className="mt-1 font-mono text-[10px] text-slate-400">Min. 3 business days from today</p>
               </div>
               <div>
                 <label htmlFor="d-pickup-window" className={LABEL}>Preferred Pick-Up Window <span className="text-red-400/80">*</span></label>
@@ -421,7 +417,7 @@ export default function DeactivateFormClient() {
                   className={`${INPUT(!!errors.pickup_window)} appearance-none cursor-pointer`}
                   style={SEL(fields.pickup_window)}>
                   <option value="" disabled>Select…</option>
-                  {PICKUP_WINDOWS.map(w => <option key={w} value={w} style={{ color: 'white', background: '#0B0C10' }}>{w}</option>)}
+                  {PICKUP_WINDOWS.map(w => <option key={w} value={w} style={{ color: '#0f172a', background: '#ffffff' }}>{w}</option>)}
                 </select>
                 {errors.pickup_window && <p className={ERR}>{errors.pickup_window}</p>}
               </div>
@@ -447,7 +443,7 @@ export default function DeactivateFormClient() {
 
             {/* Additional Site Contacts */}
             {additionalContacts.map((contact, idx) => (
-              <div key={idx} className="relative grid sm:grid-cols-2 gap-4 pl-4 border-l-2 border-white/[0.08]">
+              <div key={idx} className="relative grid sm:grid-cols-2 gap-4 pl-4 border-l-2 border-slate-200">
                 <div>
                   <label className={LABEL}>Additional Contact {idx + 2} — Name <span className="text-red-400/80">*</span></label>
                   <input type="text" value={contact.name}
@@ -467,13 +463,13 @@ export default function DeactivateFormClient() {
                   {contactErrors[idx]?.phone && <p className={ERR}>{contactErrors[idx]?.phone}</p>}
                 </div>
                 <button type="button" onClick={() => removeContact(idx)}
-                  className="absolute -left-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-surface border border-white/[0.08] text-white/30 hover:text-red-400 hover:border-red-500/30 transition-colors text-[9px] flex items-center justify-center"
+                  className="absolute -left-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-red-400 hover:border-red-300 transition-colors text-[9px] flex items-center justify-center"
                   aria-label="Remove contact">✕</button>
               </div>
             ))}
             <button type="button" onClick={addContact}
-              className="flex items-center gap-2 text-[11px] font-mono text-white/35 hover:text-white/70 transition-colors py-1">
-              <span className="w-5 h-5 rounded border border-white/[0.08] flex items-center justify-center text-[10px] text-white/40">+</span>
+              className="flex items-center gap-2 text-[11px] font-mono text-slate-400 hover:text-slate-600 transition-colors py-1">
+              <span className="w-5 h-5 rounded border border-slate-200 flex items-center justify-center text-[10px] text-slate-400">+</span>
               Add Another On-Site Contact
             </button>
 
@@ -484,12 +480,12 @@ export default function DeactivateFormClient() {
                 className={`${INPUT(!!errors.forklift_at_pickup)} appearance-none cursor-pointer`}
                 style={SEL(fields.forklift_at_pickup)}>
                 <option value="" disabled>Select…</option>
-                {FORKLIFT_OPTIONS.map(o => <option key={o} value={o} style={{ color: 'white', background: '#0B0C10' }}>{o}</option>)}
+                {FORKLIFT_OPTIONS.map(o => <option key={o} value={o} style={{ color: '#0f172a', background: '#ffffff' }}>{o}</option>)}
               </select>
               {errors.forklift_at_pickup && <p className={ERR}>{errors.forklift_at_pickup}</p>}
             </div>
             <div>
-              <label htmlFor="d-gate" className={LABEL}>Gate Code / Access Instructions <span className="normal-case text-white/35 font-normal tracking-normal">(optional)</span></label>
+              <label htmlFor="d-gate" className={LABEL}>Gate Code / Access Instructions <span className="normal-case text-slate-400 font-normal tracking-normal">(optional)</span></label>
               <textarea id="d-gate" name="gate_access_instructions" rows={2}
                 value={fields.gate_access_instructions} onChange={handleChange}
                 placeholder="Gate code #1234, enter via North entrance, security must be notified 30 min prior…"
@@ -506,7 +502,7 @@ export default function DeactivateFormClient() {
                 className={`${INPUT(!!errors.return_reason)} appearance-none cursor-pointer`}
                 style={SEL(fields.return_reason)}>
                 <option value="" disabled>Select…</option>
-                {RETURN_REASONS.map(r => <option key={r} value={r} style={{ color: 'white', background: '#0B0C10' }}>{r}</option>)}
+                {RETURN_REASONS.map(r => <option key={r} value={r} style={{ color: '#0f172a', background: '#ffffff' }}>{r}</option>)}
               </select>
               {errors.return_reason && <p className={ERR}>{errors.return_reason}</p>}
             </div>
@@ -517,7 +513,7 @@ export default function DeactivateFormClient() {
                 className={`${INPUT(!!errors.equipment_condition)} appearance-none cursor-pointer`}
                 style={SEL(fields.equipment_condition)}>
                 <option value="" disabled>Select…</option>
-                {CONDITION_OPTIONS.map(c => <option key={c} value={c} style={{ color: 'white', background: '#0B0C10' }}>{c}</option>)}
+                {CONDITION_OPTIONS.map(c => <option key={c} value={c} style={{ color: '#0f172a', background: '#ffffff' }}>{c}</option>)}
               </select>
               {errors.equipment_condition && <p className={ERR}>{errors.equipment_condition}</p>}
             </div>
@@ -555,9 +551,9 @@ export default function DeactivateFormClient() {
               <input id="d-last-use" name="last_use_date" type="date" required max={today}
                 value={fields.last_use_date} onChange={handleChange}
                 aria-invalid={!!errors.last_use_date}
-                className={`${INPUT(!!errors.last_use_date)} [color-scheme:dark]`} />
+                className={`${INPUT(!!errors.last_use_date)} [color-scheme:light]`} />
               {errors.last_use_date && <p className={ERR}>{errors.last_use_date}</p>}
-              <p className="mt-1 font-mono text-[10px] text-white/25">Used to calculate prorated billing</p>
+              <p className="mt-1 font-mono text-[10px] text-slate-400">Used to calculate prorated billing</p>
             </div>
             <div>
               <label htmlFor="d-notes" className={LABEL}>Additional Notes</label>
@@ -581,7 +577,7 @@ export default function DeactivateFormClient() {
             ) : 'Submit Pick-Up Request →'}
           </button>
 
-          <p className="text-center text-[10px] text-white/20 font-mono uppercase tracking-[0.15em] pb-4">
+          <p className="text-center text-[10px] text-slate-400 font-mono uppercase tracking-[0.15em] pb-4">
             Secure · Confidential · NomadXE
           </p>
         </form>
