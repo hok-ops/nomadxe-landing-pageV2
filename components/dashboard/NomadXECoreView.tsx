@@ -698,7 +698,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
           </div>
         </div>
 
-        <VRMDeepDivePanel data={data} details={details} loading={detailsLoading} />
+        <VRMDeepDivePanel siteId={device.siteId} data={data} details={details} loading={detailsLoading} />
       </div>
     </div>
   );

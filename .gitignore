@@ -25,7 +25,3 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
-
-# PowerShell artifacts — $null gets created when a Windows PS command
-# redirects to $null and something goes wrong with the git index
-$null
