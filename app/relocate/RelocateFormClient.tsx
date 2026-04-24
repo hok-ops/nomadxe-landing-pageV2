@@ -10,15 +10,15 @@ const FORKLIFT_OPTIONS = ['Yes — Forklift On-Site','No — NomadXE Will Need t
 const QUANTITIES = ['1','2','3','4+'];
 const YES_NO = ['Yes','No'];
 
-const LABEL = 'block text-[10.5px] font-semibold text-[#93c5fd]/55 uppercase tracking-[0.12em] mb-1.5';
+const LABEL = 'block text-[10.5px] font-semibold text-white/50 uppercase tracking-[0.12em] mb-1.5';
 const INPUT = (err: boolean) =>
-  `w-full bg-[#080c14] border rounded-xl px-4 py-3 text-white text-sm placeholder:text-[#93c5fd]/18 outline-none transition-all duration-200 focus:ring-2 ${
+  `w-full bg-midnight border rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/20 outline-none transition-all duration-200 focus:ring-2 ${
     err
       ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/15'
-      : 'border-[#1e3a5f] focus:border-[#3b82f6] focus:ring-[#3b82f6]/20'
+      : 'border-white/[0.08] focus:border-blue/60 focus:ring-blue/20'
   }`;
 const ERR = 'mt-1 text-[11px] text-red-400 font-mono';
-const SEL = (val: string) => ({ color: val ? 'white' : 'rgba(147,197,253,0.18)' });
+const SEL = (val: string) => ({ color: val ? 'white' : 'rgba(255,255,255,0.2)' });
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error';
 interface SiteContact { name: string; phone: string; }
@@ -100,10 +100,10 @@ function validate(f: Fields): FE {
 
 function SectionGold({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-[#0d1526] border border-[#1e3a5f]/80 rounded-2xl overflow-hidden">
-      <div className="h-px w-full bg-gradient-to-r from-transparent via-[#f59e0b]/20 to-transparent" />
-      <div className="px-6 py-5 border-b border-[#1e3a5f]/50">
-        <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-[#f59e0b]/60">{title}</span>
+    <div className="bg-surface border border-white/[0.06] rounded-2xl overflow-hidden">
+      <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      <div className="px-6 py-5 border-b border-white/[0.05]">
+        <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-white/40">{title}</span>
       </div>
       <div className="px-6 py-5 space-y-4">{children}</div>
     </div>
@@ -112,10 +112,10 @@ function SectionGold({ title, children }: { title: string; children: React.React
 
 function SectionBlue({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-[#0d1526] border border-[#1e3a5f]/80 rounded-2xl overflow-hidden">
-      <div className="h-px w-full bg-gradient-to-r from-transparent via-[#3b82f6]/25 to-transparent" />
-      <div className="px-6 py-5 border-b border-[#1e3a5f]/50">
-        <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-[#3b82f6]/60">{title}</span>
+    <div className="bg-surface border border-white/[0.06] rounded-2xl overflow-hidden">
+      <div className="h-px w-full bg-gradient-to-r from-transparent via-blue/20 to-transparent" />
+      <div className="px-6 py-5 border-b border-white/[0.05]">
+        <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-blue/60">{title}</span>
       </div>
       <div className="px-6 py-5 space-y-4">{children}</div>
     </div>
@@ -135,7 +135,7 @@ function AdditionalContacts({
   return (
     <>
       {contacts.map((contact, idx) => (
-        <div key={idx} className="relative grid sm:grid-cols-2 gap-4 pl-4 border-l-2 border-[#1e3a5f]/50">
+        <div key={idx} className="relative grid sm:grid-cols-2 gap-4 pl-4 border-l-2 border-white/[0.08]">
           <div>
             <label className={`${LABEL}`}>Additional Contact {idx + 2} — Name <span className="text-red-400/80">*</span></label>
             <input type="text" value={contact.name}
@@ -155,13 +155,13 @@ function AdditionalContacts({
             {contactErrors[idx]?.phone && <p className={ERR}>{contactErrors[idx]?.phone}</p>}
           </div>
           <button type="button" onClick={() => onRemove(idx)}
-            className="absolute -left-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-[#0d1526] border border-[#1e3a5f] text-[#93c5fd]/30 hover:text-red-400 hover:border-red-500/30 transition-colors text-[9px] flex items-center justify-center"
+            className="absolute -left-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-surface border border-white/[0.08] text-white/30 hover:text-red-400 hover:border-red-500/30 transition-colors text-[9px] flex items-center justify-center"
             aria-label="Remove contact">✕</button>
         </div>
       ))}
       <button type="button" onClick={onAdd}
-        className="flex items-center gap-2 text-[11px] font-mono text-[#93c5fd]/35 hover:text-[#93c5fd]/70 transition-colors py-1">
-        <span className="w-5 h-5 rounded border border-[#1e3a5f] flex items-center justify-center text-[10px] text-[#93c5fd]/40">+</span>
+        className="flex items-center gap-2 text-[11px] font-mono text-white/35 hover:text-white/70 transition-colors py-1">
+        <span className="w-5 h-5 rounded border border-white/[0.08] flex items-center justify-center text-[10px] text-white/40">+</span>
         Add Another On-Site Contact
       </button>
     </>
@@ -272,39 +272,39 @@ export default function RelocateFormClient() {
 
   if (formState === 'success') {
     return (
-      <div className="min-h-screen bg-[#080c14] flex flex-col items-center justify-center p-6 relative overflow-hidden">
-        <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.025]"
-          style={{ backgroundImage: 'radial-gradient(circle, #f59e0b 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
-        <div className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#78350f] via-[#f59e0b] to-[#78350f] z-[100]" />
+      <div className="min-h-screen bg-midnight flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.03]"
+          style={{ backgroundImage: 'radial-gradient(circle, rgba(14,165,233,0.4) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+        <div className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-blue-dark via-blue to-blue-dark z-[100]" />
         <div className="relative z-10 w-full max-w-lg text-center space-y-8">
           <div className="flex justify-center">
             <div className="relative">
-              <div className="w-20 h-20 rounded-full bg-[#78350f]/20 border border-[#f59e0b]/30 flex items-center justify-center">
-                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <div className="w-20 h-20 rounded-full bg-blue/10 border border-blue/30 flex items-center justify-center">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
               </div>
-              <div className="absolute inset-0 rounded-full border border-[#f59e0b]/20 animate-ping" style={{ animationDuration: '2.5s' }} />
+              <div className="absolute inset-0 rounded-full border border-blue/20 animate-ping" style={{ animationDuration: '2.5s' }} />
             </div>
           </div>
-          <div className="inline-flex items-center gap-2 bg-[#78350f]/15 border border-[#f59e0b]/25 rounded-full px-5 py-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#f59e0b] animate-pulse" />
-            <span className="font-mono text-[11px] tracking-[0.2em] uppercase text-[#f59e0b]/80">Relocation Request Received</span>
+          <div className="inline-flex items-center gap-2 bg-blue/10 border border-blue/25 rounded-full px-5 py-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue animate-pulse" />
+            <span className="font-mono text-[11px] tracking-[0.2em] uppercase text-blue/80">Relocation Request Received</span>
           </div>
-          <div><span className="font-mono text-2xl font-black tracking-[0.18em] uppercase text-white">NOMAD<span className="text-[#3b82f6]">XE</span></span></div>
-          <div className="bg-[#0d1526] border border-[#1e3a5f]/80 rounded-2xl overflow-hidden">
-            <div className="h-px w-full bg-gradient-to-r from-transparent via-[#f59e0b]/25 to-transparent" />
+          <div><span className="font-mono text-2xl font-black tracking-[0.18em] uppercase text-white">NOMAD<span className="text-blue">XE</span></span></div>
+          <div className="bg-surface border border-white/[0.06] rounded-2xl overflow-hidden">
+            <div className="h-px w-full bg-gradient-to-r from-transparent via-blue/20 to-transparent" />
             <div className="px-8 py-8 space-y-4">
               <h1 className="text-xl font-bold text-white">Move Request in Queue</h1>
-              <p className="text-[13.5px] text-[#93c5fd]/60 leading-relaxed">
+              <p className="text-[13.5px] text-white/50 leading-relaxed">
                 Your relocation request has been received. Our logistics team will coordinate with both site contacts to confirm the transfer schedule within 1–2 business days.
               </p>
             </div>
           </div>
-          <div className="bg-[#0d1526] border border-[#1e3a5f]/80 rounded-2xl overflow-hidden text-left">
-            <div className="h-px w-full bg-gradient-to-r from-transparent via-[#f59e0b]/25 to-transparent" />
-            <div className="px-6 py-4 border-b border-[#1e3a5f]/50">
-              <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-[#f59e0b]/60">Summary</span>
+          <div className="bg-surface border border-white/[0.06] rounded-2xl overflow-hidden text-left">
+            <div className="h-px w-full bg-gradient-to-r from-transparent via-blue/20 to-transparent" />
+            <div className="px-6 py-4 border-b border-white/[0.05]">
+              <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-white/40">Summary</span>
             </div>
             <div className="px-6 py-5 grid grid-cols-2 gap-x-6 gap-y-4">
               {[
@@ -316,16 +316,16 @@ export default function RelocateFormClient() {
                 { label: 'Re-Commission', value: fields.recommission_at_dest },
               ].map(({ label, value }) => (
                 <div key={label}>
-                  <p className="font-mono text-[9.5px] uppercase tracking-[0.15em] text-[#93c5fd]/30 mb-0.5">{label}</p>
+                  <p className="font-mono text-[9.5px] uppercase tracking-[0.15em] text-white/30 mb-0.5">{label}</p>
                   <p className="text-[13px] text-white/80">{value || '—'}</p>
                 </div>
               ))}
             </div>
           </div>
-          <button onClick={handleReset} className="w-full bg-[#d97706] hover:bg-[#f59e0b] text-white font-bold py-3.5 rounded-xl text-sm tracking-wide transition-all duration-200 active:scale-[0.98]">
+          <button onClick={handleReset} className="w-full bg-blue hover:bg-blue-light text-midnight font-bold py-3.5 rounded-xl text-sm tracking-wide transition-all duration-200 active:scale-[0.98]">
             Submit Another Request
           </button>
-          <Link href="/" className="block text-[11px] text-[#93c5fd]/35 hover:text-[#93c5fd]/70 transition-colors font-mono uppercase tracking-[0.15em]">
+          <Link href="/" className="block text-[11px] text-white/30 hover:text-white/60 transition-colors font-mono uppercase tracking-[0.15em]">
             Back to NomadXE.com
           </Link>
         </div>
@@ -334,25 +334,25 @@ export default function RelocateFormClient() {
   }
 
   return (
-    <div className="min-h-screen bg-[#080c14] relative overflow-x-hidden">
-      <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.025]"
-        style={{ backgroundImage: 'radial-gradient(circle, #f59e0b 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
-      <div className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#78350f] via-[#f59e0b] to-[#78350f] z-[100]" />
+    <div className="min-h-screen bg-midnight relative overflow-x-hidden">
+      <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.03]"
+        style={{ backgroundImage: 'radial-gradient(circle, rgba(14,165,233,0.4) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+      <div className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-blue-dark via-blue to-blue-dark z-[100]" />
 
       <div className="relative z-10 max-w-2xl mx-auto px-5 py-16 sm:py-20">
         <div className="text-center mb-10">
           <Link href="/" className="inline-flex flex-col items-center gap-3 group mb-8">
-            <div className="w-11 h-11 rounded-xl bg-[#78350f]/20 border border-[#f59e0b]/20 flex items-center justify-center group-hover:border-[#f59e0b]/50 transition-all duration-300">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <div className="w-11 h-11 rounded-xl bg-blue/10 border border-blue/20 flex items-center justify-center group-hover:border-blue/50 transition-all duration-300">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>
             </div>
             <span className="font-mono text-[21px] font-black tracking-[0.18em] uppercase text-white leading-none">
-              NOMAD<span className="text-[#3b82f6]">XE</span>
+              NOMAD<span className="text-blue">XE</span>
             </span>
           </Link>
           <h1 className="text-[22px] font-bold text-white tracking-tight mb-2">Trailer Relocation Request</h1>
-          <p className="text-[12.5px] text-[#93c5fd]/40 leading-relaxed max-w-sm mx-auto">
+          <p className="text-[12.5px] text-white/40 leading-relaxed max-w-sm mx-auto">
             Request a site-to-site transfer of your NomadXE unit. Our logistics team will coordinate pickup and delivery with both site contacts.
           </p>
         </div>
@@ -394,12 +394,12 @@ export default function RelocateFormClient() {
               </div>
             </div>
             <div>
-              <label htmlFor="r-cc" className={LABEL}>CC Recipients <span className="normal-case text-[#93c5fd]/40 font-normal tracking-normal">(optional)</span></label>
+              <label htmlFor="r-cc" className={LABEL}>CC Recipients <span className="normal-case text-white/35 font-normal tracking-normal">(optional)</span></label>
               <textarea id="r-cc" name="cc_emails" rows={2}
                 value={fields.cc_emails} onChange={handleChange}
                 placeholder="ops@company.com, manager@company.com"
                 className={`${INPUT(false)} resize-none`} />
-              <p className="mt-1 font-mono text-[10px] text-[#93c5fd]/22">Comma-separated — additional addresses to receive a copy of this request</p>
+              <p className="mt-1 font-mono text-[10px] text-white/25">Comma-separated — additional addresses to receive a copy of this request</p>
             </div>
           </SectionBlue>
 
@@ -413,7 +413,7 @@ export default function RelocateFormClient() {
                   className={`${INPUT(!!errors.quantity)} appearance-none cursor-pointer`}
                   style={SEL(fields.quantity)}>
                   <option value="" disabled>Select…</option>
-                  {QUANTITIES.map(q => <option key={q} value={q} style={{ color: 'white', background: '#080c14' }}>{q}</option>)}
+                  {QUANTITIES.map(q => <option key={q} value={q} style={{ color: 'white', background: '#0B0C10' }}>{q}</option>)}
                 </select>
                 {errors.quantity && <p className={ERR}>{errors.quantity}</p>}
               </div>
@@ -485,7 +485,7 @@ export default function RelocateFormClient() {
             <AdditionalContacts
               contacts={originContacts} contactErrors={originContactErrors}
               onAdd={addOriginContact} onRemove={removeOriginContact} onUpdate={updateOriginContact}
-              accentColor="#f59e0b" />
+              accentColor="#0EA5E9" />
             <div>
               <label htmlFor="r-o-forklift" className={LABEL}>Forklift Available at Origin? <span className="text-red-400/80">*</span></label>
               <select id="r-o-forklift" name="forklift_at_origin" required value={fields.forklift_at_origin} onChange={handleChange}
@@ -493,12 +493,12 @@ export default function RelocateFormClient() {
                 className={`${INPUT(!!errors.forklift_at_origin)} appearance-none cursor-pointer`}
                 style={SEL(fields.forklift_at_origin)}>
                 <option value="" disabled>Select…</option>
-                {FORKLIFT_OPTIONS.map(o => <option key={o} value={o} style={{ color: 'white', background: '#080c14' }}>{o}</option>)}
+                {FORKLIFT_OPTIONS.map(o => <option key={o} value={o} style={{ color: 'white', background: '#0B0C10' }}>{o}</option>)}
               </select>
               {errors.forklift_at_origin && <p className={ERR}>{errors.forklift_at_origin}</p>}
             </div>
             <div>
-              <label htmlFor="r-o-gate" className={LABEL}>Gate / Access Instructions <span className="normal-case text-[#93c5fd]/40 font-normal tracking-normal">(optional)</span></label>
+              <label htmlFor="r-o-gate" className={LABEL}>Gate / Access Instructions <span className="normal-case text-white/35 font-normal tracking-normal">(optional)</span></label>
               <textarea id="r-o-gate" name="origin_gate_instructions" rows={2}
                 value={fields.origin_gate_instructions} onChange={handleChange}
                 placeholder="Gate code, entry restrictions, security contact…"
@@ -523,7 +523,7 @@ export default function RelocateFormClient() {
                   className={`${INPUT(!!errors.dest_site_type)} appearance-none cursor-pointer`}
                   style={SEL(fields.dest_site_type)}>
                   <option value="" disabled>Select type…</option>
-                  {SITE_TYPES.map(t => <option key={t} value={t} style={{ color: 'white', background: '#080c14' }}>{t}</option>)}
+                  {SITE_TYPES.map(t => <option key={t} value={t} style={{ color: 'white', background: '#0B0C10' }}>{t}</option>)}
                 </select>
                 {errors.dest_site_type && <p className={ERR}>{errors.dest_site_type}</p>}
               </div>
@@ -559,8 +559,8 @@ export default function RelocateFormClient() {
               </div>
             </div>
             <div>
-              <p className={`${LABEL} mb-0.5`}>GPS Coordinates <span className="normal-case text-[#93c5fd]/40 font-normal tracking-normal">(optional)</span></p>
-              <p className="font-mono text-[10.5px] text-[#93c5fd]/25 mb-3">Helps logistics pre-plot the delivery route</p>
+              <p className={`${LABEL} mb-0.5`}>GPS Coordinates <span className="normal-case text-white/35 font-normal tracking-normal">(optional)</span></p>
+              <p className="font-mono text-[10.5px] text-white/25 mb-3">Helps logistics pre-plot the delivery route</p>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="r-d-lat" className={LABEL}>Latitude</label>
@@ -597,7 +597,7 @@ export default function RelocateFormClient() {
             <AdditionalContacts
               contacts={destContacts} contactErrors={destContactErrors}
               onAdd={addDestContact} onRemove={removeDestContact} onUpdate={updateDestContact}
-              accentColor="#3b82f6" />
+              accentColor="#0EA5E9" />
             <div>
               <label htmlFor="r-d-forklift" className={LABEL}>Forklift Available at Destination? <span className="text-red-400/80">*</span></label>
               <select id="r-d-forklift" name="forklift_at_dest" required value={fields.forklift_at_dest} onChange={handleChange}
@@ -605,12 +605,12 @@ export default function RelocateFormClient() {
                 className={`${INPUT(!!errors.forklift_at_dest)} appearance-none cursor-pointer`}
                 style={SEL(fields.forklift_at_dest)}>
                 <option value="" disabled>Select…</option>
-                {FORKLIFT_OPTIONS.map(o => <option key={o} value={o} style={{ color: 'white', background: '#080c14' }}>{o}</option>)}
+                {FORKLIFT_OPTIONS.map(o => <option key={o} value={o} style={{ color: 'white', background: '#0B0C10' }}>{o}</option>)}
               </select>
               {errors.forklift_at_dest && <p className={ERR}>{errors.forklift_at_dest}</p>}
             </div>
             <div>
-              <label htmlFor="r-d-gate" className={LABEL}>Gate / Access Instructions <span className="normal-case text-[#93c5fd]/40 font-normal tracking-normal">(optional)</span></label>
+              <label htmlFor="r-d-gate" className={LABEL}>Gate / Access Instructions <span className="normal-case text-white/35 font-normal tracking-normal">(optional)</span></label>
               <textarea id="r-d-gate" name="dest_gate_instructions" rows={2}
                 value={fields.dest_gate_instructions} onChange={handleChange}
                 placeholder="Gate code, dock number, delivery hours, security contact…"
@@ -628,7 +628,7 @@ export default function RelocateFormClient() {
                   aria-invalid={!!errors.move_date}
                   className={`${INPUT(!!errors.move_date)} [color-scheme:dark]`} />
                 {errors.move_date && <p className={ERR}>{errors.move_date}</p>}
-                <p className="mt-1 font-mono text-[10px] text-[#93c5fd]/22">Min. 3 business days for logistics coordination</p>
+                <p className="mt-1 font-mono text-[10px] text-white/25">Min. 3 business days for logistics coordination</p>
               </div>
               <div>
                 <label htmlFor="r-move-window" className={LABEL}>Preferred Move Window <span className="text-red-400/80">*</span></label>
@@ -637,7 +637,7 @@ export default function RelocateFormClient() {
                   className={`${INPUT(!!errors.move_window)} appearance-none cursor-pointer`}
                   style={SEL(fields.move_window)}>
                   <option value="" disabled>Select…</option>
-                  {MOVE_WINDOWS.map(w => <option key={w} value={w} style={{ color: 'white', background: '#080c14' }}>{w}</option>)}
+                  {MOVE_WINDOWS.map(w => <option key={w} value={w} style={{ color: 'white', background: '#0B0C10' }}>{w}</option>)}
                 </select>
                 {errors.move_window && <p className={ERR}>{errors.move_window}</p>}
               </div>
@@ -650,7 +650,7 @@ export default function RelocateFormClient() {
                   className={`${INPUT(!!errors.recommission_at_dest)} appearance-none cursor-pointer`}
                   style={SEL(fields.recommission_at_dest)}>
                   <option value="" disabled>Select…</option>
-                  {YES_NO.map(v => <option key={v} value={v} style={{ color: 'white', background: '#080c14' }}>{v}</option>)}
+                  {YES_NO.map(v => <option key={v} value={v} style={{ color: 'white', background: '#0B0C10' }}>{v}</option>)}
                 </select>
                 {errors.recommission_at_dest && <p className={ERR}>{errors.recommission_at_dest}</p>}
               </div>
@@ -661,7 +661,7 @@ export default function RelocateFormClient() {
                   className={`${INPUT(!!errors.relocation_reason)} appearance-none cursor-pointer`}
                   style={SEL(fields.relocation_reason)}>
                   <option value="" disabled>Select…</option>
-                  {RELOCATION_REASONS.map(r => <option key={r} value={r} style={{ color: 'white', background: '#080c14' }}>{r}</option>)}
+                  {RELOCATION_REASONS.map(r => <option key={r} value={r} style={{ color: 'white', background: '#0B0C10' }}>{r}</option>)}
                 </select>
                 {errors.relocation_reason && <p className={ERR}>{errors.relocation_reason}</p>}
               </div>
@@ -682,13 +682,13 @@ export default function RelocateFormClient() {
           )}
 
           <button type="submit" disabled={isSubmitting}
-            className="w-full mt-2 bg-[#d97706] hover:bg-[#f59e0b] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl text-sm tracking-wide transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2.5">
+            className="w-full mt-2 bg-blue hover:bg-blue-light text-midnight disabled:opacity-50 disabled:cursor-not-allowed font-bold py-3.5 rounded-xl text-sm tracking-wide transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2.5">
             {isSubmitting ? (
               <><span className="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />Submitting…</>
             ) : 'Submit Relocation Request →'}
           </button>
 
-          <p className="text-center text-[10px] text-[#93c5fd]/20 font-mono uppercase tracking-[0.15em] pb-4">
+          <p className="text-center text-[10px] text-white/20 font-mono uppercase tracking-[0.15em] pb-4">
             Secure · Confidential · NomadXE
           </p>
         </form>

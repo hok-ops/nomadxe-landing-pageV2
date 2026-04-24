@@ -47,8 +47,8 @@ export default function Home({
         <HowItWorks />
         <Manifesto />
         <TwoOptions />
-        <UseCases />
         <MonitoringPartners />
+        <UseCases />
         <ContactForm />
         <Footer />
       </main>

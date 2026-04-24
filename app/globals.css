@@ -30,6 +30,8 @@ html {
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Prevents anchor targets from landing under the sticky navbar */
+  scroll-padding-top: 72px;
 }
 
 body {

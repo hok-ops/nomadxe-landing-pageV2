@@ -156,19 +156,19 @@ function validate(fields: typeof INITIAL_FIELDS): FieldErrors {
 // ---------------------------------------------------------------------------
 
 const LABEL =
-  'block text-[10.5px] font-semibold text-[#93c5fd]/55 uppercase tracking-[0.12em] mb-1.5';
+  'block text-[10.5px] font-semibold text-white/50 uppercase tracking-[0.12em] mb-1.5';
 
 const INPUT = (err: boolean) =>
-  `w-full bg-[#080c14] border rounded-xl px-4 py-3 text-white text-sm placeholder:text-[#93c5fd]/18 outline-none transition-all duration-200 focus:ring-2 ${
+  `w-full bg-midnight border rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/20 outline-none transition-all duration-200 focus:ring-2 ${
     err
       ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/15'
-      : 'border-[#1e3a5f] focus:border-[#3b82f6] focus:ring-[#3b82f6]/20'
+      : 'border-white/[0.08] focus:border-blue/60 focus:ring-blue/20'
   }`;
 
 const ERR = 'mt-1 text-[11px] text-red-400 font-mono';
 
 const SELECT_STYLE = (val: string, err: boolean) => ({
-  color: val ? 'white' : 'rgba(147,197,253,0.18)',
+  color: val ? 'white' : 'rgba(255,255,255,0.2)',
   ...(!err ? {} : {}),
 });
 
@@ -184,10 +184,10 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-[#0d1526] border border-[#1e3a5f]/80 rounded-2xl overflow-hidden">
-      <div className="h-px w-full bg-gradient-to-r from-transparent via-[#3b82f6]/25 to-transparent" />
-      <div className="px-6 py-5 border-b border-[#1e3a5f]/50">
-        <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-[#3b82f6]/60">
+    <div className="bg-surface border border-white/[0.06] rounded-2xl overflow-hidden">
+      <div className="h-px w-full bg-gradient-to-r from-transparent via-blue/20 to-transparent" />
+      <div className="px-6 py-5 border-b border-white/[0.05]">
+        <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-blue/60">
           {title}
         </span>
       </div>
@@ -367,54 +367,54 @@ export default function OrderFormClient() {
 
   if (formState === 'success') {
     return (
-      <div className="min-h-screen bg-[#080c14] flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      <div className="min-h-screen bg-midnight flex flex-col items-center justify-center p-6 relative overflow-hidden">
         <div
-          className="pointer-events-none fixed inset-0 z-0 opacity-[0.025]"
-          style={{ backgroundImage: 'radial-gradient(circle, #3b82f6 1px, transparent 1px)', backgroundSize: '32px 32px' }}
+          className="pointer-events-none fixed inset-0 z-0 opacity-[0.03]"
+          style={{ backgroundImage: 'radial-gradient(circle, rgba(14,165,233,0.4) 1px, transparent 1px)', backgroundSize: '32px 32px' }}
         />
-        <div className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#1e40af] via-[#3b82f6] to-[#1e40af] z-[100]" />
+        <div className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-blue-dark via-blue to-blue-dark z-[100]" />
         <div
           className="pointer-events-none fixed inset-0 z-0"
-          style={{ background: 'radial-gradient(ellipse 70% 55% at 50% 38%, rgba(37,99,235,0.08) 0%, transparent 100%)' }}
+          style={{ background: 'radial-gradient(ellipse 70% 55% at 50% 38%, rgba(14,165,233,0.06) 0%, transparent 100%)' }}
         />
 
         <div className="relative z-10 w-full max-w-lg text-center space-y-8">
           <div className="flex justify-center">
             <div className="relative">
-              <div className="w-20 h-20 rounded-full bg-[#1e40af]/20 border border-[#3b82f6]/30 flex items-center justify-center">
-                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <div className="w-20 h-20 rounded-full bg-blue/10 border border-blue/30 flex items-center justify-center">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
               </div>
-              <div className="absolute inset-0 rounded-full border border-[#3b82f6]/20 animate-ping" style={{ animationDuration: '2.5s' }} aria-hidden="true" />
+              <div className="absolute inset-0 rounded-full border border-blue/20 animate-ping" style={{ animationDuration: '2.5s' }} aria-hidden="true" />
             </div>
           </div>
 
-          <div className="inline-flex items-center gap-2 bg-[#1e40af]/15 border border-[#3b82f6]/25 rounded-full px-5 py-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse" aria-hidden="true" />
-            <span className="font-mono text-[11px] tracking-[0.2em] uppercase text-[#3b82f6]/80">Order Received</span>
+          <div className="inline-flex items-center gap-2 bg-blue/10 border border-blue/25 rounded-full px-5 py-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue animate-pulse" aria-hidden="true" />
+            <span className="font-mono text-[11px] tracking-[0.2em] uppercase text-blue/80">Order Received</span>
           </div>
 
           <div>
             <span className="font-mono text-2xl font-black tracking-[0.18em] uppercase text-white">
-              NOMAD<span className="text-[#3b82f6]">XE</span>
+              NOMAD<span className="text-blue">XE</span>
             </span>
           </div>
 
-          <div className="bg-[#0d1526] border border-[#1e3a5f]/80 rounded-2xl overflow-hidden">
-            <div className="h-px w-full bg-gradient-to-r from-transparent via-[#3b82f6]/25 to-transparent" />
+          <div className="bg-surface border border-white/[0.06] rounded-2xl overflow-hidden">
+            <div className="h-px w-full bg-gradient-to-r from-transparent via-blue/20 to-transparent" />
             <div className="px-8 py-8 space-y-4">
               <h1 className="text-xl font-bold text-white">You&rsquo;re in the queue.</h1>
-              <p className="text-[13.5px] text-[#93c5fd]/60 leading-relaxed">
+              <p className="text-[13.5px] text-white/50 leading-relaxed">
                 Your NomadXE order has been secured. Our SOC team is reviewing your site profile and will send a confirmation email shortly.
               </p>
             </div>
           </div>
 
-          <div className="bg-[#0d1526] border border-[#1e3a5f]/80 rounded-2xl overflow-hidden text-left">
-            <div className="h-px w-full bg-gradient-to-r from-transparent via-[#3b82f6]/25 to-transparent" />
-            <div className="px-6 py-4 border-b border-[#1e3a5f]/50">
-              <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-[#3b82f6]/60">Order Summary</span>
+          <div className="bg-surface border border-white/[0.06] rounded-2xl overflow-hidden text-left">
+            <div className="h-px w-full bg-gradient-to-r from-transparent via-blue/20 to-transparent" />
+            <div className="px-6 py-4 border-b border-white/[0.05]">
+              <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-blue/60">Order Summary</span>
             </div>
             <div className="px-6 py-5 grid grid-cols-2 gap-x-6 gap-y-4">
               {[
@@ -428,7 +428,7 @@ export default function OrderFormClient() {
                 { label: 'Technician Setup', value: fields.technician_setup },
               ].map(({ label, value }) => (
                 <div key={label}>
-                  <p className="font-mono text-[9.5px] uppercase tracking-[0.15em] text-[#93c5fd]/30 mb-0.5">{label}</p>
+                  <p className="font-mono text-[9.5px] uppercase tracking-[0.15em] text-white/30 mb-0.5">{label}</p>
                   <p className="text-[13px] text-white/80">{value || '—'}</p>
                 </div>
               ))}
@@ -437,7 +437,7 @@ export default function OrderFormClient() {
 
           <button
             onClick={handleReset}
-            className="w-full bg-[#2563eb] hover:bg-[#3b82f6] text-white font-bold py-3.5 rounded-xl text-sm tracking-wide transition-all duration-200 hover:shadow-[0_0_28px_rgba(59,130,246,0.45)] active:scale-[0.98]"
+            className="w-full bg-blue hover:bg-blue-light text-midnight font-bold py-3.5 rounded-xl text-sm tracking-wide transition-all duration-200 hover:shadow-blue-glow active:scale-[0.98]"
           >
             Submit Another Order →
           </button>
@@ -445,15 +445,15 @@ export default function OrderFormClient() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 text-[11px] text-[#93c5fd]/35 hover:text-[#93c5fd]/70 transition-colors duration-200 font-mono uppercase tracking-[0.15em]"
+              className="inline-flex items-center gap-1.5 text-[11px] text-white/30 hover:text-white/60 transition-colors duration-200 font-mono uppercase tracking-[0.15em]"
             >
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M10 12L6 8l4-4" />
               </svg>
               Back to NomadXE.com
             </Link>
-            <span className="hidden sm:block text-[#1e3a5f]">·</span>
-            <a href="mailto:sales@nomadxe.com" className="text-[11px] text-[#3b82f6]/50 hover:text-[#3b82f6] transition-colors duration-200 font-mono uppercase tracking-[0.15em]">
+            <span className="hidden sm:block text-white/10">·</span>
+            <a href="mailto:sales@nomadxe.com" className="text-[11px] text-blue/50 hover:text-blue transition-colors duration-200 font-mono uppercase tracking-[0.15em]">
               sales@nomadxe.com
             </a>
           </div>
@@ -467,15 +467,15 @@ export default function OrderFormClient() {
   // =========================================================================
 
   return (
-    <div className="min-h-screen bg-[#080c14] relative overflow-x-hidden">
+    <div className="min-h-screen bg-midnight relative overflow-x-hidden">
       <div
-        className="pointer-events-none fixed inset-0 z-0 opacity-[0.025]"
-        style={{ backgroundImage: 'radial-gradient(circle, #3b82f6 1px, transparent 1px)', backgroundSize: '32px 32px' }}
+        className="pointer-events-none fixed inset-0 z-0 opacity-[0.03]"
+        style={{ backgroundImage: 'radial-gradient(circle, rgba(14,165,233,0.4) 1px, transparent 1px)', backgroundSize: '32px 32px' }}
       />
-      <div className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#1e40af] via-[#3b82f6] to-[#1e40af] z-[100]" />
+      <div className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-blue-dark via-blue to-blue-dark z-[100]" />
       <div
         className="pointer-events-none fixed inset-0 z-0"
-        style={{ background: 'radial-gradient(ellipse 80% 50% at 50% 20%, rgba(37,99,235,0.07) 0%, transparent 100%)' }}
+        style={{ background: 'radial-gradient(ellipse 80% 50% at 50% 20%, rgba(14,165,233,0.05) 0%, transparent 100%)' }}
       />
 
       <div className="relative z-10 max-w-2xl mx-auto px-5 py-16 sm:py-20">
@@ -483,17 +483,17 @@ export default function OrderFormClient() {
         {/* ── Header ── */}
         <div className="text-center mb-10">
           <Link href="/" className="inline-flex flex-col items-center gap-3 group mb-8" aria-label="Back to NomadXE home">
-            <div className="w-11 h-11 rounded-xl bg-[#1e40af]/20 border border-[#3b82f6]/20 flex items-center justify-center group-hover:border-[#3b82f6]/50 group-hover:bg-[#1e40af]/30 transition-all duration-300">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <div className="w-11 h-11 rounded-xl bg-blue/10 border border-blue/20 flex items-center justify-center group-hover:border-blue/50 group-hover:bg-blue/15 transition-all duration-300">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M1 3h15v13H1z" /><path d="M16 8h4l3 3v5h-7V8z" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" />
               </svg>
             </div>
             <span className="font-mono text-[21px] font-black tracking-[0.18em] uppercase text-white leading-none">
-              NOMAD<span className="text-[#3b82f6]">XE</span>
+              NOMAD<span className="text-blue">XE</span>
             </span>
           </Link>
           <h1 className="text-[22px] font-bold text-white tracking-tight mb-2">Secure a Deployment</h1>
-          <p className="text-[12.5px] text-[#93c5fd]/40 leading-relaxed max-w-sm mx-auto">
+          <p className="text-[12.5px] text-white/40 leading-relaxed max-w-sm mx-auto">
             Complete the form below. Our SOC team will review your site profile and send a confirmation email shortly.
           </p>
         </div>
@@ -540,9 +540,9 @@ export default function OrderFormClient() {
             <div>
               <p className={`${LABEL} mb-1`}>
                 Additional Recipients{' '}
-                <span className="normal-case text-[#93c5fd]/40 font-normal tracking-normal">(optional)</span>
+                <span className="normal-case text-white/35 font-normal tracking-normal">(optional)</span>
               </p>
-              <p className="font-mono text-[10.5px] text-[#93c5fd]/25 mb-3">
+              <p className="font-mono text-[10.5px] text-white/25 mb-3">
                 These addresses will also receive the order confirmation email.
               </p>
               <div className="space-y-2">
@@ -573,7 +573,7 @@ export default function OrderFormClient() {
                         setAdditionalRecipients(additionalRecipients.filter((_, j) => j !== i));
                         setRecipientErrors(recipientErrors.filter((_, j) => j !== i));
                       }}
-                      className="mt-2.5 text-[#93c5fd]/30 hover:text-red-400 transition-colors text-lg leading-none"
+                      className="mt-2.5 text-white/30 hover:text-red-400 transition-colors text-lg leading-none"
                       aria-label="Remove recipient"
                     >×</button>
                   </div>
@@ -582,7 +582,7 @@ export default function OrderFormClient() {
               <button
                 type="button"
                 onClick={() => setAdditionalRecipients([...additionalRecipients, ''])}
-                className="mt-3 w-full flex items-center justify-center gap-2 border border-[#1e3a5f] hover:border-[#3b82f6]/60 hover:bg-[#1e40af]/10 text-[#93c5fd]/60 hover:text-[#93c5fd] rounded-xl py-2.5 text-xs font-semibold tracking-wide transition-all duration-200 active:scale-[0.98]"
+                className="mt-3 w-full flex items-center justify-center gap-2 border border-white/[0.08] hover:border-blue/50 hover:bg-blue/[0.06] text-white/50 hover:text-white/80 rounded-xl py-2.5 text-xs font-semibold tracking-wide transition-all duration-200 active:scale-[0.98]"
               >
                 <span className="text-sm leading-none">+</span> Add Recipient
               </button>
@@ -608,7 +608,7 @@ export default function OrderFormClient() {
                   style={SELECT_STYLE(fields.site_type, !!errors.site_type)}>
                   <option value="" disabled>Select type…</option>
                   {SITE_TYPES.map((t) => (
-                    <option key={t} value={t} style={{ color: 'white', background: '#080c14' }}>{t}</option>
+                    <option key={t} value={t} style={{ color: 'white', background: '#0B0C10' }}>{t}</option>
                   ))}
                 </select>
                 {errors.site_type && <p className={ERR} role="alert">{errors.site_type}</p>}
@@ -660,9 +660,9 @@ export default function OrderFormClient() {
             <div>
               <p className={`${LABEL} mb-0.5`}>
                 GPS Coordinates — Decimal Degrees{' '}
-                <span className="normal-case text-[#93c5fd]/40 font-normal tracking-normal">(optional)</span>
+                <span className="normal-case text-white/35 font-normal tracking-normal">(optional)</span>
               </p>
-              <p className="font-mono text-[10.5px] text-[#93c5fd]/25 mb-3">
+              <p className="font-mono text-[10.5px] text-white/25 mb-3">
                 e.g. Lat: 40.7128 &nbsp;·&nbsp; Lng: −74.0060
               </p>
               <div className="grid grid-cols-2 gap-4">
@@ -671,7 +671,7 @@ export default function OrderFormClient() {
                   <input id="ord-gps-lat" name="gps_lat" type="text" inputMode="decimal"
                     value={fields.gps_lat} onChange={handleChange} placeholder="40.7128"
                     aria-invalid={!!errors.gps_lat} className={INPUT(!!errors.gps_lat)} />
-                  <p className="mt-1 font-mono text-[10px] text-[#93c5fd]/22">−90 to 90</p>
+                  <p className="mt-1 font-mono text-[10px] text-white/25">−90 to 90</p>
                   {errors.gps_lat && <p className={ERR} role="alert">{errors.gps_lat}</p>}
                 </div>
                 <div>
@@ -679,7 +679,7 @@ export default function OrderFormClient() {
                   <input id="ord-gps-lng" name="gps_lng" type="text" inputMode="decimal"
                     value={fields.gps_lng} onChange={handleChange} placeholder="-74.0060"
                     aria-invalid={!!errors.gps_lng} className={INPUT(!!errors.gps_lng)} />
-                  <p className="mt-1 font-mono text-[10px] text-[#93c5fd]/22">−180 to 180</p>
+                  <p className="mt-1 font-mono text-[10px] text-white/25">−180 to 180</p>
                   {errors.gps_lng && <p className={ERR} role="alert">{errors.gps_lng}</p>}
                 </div>
               </div>
@@ -688,18 +688,18 @@ export default function OrderFormClient() {
 
           {/* ── Delivery Contacts ── */}
           <Section title="Delivery Contact(s)">
-            <p className="font-mono text-[10.5px] text-[#93c5fd]/25 -mt-1">
+            <p className="font-mono text-[10.5px] text-white/25 -mt-1">
               Person(s) who will be on-site to receive and sign for the delivery.
             </p>
             <div className="space-y-4">
               {deliveryContacts.map((contact, i) => (
                 <div key={i} className="space-y-3">
-                  {i > 0 && <div className="border-t border-[#1e3a5f]/40 pt-4" />}
+                  {i > 0 && <div className="border-t border-white/[0.06] pt-4" />}
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
                       <label className={LABEL}>
                         Contact Name {i === 0 && <span className="text-red-400/80">*</span>}
-                        {i > 0 && <span className="normal-case text-[#93c5fd]/40 font-normal tracking-normal">(optional)</span>}
+                        {i > 0 && <span className="normal-case text-white/35 font-normal tracking-normal">(optional)</span>}
                       </label>
                       <div className="flex gap-2 items-start">
                         <div className="flex-1">
@@ -718,7 +718,7 @@ export default function OrderFormClient() {
                           <button
                             type="button"
                             onClick={() => removeDeliveryContact(i)}
-                            className="mt-2.5 text-[#93c5fd]/30 hover:text-red-400 transition-colors text-lg leading-none"
+                            className="mt-2.5 text-white/30 hover:text-red-400 transition-colors text-lg leading-none"
                             aria-label="Remove contact"
                           >×</button>
                         )}
@@ -746,7 +746,7 @@ export default function OrderFormClient() {
             <button
               type="button"
               onClick={addDeliveryContact}
-              className="mt-1 w-full flex items-center justify-center gap-2 border border-[#1e3a5f] hover:border-[#3b82f6]/60 hover:bg-[#1e40af]/10 text-[#93c5fd]/60 hover:text-[#93c5fd] rounded-xl py-2.5 text-xs font-semibold tracking-wide transition-all duration-200 active:scale-[0.98]"
+              className="mt-1 w-full flex items-center justify-center gap-2 border border-white/[0.08] hover:border-blue/50 hover:bg-blue/[0.06] text-white/50 hover:text-white/80 rounded-xl py-2.5 text-xs font-semibold tracking-wide transition-all duration-200 active:scale-[0.98]"
             >
               <span className="text-sm leading-none">+</span> Add Another Contact
             </button>
@@ -772,7 +772,7 @@ export default function OrderFormClient() {
                   style={SELECT_STYLE(fields.duration, !!errors.duration)}>
                   <option value="" disabled>Select duration…</option>
                   {DURATIONS.map((d) => (
-                    <option key={d} value={d} style={{ color: 'white', background: '#080c14' }}>{d}</option>
+                    <option key={d} value={d} style={{ color: 'white', background: '#0B0C10' }}>{d}</option>
                   ))}
                 </select>
                 {errors.duration && <p className={ERR} role="alert">{errors.duration}</p>}
@@ -788,7 +788,7 @@ export default function OrderFormClient() {
                   style={SELECT_STYLE(fields.trailer_count, !!errors.trailer_count)}>
                   <option value="" disabled>Select…</option>
                   {TRAILER_COUNTS.map((c) => (
-                    <option key={c} value={c} style={{ color: 'white', background: '#080c14' }}>{c}</option>
+                    <option key={c} value={c} style={{ color: 'white', background: '#0B0C10' }}>{c}</option>
                   ))}
                 </select>
                 {errors.trailer_count && <p className={ERR} role="alert">{errors.trailer_count}</p>}
@@ -802,7 +802,7 @@ export default function OrderFormClient() {
                   style={SELECT_STYLE(fields.deployment_option, !!errors.deployment_option)}>
                   <option value="" disabled>Select…</option>
                   {DEPLOYMENT_OPTIONS.map((p) => (
-                    <option key={p} value={p} style={{ color: 'white', background: '#080c14' }}>{p}</option>
+                    <option key={p} value={p} style={{ color: 'white', background: '#0B0C10' }}>{p}</option>
                   ))}
                 </select>
                 {errors.deployment_option && <p className={ERR} role="alert">{errors.deployment_option}</p>}
@@ -818,7 +818,7 @@ export default function OrderFormClient() {
                   style={SELECT_STYLE(fields.technician_setup, !!errors.technician_setup)}>
                   <option value="" disabled>Select…</option>
                   {YES_NO.map((v) => (
-                    <option key={v} value={v} style={{ color: 'white', background: '#080c14' }}>{v}</option>
+                    <option key={v} value={v} style={{ color: 'white', background: '#0B0C10' }}>{v}</option>
                   ))}
                 </select>
                 {errors.technician_setup && <p className={ERR} role="alert">{errors.technician_setup}</p>}
@@ -832,7 +832,7 @@ export default function OrderFormClient() {
                   style={SELECT_STYLE(fields.forklift_available, !!errors.forklift_available)}>
                   <option value="" disabled>Select…</option>
                   {YES_NO.map((v) => (
-                    <option key={v} value={v} style={{ color: 'white', background: '#080c14' }}>{v}</option>
+                    <option key={v} value={v} style={{ color: 'white', background: '#0B0C10' }}>{v}</option>
                   ))}
                 </select>
                 {errors.forklift_available && <p className={ERR} role="alert">{errors.forklift_available}</p>}
@@ -862,7 +862,7 @@ export default function OrderFormClient() {
             type="submit"
             disabled={isSubmitting}
             aria-busy={isSubmitting}
-            className="w-full mt-2 bg-[#2563eb] hover:bg-[#3b82f6] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl text-sm tracking-wide transition-all duration-200 hover:shadow-[0_0_28px_rgba(59,130,246,0.45)] active:scale-[0.98] flex items-center justify-center gap-2.5"
+            className="w-full mt-2 bg-blue hover:bg-blue-light text-midnight disabled:opacity-50 disabled:cursor-not-allowed font-bold py-3.5 rounded-xl text-sm tracking-wide transition-all duration-200 hover:shadow-blue-glow active:scale-[0.98] flex items-center justify-center gap-2.5"
           >
             {isSubmitting ? (
               <>
@@ -874,7 +874,7 @@ export default function OrderFormClient() {
             )}
           </button>
 
-          <p className="text-center text-[10px] text-[#93c5fd]/20 font-mono uppercase tracking-[0.15em] pb-4">
+          <p className="text-center text-[10px] text-white/20 font-mono uppercase tracking-[0.15em] pb-4">
             Secure · Confidential · NomadXE
           </p>
         </form>
