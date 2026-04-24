@@ -31,40 +31,40 @@ export async function POST(request: NextRequest) {
 
     const adminClient = createAdminClient();
 
-    // Fetch and validate the token
-    const { data: tokenRecord, error: tokenError } = await adminClient
-      .from('auth_tokens')
-      .select('id, user_id, expires_at, used_at')
-      .eq('token', token)
-      .eq('type', type)
-      .single();
-
-    if (tokenError || !tokenRecord) {
-      return NextResponse.json({ error: 'Token not found' }, { status: 404 });
-    }
-    if (tokenRecord.used_at) {
-      return NextResponse.json({ error: 'Token already used' }, { status: 409 });
-    }
-    if (new Date(tokenRecord.expires_at) < new Date()) {
-      return NextResponse.json({ error: 'Token expired' }, { status: 410 });
-    }
-    // Ensure token belongs to the authenticated user
-    if (tokenRecord.user_id !== user.id) {
-      return NextResponse.json({ error: 'Token does not belong to this user' }, { status: 403 });
-    }
-
-    // Mark token as used immediately (single-use enforcement)
-    const { error: invalidateError } = await adminClient
+    // ── Atomic single-use enforcement ──────────────────────────────────────────
+    // Replace the previous read→check→update pattern (vulnerable to TOCTOU race)
+    // with a single UPDATE … WHERE used_at IS NULL.
+    //
+    // Postgres evaluates the WHERE predicate and applies the write atomically with
+    // row-level locking. If two concurrent requests arrive with the same token,
+    // only one UPDATE wins; the second sees 0 rows returned from .select() and
+    // is rejected without ever accessing the profile update path.
+    //
+    // All validation (expiry, ownership, type) is inlined into the WHERE clause
+    // so no separate SELECT round-trip is needed.
+    const { data: invalidated, error: invalidateError } = await adminClient
       .from('auth_tokens')
       .update({ used_at: new Date().toISOString() })
-      .eq('id', tokenRecord.id);
+      .eq('token', token)
+      .eq('type', type)
+      .eq('user_id', user.id)          // ownership check — prevents token hijacking
+      .is('used_at', null)             // single-use enforcement
+      .gt('expires_at', new Date().toISOString())  // expiry check
+      .select('id')
+      .maybeSingle();
 
     if (invalidateError) {
-      console.error('[use-token] invalidate:', invalidateError.message);
-      return NextResponse.json({ error: 'Failed to invalidate token' }, { status: 500 });
+      console.error('[use-token] invalidate error:', invalidateError.message);
+      return NextResponse.json({ error: 'Token validation failed' }, { status: 500 });
     }
 
-    // Apply profile updates if provided (invite flow: set name + active status).
+    if (!invalidated) {
+      // Either token doesn't exist, belongs to a different user, is already used,
+      // or has expired. Return a consistent message regardless to avoid oracle.
+      return NextResponse.json({ error: 'Token invalid, expired, or already used' }, { status: 409 });
+    }
+
+    // Token is now burned. Apply profile updates if provided (invite activation).
     // Only whitelisted keys are written — all others are silently dropped to
     // prevent privilege escalation (e.g. a caller sending { role: 'admin' }).
     if (profileUpdate && Object.keys(profileUpdate).length > 0) {
@@ -91,6 +91,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error('[use-token] unexpected:', err);
-    return NextResponse.json({ error: err.message || 'Unexpected server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Unexpected server error' }, { status: 500 });
   }
 }

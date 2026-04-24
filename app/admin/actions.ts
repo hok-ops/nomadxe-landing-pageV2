@@ -4,16 +4,17 @@ import { createAdminClient } from '@/utils/supabase/admin';
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { headers } from 'next/headers';
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const VALID_ROLES   = new Set(['admin', 'user']);
+const VALID_STATUSES = new Set(['active', 'suspended']);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getSiteUrl(): string {
-  // SITE_URL is a plain server-side env var — always read at runtime, never
-  // inlined at build time. Prefer this over NEXT_PUBLIC_SITE_URL for server actions.
   if (process.env.SITE_URL) return process.env.SITE_URL.replace(/\/$/, '');
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '');
-  // Neither env var is set — log a critical warning so it surfaces in production logs
   console.error(
     '[SECURITY] getSiteUrl: neither SITE_URL nor NEXT_PUBLIC_SITE_URL is set. ' +
     'Invite/reset emails will use a hardcoded fallback. Set this env var in Vercel immediately.'
@@ -29,26 +30,27 @@ async function generateToken(): Promise<string> {
   return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+/**
+ * Atomically rotate an auth token for a user.
+ * Uses the rotate_auth_token Postgres RPC (migration 009) which runs the
+ * invalidate + insert in a single implicit transaction — eliminates the TOCTOU
+ * race present in the prior two-step UPDATE then INSERT pattern.
+ */
 async function createAuthToken(
   userId: string,
   type: 'invite' | 'recovery',
   expiryHours: number
 ): Promise<string> {
   const adminClient = createAdminClient();
-  const token = await generateToken();
-  const expiresAt = new Date(Date.now() + expiryHours * 60 * 60 * 1000).toISOString();
+  const token      = await generateToken();
+  const expiresAt  = new Date(Date.now() + expiryHours * 60 * 60 * 1000).toISOString();
 
-  // Invalidate any prior unused tokens of the same type for this user
-  await adminClient
-    .from('auth_tokens')
-    .update({ used_at: new Date().toISOString() })
-    .eq('user_id', userId)
-    .eq('type', type)
-    .is('used_at', null);
-
-  const { error } = await adminClient
-    .from('auth_tokens')
-    .insert([{ token, user_id: userId, type, expires_at: expiresAt }]);
+  const { error } = await adminClient.rpc('rotate_auth_token', {
+    p_user_id:    userId,
+    p_type:       type,
+    p_token:      token,
+    p_expires_at: expiresAt,
+  });
 
   if (error) throw new Error(`Failed to create auth token: ${error.message}`);
   return token;
@@ -76,40 +78,46 @@ export async function inviteNewUser(formData: FormData) {
   try {
     await verifyAdmin();
 
-    const email = formData.get('email') as string;
+    const email      = formData.get('email') as string;
     const vrm_site_id = formData.get('vrm_site_id') as string | null;
     const device_name = formData.get('device_name') as string | null;
 
     if (!email) throw new Error('Email is required');
 
     const adminClient = createAdminClient();
-    const siteUrl = getSiteUrl();
+    const siteUrl     = getSiteUrl();
 
-    // Create the auth user and send the invite email.
-    // We first do a dry-run with generateLink to get the user ID, create the token,
-    // then send the invite with the token embedded in redirectTo so /auth/callback
-    // never needs a session-based DB lookup (which fails when admin tests in own browser).
+    // Step 1: generateLink — creates the auth user and returns their ID.
+    // Does NOT send an email (that's handled by inviteUserByEmail below).
     const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
       type: 'invite',
       email,
       options: { redirectTo: `${siteUrl}/auth/callback` },
     });
     if (linkError) throw new Error(linkError.message);
-    if (!linkData.user?.id) throw new Error('User creation failed');
+    if (!linkData.user?.id) throw new Error('User creation failed — no user ID returned');
 
-    // Create the 48-hour invite token
+    // Step 2: Create the 48-hour invite token (atomic RPC)
     const inviteToken = await createAuthToken(linkData.user.id, 'invite', 48);
 
-    // Re-send via inviteUserByEmail with token embedded in redirectTo
-    const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${siteUrl}/auth/callback?invite_token=${inviteToken}`,
-    });
+    // Step 3: Send the invite email with the token embedded in redirectTo.
+    // If this fails, clean up the orphaned auth user created in step 1.
+    const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
+      email,
+      { redirectTo: `${siteUrl}/auth/callback?invite_token=${inviteToken}` }
+    );
+    if (inviteError) {
+      // Roll back the orphaned auth user to avoid ghost accounts.
+      console.error('[inviteNewUser] inviteUserByEmail failed, rolling back user:', linkData.user.id);
+      await adminClient.auth.admin.deleteUser(linkData.user.id).catch((e: any) =>
+        console.error('[inviteNewUser] rollback deleteUser failed:', e.message)
+      );
+      throw new Error(inviteError.message);
+    }
+    if (!inviteData.user) throw new Error('Invite user data missing');
 
-    if (inviteError) throw new Error(inviteError.message);
-    if (!inviteData.user) throw new Error('User creation failed');
-
-    // If a device was provided, register it and assign it to the new user
-    const userId = inviteData.user?.id ?? linkData.user.id;
+    // Step 4: Optionally register and assign a VRM device
+    const userId = inviteData.user.id ?? linkData.user.id;
     if (vrm_site_id && device_name && userId) {
       const { data: device, error: deviceError } = await adminClient
         .from('vrm_devices')
@@ -117,9 +125,9 @@ export async function inviteNewUser(formData: FormData) {
         .select()
         .single();
 
-      if (deviceError) console.error('Device sync error:', deviceError.message);
-
-      if (device) {
+      if (deviceError) {
+        console.error('[inviteNewUser] device sync error:', deviceError.message);
+      } else if (device) {
         await adminClient.from('device_assignments').insert([{
           user_id: userId,
           device_id: device.id,
@@ -128,10 +136,11 @@ export async function inviteNewUser(formData: FormData) {
     }
 
     revalidatePath('/admin');
-    redirect(`/admin?success=Invitation sent to ${email}`);
+    // Do not include email in URL — visible in browser history and server logs.
+    redirect('/admin?event=user_invited');
   } catch (err: any) {
     if (err.digest) throw err;
-    redirect(`/admin?error=${encodeURIComponent(err.message)}`);
+    redirect(`/admin?event=error&msg=${encodeURIComponent(err.message)}`);
   }
 }
 
@@ -140,28 +149,26 @@ export async function resendInvite(formData: FormData) {
     await verifyAdmin();
 
     const userId = formData.get('userId') as string;
-    const email = formData.get('email') as string;
+    const email  = formData.get('email') as string;
 
     if (!userId || !email) throw new Error('User ID and email are required');
 
     const adminClient = createAdminClient();
-    const siteUrl = getSiteUrl();
+    const siteUrl     = getSiteUrl();
 
-    // Create fresh invite token first so we can embed it in redirectTo
+    // Create fresh invite token (atomic RPC)
     const inviteToken = await createAuthToken(userId, 'invite', 48);
 
-    // Re-send the Supabase invite email with token in redirectTo
     const { error } = await adminClient.auth.admin.inviteUserByEmail(email, {
       redirectTo: `${siteUrl}/auth/callback?invite_token=${inviteToken}`,
     });
-
     if (error) throw new Error(error.message);
 
     revalidatePath('/admin');
-    redirect(`/admin?success=Invitation resent to ${email}`);
+    redirect('/admin?event=invite_resent');
   } catch (err: any) {
     if (err.digest) throw err;
-    redirect(`/admin?error=${encodeURIComponent(err.message)}`);
+    redirect(`/admin?event=error&msg=${encodeURIComponent(err.message)}`);
   }
 }
 
@@ -170,16 +177,15 @@ export async function sendPasswordReset(formData: FormData) {
     await verifyAdmin();
 
     const userId = formData.get('userId') as string;
-    const email = formData.get('email') as string;
+    const email  = formData.get('email') as string;
 
     if (!userId || !email) throw new Error('User ID and email are required');
 
     const siteUrl = getSiteUrl();
 
-    // Generate a recovery token (24h)
+    // Create recovery token (atomic RPC)
     await createAuthToken(userId, 'recovery', 24);
 
-    // Call the dedicated API route — anon client in a Route Handler is reliable
     const res = await fetch(`${siteUrl}/api/auth/send-reset`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -191,10 +197,10 @@ export async function sendPasswordReset(formData: FormData) {
     }
 
     revalidatePath('/admin');
-    redirect(`/admin?success=Password reset sent to ${email}`);
+    redirect('/admin?event=reset_sent');
   } catch (err: any) {
     if (err.digest) throw err;
-    redirect(`/admin?error=${encodeURIComponent(err.message)}`);
+    redirect(`/admin?event=error&msg=${encodeURIComponent(err.message)}`);
   }
 }
 
@@ -204,15 +210,24 @@ export async function requestPasswordReset(formData: FormData) {
     if (!email) throw new Error('Email is required');
 
     const adminClient = createAdminClient();
-    const siteUrl = getSiteUrl();
+    const siteUrl     = getSiteUrl();
 
-    // Look up user by email — create auth token if found (don't reveal if they don't exist)
-    const { data: users } = await adminClient.auth.admin.listUsers();
-    const user = users?.users?.find(u => u.email === email);
-    if (user) await createAuthToken(user.id, 'recovery', 24);
+    // ── Replace O(n) listUsers() with targeted RPC lookup ─────────────────────
+    // get_user_id_by_email queries auth.users directly via SECURITY DEFINER
+    // function — avoids loading the entire user list on every public form submit.
+    // Returns null if the user doesn't exist; we still redirect to "sent" to
+    // prevent email enumeration.
+    const { data: userId, error: rpcError } = await adminClient
+      .rpc('get_user_id_by_email', { email_input: email.trim().toLowerCase() });
 
-    // Call the dedicated API route which uses a plain anon client.
-    // Server actions can't reliably call resetPasswordForEmail directly.
+    if (rpcError) {
+      // RPC not yet deployed (migration 009 pending) — fall back gracefully.
+      // Do NOT fall back to listUsers() — just skip token creation.
+      console.warn('[requestPasswordReset] get_user_id_by_email RPC unavailable:', rpcError.message);
+    } else if (userId) {
+      await createAuthToken(userId as string, 'recovery', 24);
+    }
+
     const res = await fetch(`${siteUrl}/api/auth/send-reset`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -221,13 +236,14 @@ export async function requestPasswordReset(formData: FormData) {
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       console.error('[requestPasswordReset] send-reset error:', body.error);
-      // Still redirect to "sent" to avoid email enumeration
     }
 
-    redirect(`/forgot-password?sent=1&email=${encodeURIComponent(email)}`);
+    // Always redirect to "sent" — don't reveal whether the email exists.
+    redirect(`/forgot-password?sent=1`);
   } catch (err: any) {
     if (err.digest) throw err;
-    redirect(`/forgot-password?error=${encodeURIComponent(err.message)}`);
+    // Generic error message — don't expose internal details in URL
+    redirect('/forgot-password?event=error');
   }
 }
 
@@ -235,18 +251,23 @@ export async function updateUserRole(formData: FormData) {
   try {
     await verifyAdmin();
     const userId = formData.get('userId') as string;
-    const role = formData.get('role') as string;
+    const role   = formData.get('role') as string;
 
     if (!userId || !role) throw new Error('User ID and role required');
+
+    // ── Allowlist validation — prevents arbitrary string injection ─────────────
+    if (!VALID_ROLES.has(role)) {
+      throw new Error(`Invalid role '${role}' — must be 'admin' or 'user'`);
+    }
 
     const adminClient = createAdminClient();
     const { error } = await adminClient.from('profiles').update({ role }).eq('id', userId);
     if (error) throw new Error(error.message);
     revalidatePath('/admin');
-    redirect(`/admin?success=Role updated to ${role}`);
+    redirect('/admin?event=role_updated');
   } catch (err: any) {
     if (err.digest) throw err;
-    redirect(`/admin?error=${encodeURIComponent(err.message)}`);
+    redirect(`/admin?event=error&msg=${encodeURIComponent(err.message)}`);
   }
 }
 
@@ -257,7 +278,9 @@ export async function updateUserStatus(formData: FormData) {
     const status = formData.get('status') as string;
 
     if (!userId || !status) throw new Error('User ID and status required');
-    if (!['active', 'suspended'].includes(status)) throw new Error('Invalid status value');
+
+    // ── Allowlist validation ───────────────────────────────────────────────────
+    if (!VALID_STATUSES.has(status)) throw new Error('Invalid status value');
 
     const adminClient = createAdminClient();
     const { error } = await adminClient
@@ -267,10 +290,10 @@ export async function updateUserStatus(formData: FormData) {
 
     if (error) throw new Error(error.message);
     revalidatePath('/admin');
-    redirect(`/admin?success=User ${status === 'suspended' ? 'suspended' : 'reactivated'} successfully`);
+    redirect('/admin?event=status_updated');
   } catch (err: any) {
     if (err.digest) throw err;
-    redirect(`/admin?error=${encodeURIComponent(err.message)}`);
+    redirect(`/admin?event=error&msg=${encodeURIComponent(err.message)}`);
   }
 }
 
@@ -278,16 +301,16 @@ export async function deleteUser(formData: FormData) {
   try {
     await verifyAdmin();
     const userId = formData.get('userId') as string;
-    if (!userId) throw new Error('User ID required');
+    if (!userId || typeof userId !== 'string') throw new Error('User ID required');
 
     const adminClient = createAdminClient();
     const { error } = await adminClient.auth.admin.deleteUser(userId);
     if (error) throw new Error(error.message);
     revalidatePath('/admin');
-    redirect('/admin?success=User deleted successfully');
+    redirect('/admin?event=user_deleted');
   } catch (err: any) {
     if (err.digest) throw err;
-    redirect(`/admin?error=${encodeURIComponent(err.message)}`);
+    redirect(`/admin?event=error&msg=${encodeURIComponent(err.message)}`);
   }
 }
 
@@ -295,7 +318,7 @@ export async function registerDevice(formData: FormData) {
   try {
     await verifyAdmin();
     const vrm_site_id = formData.get('vrm_site_id') as string;
-    const name = formData.get('name') as string;
+    const name        = formData.get('name') as string;
 
     if (!vrm_site_id || !name) throw new Error('VRM ID and nickname are required');
 
@@ -303,38 +326,38 @@ export async function registerDevice(formData: FormData) {
     const { error } = await adminClient.from('vrm_devices').insert([{ vrm_site_id, name }]);
     if (error) throw new Error(error.message);
     revalidatePath('/admin');
-    redirect('/admin?success=Device registered successfully');
+    redirect('/admin?event=device_registered');
   } catch (err: any) {
     if (err.digest) throw err;
-    redirect(`/admin?error=${encodeURIComponent(err.message)}`);
+    redirect(`/admin?event=error&msg=${encodeURIComponent(err.message)}`);
   }
 }
 
 export async function assignDevice(formData: FormData) {
   try {
     await verifyAdmin();
-    const user_id = formData.get('user_id') as string;
+    const user_id   = formData.get('user_id') as string;
     const device_id = formData.get('device_id') as string;
 
     if (!user_id || !device_id) throw new Error('User and device selection are required');
 
+    const deviceIdNum = parseInt(device_id, 10);
+    if (isNaN(deviceIdNum)) throw new Error('Invalid device ID');
+
     const adminClient = createAdminClient();
 
-    // Pre-check: prevent duplicate assignments before the DB constraint fires.
-    // This gives a clear, human-readable error rather than a raw Postgres message.
     const { data: existing } = await adminClient
       .from('device_assignments')
       .select('id')
       .eq('user_id', user_id)
-      .eq('device_id', Number(device_id))
+      .eq('device_id', deviceIdNum)
       .maybeSingle();
 
     if (existing) {
-      // Fetch device name for a friendlier message
       const { data: device } = await adminClient
         .from('vrm_devices')
         .select('name')
-        .eq('id', Number(device_id))
+        .eq('id', deviceIdNum)
         .maybeSingle();
       throw new Error(
         `${device?.name ?? 'This device'} is already assigned to this user`
@@ -343,13 +366,13 @@ export async function assignDevice(formData: FormData) {
 
     const { error } = await adminClient
       .from('device_assignments')
-      .insert([{ user_id, device_id: Number(device_id) }]);
+      .insert([{ user_id, device_id: deviceIdNum }]);
     if (error) throw new Error(error.message);
     revalidatePath('/admin');
-    redirect('/admin?success=Device assigned successfully');
+    redirect('/admin?event=device_assigned');
   } catch (err: any) {
     if (err.digest) throw err;
-    redirect(`/admin?error=${encodeURIComponent(err.message)}`);
+    redirect(`/admin?event=error&msg=${encodeURIComponent(err.message)}`);
   }
 }
 
@@ -359,27 +382,31 @@ export async function deleteAssignment(formData: FormData) {
     const id = formData.get('id') as string;
     if (!id) throw new Error('Assignment ID required');
 
+    const idNum = parseInt(id, 10);
+    if (isNaN(idNum)) throw new Error('Invalid assignment ID');
+
     const adminClient = createAdminClient();
     const { error } = await adminClient
       .from('device_assignments')
       .delete()
-      .eq('id', Number(id));
+      .eq('id', idNum);
     if (error) throw new Error(error.message);
     revalidatePath('/admin');
-    redirect('/admin?success=Device assignment removed');
+    redirect('/admin?event=assignment_removed');
   } catch (err: any) {
     if (err.digest) throw err;
-    redirect(`/admin?error=${encodeURIComponent(err.message)}`);
+    redirect(`/admin?event=error&msg=${encodeURIComponent(err.message)}`);
   }
 }
 
 export async function createClientAccount(formData: FormData) {
   try {
     await verifyAdmin();
-    const email = formData.get('email') as string;
+    const email    = formData.get('email') as string;
     const password = formData.get('password') as string;
 
     if (!email || !password) throw new Error('Email and password required');
+    if (password.length < 12) throw new Error('Password must be at least 12 characters');
 
     const adminAuthClient = createAdminClient();
     const { error } = await adminAuthClient.auth.admin.createUser({
@@ -390,9 +417,9 @@ export async function createClientAccount(formData: FormData) {
 
     if (error) throw new Error(error.message);
     revalidatePath('/admin');
-    redirect('/admin?success=Client account created successfully');
+    redirect('/admin?event=account_created');
   } catch (err: any) {
     if (err.digest) throw err;
-    redirect(`/admin?error=${encodeURIComponent(err.message)}`);
+    redirect(`/admin?event=error&msg=${encodeURIComponent(err.message)}`);
   }
 }

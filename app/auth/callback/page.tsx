@@ -50,14 +50,12 @@ function AuthCallbackInner() {
 
         // Fast path: invite_token was embedded in the redirect URL by generate-link
         if (inviteToken) {
-          console.log('[auth/callback] invite_token from URL, going to setup');
           router.replace(`/auth/setup/${inviteToken}`);
           return;
         }
 
         // Fallback: look up via server API (bypasses RLS)
         const token = await fetchAuthToken('invite');
-        console.log('[auth/callback] invite server-API lookup:', { userId, token });
 
         if (token) {
           router.replace(`/auth/setup/${token}`);

@@ -103,7 +103,6 @@ export async function GET(
 
   return NextResponse.json({
     siteId,
-    token_ok:         true,
     // Diagnostics
     diag_url:         diagUrl,
     diag_status:      diagStatus,

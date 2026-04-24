@@ -8,6 +8,7 @@ import FleetFilter, { type FleetFilters, EMPTY_FILTERS, deviceMatchesFilters, ha
 import FleetSummary from '@/components/dashboard/FleetSummary';
 import ReadingKey from '@/components/dashboard/ReadingKey';
 import ThemeToggle from '@/components/ThemeToggle';
+import { useToast } from '@/components/ToastProvider';
 
 export interface Device { siteId: string; name: string; displayName: string | null }
 interface Props {
@@ -20,6 +21,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
   const [displayNames, setDisplayNames] = useState<Record<string, string | null>>(
     Object.fromEntries(devices.map(d => [d.siteId, d.displayName]))
   );
+  const { showToast } = useToast();
 
   const handleDeviceData = useCallback((siteId: string, freshData: VRMData) => {
     setDataMap(prev => ({ ...prev, [siteId]: freshData }));
@@ -33,10 +35,18 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ displayName: trimmed }),
       });
+      if (res.status === 401) {
+        window.location.href = '/login?error=Session+expired.+Please+sign+in+again.';
+        return;
+      }
       if (res.ok) {
         setDisplayNames(prev => ({ ...prev, [siteId]: trimmed || null }));
+      } else {
+        showToast('Could not save device name. Please try again.', 'error');
       }
-    } catch { /* keep existing name */ }
+    } catch {
+      showToast('Network error. Device name not saved.', 'error');
+    }
   };
 
   const [selectedIds, setSelectedIds] = useState<string[]>(

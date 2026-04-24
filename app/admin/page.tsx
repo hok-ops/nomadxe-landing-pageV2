@@ -10,10 +10,25 @@ export const metadata = {
   title: 'Operations Console | NomadXE',
 };
 
+// Map server-action event codes to display messages.
+// Using codes (not raw strings) prevents URL-crafted visual spoofing.
+const EVENT_MESSAGES: Record<string, { type: 'success' | 'error'; text: string }> = {
+  user_invited:      { type: 'success', text: 'Invitation sent successfully.' },
+  invite_resent:     { type: 'success', text: 'Invite resent.' },
+  reset_sent:        { type: 'success', text: 'Password reset email sent.' },
+  role_updated:      { type: 'success', text: 'User role updated.' },
+  status_updated:    { type: 'success', text: 'Account status updated.' },
+  user_deleted:      { type: 'success', text: 'User deleted.' },
+  device_registered: { type: 'success', text: 'Device registered.' },
+  device_assigned:   { type: 'success', text: 'Device assigned.' },
+  assignment_removed:{ type: 'success', text: 'Device assignment removed.' },
+  account_created:   { type: 'success', text: 'Account created.' },
+};
+
 export default async function AdminDashboard({
   searchParams,
 }: {
-  searchParams: { success?: string; error?: string };
+  searchParams: { event?: string; msg?: string };
 }) {
   const supabase = createClient();
   const adminClient = createAdminClient();
@@ -77,16 +92,28 @@ export default async function AdminDashboard({
       <div className="max-w-[1440px] mx-auto px-6 lg:px-12 relative z-10">
 
         {/* ── Toasts ── */}
-        {searchParams.success && (
-          <div className="mb-6 bg-emerald-950/40 border border-emerald-500/40 rounded-xl px-5 py-4 flex items-center gap-3 text-sm text-emerald-300">
-            <span className="text-emerald-400">✓</span> {searchParams.success}
-          </div>
-        )}
-        {searchParams.error && (
-          <div className="mb-6 bg-red-950/40 border border-red-500/40 rounded-xl px-5 py-4 flex items-center gap-3 text-sm text-red-300">
-            <span className="text-red-400">⚠</span> {searchParams.error}
-          </div>
-        )}
+        {searchParams.event && (() => {
+          const mapped = EVENT_MESSAGES[searchParams.event];
+          if (mapped?.type === 'success') {
+            return (
+              <div className="mb-6 bg-emerald-950/40 border border-emerald-500/40 rounded-xl px-5 py-4 flex items-center gap-3 text-sm text-emerald-300">
+                <span className="text-emerald-400">✓</span> {mapped.text}
+              </div>
+            );
+          }
+          if (searchParams.event === 'error') {
+            // msg is URL-encoded by actions.ts; decode for display but never trust it for logic.
+            const errorText = searchParams.msg
+              ? decodeURIComponent(searchParams.msg).slice(0, 200)
+              : 'An unexpected error occurred.';
+            return (
+              <div className="mb-6 bg-red-950/40 border border-red-500/40 rounded-xl px-5 py-4 flex items-center gap-3 text-sm text-red-300">
+                <span className="text-red-400">⚠</span> {errorText}
+              </div>
+            );
+          }
+          return null;
+        })()}
 
         {/* ── Header ── */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 pb-8 border-b border-[#1e3a5f] gap-6">

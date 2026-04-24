@@ -20,7 +20,7 @@ export default function OtpResetForm({ prefillEmail }: { prefillEmail: string })
     const trimmedCode = code.trim();
     if (!trimmedCode)            { setError('Enter the code from your email'); return; }
     if (!email)                  { setError('Email is required'); return; }
-    if (password.length < 8)     { setError('Password must be at least 8 characters'); return; }
+    if (password.length < 12)    { setError('Password must be at least 12 characters'); return; }
     if (password !== confirm)    { setError('Passwords do not match'); return; }
 
     setLoading(true);
@@ -99,9 +99,9 @@ export default function OtpResetForm({ prefillEmail }: { prefillEmail: string })
           type="password"
           value={password}
           onChange={e => setPassword(e.target.value)}
-          minLength={8}
+          minLength={12}
           className="w-full bg-[#080c14] border border-[#1e3a5f] rounded-xl px-4 py-3.5 text-white text-sm placeholder:text-[#93c5fd]/20 outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6]/20 transition-all"
-          placeholder="Min. 8 characters"
+          placeholder="Min. 12 characters"
         />
       </div>
 
