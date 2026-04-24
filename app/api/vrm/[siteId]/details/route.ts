@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchVRMData } from '@/lib/vrm';
+import { fetchVRMDetail } from '@/lib/vrm';
 import { assertVrmSiteAccess } from '@/lib/vrmAccess';
-
-// Re-export VRMData type so DashboardClient can import from this route path
-export type { VRMData } from '@/lib/vrm';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,17 +10,16 @@ export async function GET(
 ) {
   const { siteId } = params;
   const access = await assertVrmSiteAccess(siteId);
+
   if (!access.ok) {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
 
   try {
-    const data = await fetchVRMData(siteId);
+    const data = await fetchVRMDetail(siteId);
     return NextResponse.json({ data, ok: true });
   } catch (err: any) {
-    // Log full error server-side; return only a generic message to the client
-    // to avoid leaking internal VRM API details (installation IDs, token status, etc.)
-    console.error(`[VRM] ${siteId}:`, err.message);
-    return NextResponse.json({ error: 'Telemetry unavailable', ok: false }, { status: 502 });
+    console.error(`[VRM details] ${siteId}:`, err.message);
+    return NextResponse.json({ error: 'Detailed telemetry unavailable', ok: false }, { status: 502 });
   }
 }

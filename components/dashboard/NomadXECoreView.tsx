@@ -2,21 +2,12 @@
 
 import { useEffect, useLayoutEffect, useState, useRef } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
+import VRMDeepDivePanel from '@/components/dashboard/VRMDeepDivePanel';
+import type { VRMData, VRMDetailData } from '@/lib/vrm';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export interface VRMData {
-  siteId: string;
-  lastSeen: number;
-  battery: { soc: number; voltage: number; current: number; power: number; state: number };
-  solar: {
-    power: number; voltage: number;
-    yieldToday: number; mpptState: number; mpptStateLabel: string;
-  };
-  dcLoad: number;
-  sparkline: number[];
-  batterySparkline?: number[]; // 6h hourly SOC % readings
-}
+export type { VRMData } from '@/lib/vrm';
 
 interface Props {
   device: { siteId: string; name: string };
@@ -282,6 +273,8 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
   const isLight = theme === 'light';
 
   const [data, setData]         = useState<VRMData | null>(initialData);
+  const [details, setDetails]   = useState<VRMDetailData | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const [lastPoll, setLastPoll] = useState(new Date());
   const [, setTick]             = useState(0);
   const rootRef                 = useRef<HTMLDivElement>(null);
@@ -303,6 +296,31 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
     const t = setTimeout(() => setMounted(true), 80);
     return () => clearTimeout(t);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadDetails = async () => {
+      setDetailsLoading(true);
+      try {
+        const res = await fetch(`/api/vrm/${device.siteId}/details`, { cache: 'no-store' });
+        if (res.status === 401) {
+          window.location.href = '/login?error=Session+expired.+Please+sign+in+again.';
+          return;
+        }
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!cancelled && json.data) setDetails(json.data);
+      } catch {
+        // Details are supplemental. Keep the core power view usable if this fails.
+      } finally {
+        if (!cancelled) setDetailsLoading(false);
+      }
+    };
+
+    loadDetails();
+    return () => { cancelled = true; };
+  }, [device.siteId]);
 
   // Staggered GSAP entrance for the three power cards. Runs once per mount,
   // respects prefers-reduced-motion, and tolerates GSAP failing to load.
@@ -679,6 +697,8 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
             })()}
           </div>
         </div>
+
+        <VRMDeepDivePanel data={data} details={details} loading={detailsLoading} />
       </div>
     </div>
   );
