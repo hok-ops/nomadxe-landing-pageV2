@@ -18,7 +18,12 @@ const MPPT_LABEL_COLOR: Record<string, string> = {
 };
 
 interface Props {
-  device: { siteId: string; name: string; displayName?: string | null };
+  device: {
+    siteId: string;
+    name: string;
+    displayName?: string | null;
+    teltonikaRmsDeviceId?: string | null;
+  };
   data: VRMData | null;
   selected: boolean;
   onClick: () => void;
@@ -155,6 +160,10 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
     setHovered(true);
   };
 
+  const modemAccessUrl = device.teltonikaRmsDeviceId
+    ? `/access/device/${encodeURIComponent(device.teltonikaRmsDeviceId)}`
+    : null;
+
   return (
     <div
       ref={tileRef}
@@ -230,6 +239,17 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
         </div>
         <div className="mt-1 text-[9px] font-mono text-[#93c5fd]/50 truncate">{device.siteId}</div>
       </button>
+      {modemAccessUrl && (
+        <a
+          href={modemAccessUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(event) => event.stopPropagation()}
+          className="mt-1.5 flex items-center justify-center rounded-lg border border-[#1e3a5f] bg-[#08111f] px-3 py-2 text-[9px] font-mono font-bold uppercase tracking-[0.28em] text-[#22c55e]/80 hover:text-white hover:border-[#22c55e]/40 transition-colors"
+        >
+          Modem Login
+        </a>
+      )}
       {hovered && mounted && data && !noData && createPortal(
         <HoverDetail
           data={data}

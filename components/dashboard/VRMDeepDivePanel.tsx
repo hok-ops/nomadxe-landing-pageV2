@@ -3,6 +3,7 @@
 import type { VRMData, VRMDetailData, VRMSeries, VRMWidgetMetric } from '@/lib/vrm';
 
 interface Props {
+  siteId: string;
   data: VRMData | null;
   details: VRMDetailData | null;
   loading: boolean;
@@ -141,7 +142,7 @@ function MetricGrid({ title, metrics }: { title: string; metrics: VRMWidgetMetri
   );
 }
 
-function TrendChart({ title, series, color }: { title: string; series: VRMSeries | null; color: string }) {
+function TrendChart({ siteId, title, series, color }: { siteId: string; title: string; series: VRMSeries | null; color: string }) {
   if (!series || series.points.length < 2) return null;
 
   const width = 320;
@@ -182,12 +183,12 @@ function TrendChart({ title, series, color }: { title: string; series: VRMSeries
 
       <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-28 overflow-visible">
         <defs>
-          <linearGradient id={`vrm-${title}`} x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={`vrm-${siteId}-${title}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={color} stopOpacity="0.35" />
             <stop offset="100%" stopColor={color} stopOpacity="0.02" />
           </linearGradient>
         </defs>
-        <path d={area} fill={`url(#vrm-${title})`} />
+        <path d={area} fill={`url(#vrm-${siteId}-${title})`} />
         <polyline
           points={points}
           fill="none"
@@ -240,7 +241,7 @@ function OverallCard({
   );
 }
 
-export default function VRMDeepDivePanel({ data, details, loading }: Props) {
+export default function VRMDeepDivePanel({ siteId, data, details, loading }: Props) {
   const notices = buildNotices(data, details);
   const gpsText =
     details?.gps?.latitude != null && details?.gps?.longitude != null
@@ -374,10 +375,10 @@ export default function VRMDeepDivePanel({ data, details, loading }: Props) {
           </section>
 
           <section className="grid gap-6 xl:grid-cols-2">
-            <TrendChart title="24h Solar Output" series={details.graphs.solar} color="#22c55e" />
-            <TrendChart title="24h Battery SOC" series={details.graphs.batterySoc} color="#3b82f6" />
-            <TrendChart title="24h DC Load" series={details.graphs.dcLoad} color="#f59e0b" />
-            <TrendChart title="Forecast" series={details.graphs.forecastSolar} color="#60a5fa" />
+            <TrendChart siteId={siteId} title="24h Solar Output" series={details.graphs.solar} color="#22c55e" />
+            <TrendChart siteId={siteId} title="24h Battery SOC" series={details.graphs.batterySoc} color="#3b82f6" />
+            <TrendChart siteId={siteId} title="24h DC Load" series={details.graphs.dcLoad} color="#f59e0b" />
+            <TrendChart siteId={siteId} title="Forecast" series={details.graphs.forecastSolar} color="#60a5fa" />
           </section>
 
           <section className="rounded-2xl border border-[#1e3a5f]/45 bg-[#080c14]/75 p-4 sm:p-5">

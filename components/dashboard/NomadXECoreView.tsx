@@ -10,7 +10,7 @@ import type { VRMData, VRMDetailData } from '@/lib/vrm';
 export type { VRMData } from '@/lib/vrm';
 
 interface Props {
-  device: { siteId: string; name: string };
+  device: { siteId: string; name: string; teltonikaRmsDeviceId?: string | null };
   initialData: VRMData | null;
   displayName?: string | null;
   onRename?: (siteId: string, newName: string) => Promise<void>;
@@ -455,6 +455,9 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
 
   const activeDisplayName = displayName ?? device.name;
   const vrmUrl = `https://vrm.victronenergy.com/installation/${device.siteId}/dashboard`;
+  const modemAccessUrl = device.teltonikaRmsDeviceId
+    ? `/access/device/${encodeURIComponent(device.teltonikaRmsDeviceId)}`
+    : null;
 
   return (
     <div
@@ -522,6 +525,22 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
         </div>
 
         <div className="flex items-center gap-3 flex-shrink-0">
+          {modemAccessUrl && (
+            <a
+              href={modemAccessUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open Teltonika modem WebUI through RMS"
+              className="flex items-center gap-1.5 text-[10px] font-mono text-[#22c55e]/75 hover:text-white uppercase tracking-widest transition-colors"
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 11a8 8 0 0 1 16 0" />
+                <path d="M12 19v-8" />
+                <path d="M8.5 15.5 12 19l3.5-3.5" />
+              </svg>
+              Modem
+            </a>
+          )}
           <a
             href={vrmUrl}
             target="_blank"
@@ -698,7 +717,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
           </div>
         </div>
 
-        <VRMDeepDivePanel data={data} details={details} loading={detailsLoading} />
+        <VRMDeepDivePanel siteId={device.siteId} data={data} details={details} loading={detailsLoading} />
       </div>
     </div>
   );

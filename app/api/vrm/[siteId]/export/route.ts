@@ -29,12 +29,16 @@ export async function GET(
   }
 
   const url = new URL(request.url);
-  const kind = url.searchParams.get('kind') ?? 'csv';
+  // Allowlist kind to prevent unexpected values reaching VRM's format param
+  const rawKind = url.searchParams.get('kind') ?? 'csv';
+  const kind = ['csv', 'xlsx', 'gps-kml'].includes(rawKind) ? rawKind : 'csv';
   const range = url.searchParams.get('range') ?? '7d';
   const now = Math.floor(Date.now() / 1000);
   const span = RANGE_TO_SECONDS[range] ?? RANGE_TO_SECONDS['7d'];
-  const start = Number(url.searchParams.get('start') ?? now - span);
-  const end = Number(url.searchParams.get('end') ?? now);
+  const rawStart = Number(url.searchParams.get('start'));
+  const rawEnd   = Number(url.searchParams.get('end'));
+  const start = Number.isFinite(rawStart) && rawStart > 0 ? Math.floor(rawStart) : now - span;
+  const end   = Number.isFinite(rawEnd)   && rawEnd   > 0 ? Math.floor(rawEnd)   : now;
 
   try {
     const vrmPath =

@@ -10,7 +10,12 @@ import ReadingKey from '@/components/dashboard/ReadingKey';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useToast } from '@/components/ToastProvider';
 
-export interface Device { siteId: string; name: string; displayName: string | null }
+export interface Device {
+  siteId: string;
+  name: string;
+  displayName: string | null;
+  teltonikaRmsDeviceId: string | null;
+}
 interface Props {
   devices: Device[];
   initialDataMap: Record<string, VRMData | null>;

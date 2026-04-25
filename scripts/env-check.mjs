@@ -5,6 +5,8 @@ const REQUIRED_SECRETS = [
   'SUPABASE_SERVICE_ROLE_KEY',
   'VICTRON_ADMIN_TOKEN',
   'MAKE_WEBHOOK_URL',              // Make.com shared webhook (order form + fallback for all forms)
+  'TELTONIKA_RMS_API_TOKEN',       // Teltonika RMS Personal Access Token for Remote HTTP sessions
+  'TELTONIKA_GATEWAY_BEARER_TOKEN',// Optional programmatic bearer auth for /access/device/[id]
 ];
 
 // Optional dedicated webhook URLs — if absent, routes fall back to MAKE_WEBHOOK_URL.
@@ -61,4 +63,3 @@ if (IS_CI) {
 }
 
 process.exit(0);
-
