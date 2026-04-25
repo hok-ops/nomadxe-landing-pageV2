@@ -112,6 +112,7 @@ export default function TwoOptions() {
 
           {/* Panel 2 — Fully Equipped (blue filled) */}
           <div
+            id="fully-equipped"
             data-option-panel
             className="bg-blue text-midnight p-12 flex flex-col gap-8"
             aria-label="Fully Equipped option"

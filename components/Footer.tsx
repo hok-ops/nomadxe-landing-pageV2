@@ -2,8 +2,8 @@
 
 const FOOTER_LINKS = {
   Solutions: [
-    { label: 'Trailer & Power Base', href: '#solutions' },
-    { label: 'Fully Equipped', href: '#solutions' },
+    { label: 'Trailer & Power Base', href: '#deployment' },
+    { label: 'Fully Equipped', href: '#fully-equipped' },
     { label: 'How It Works', href: '#how-it-works' },
     { label: 'Use Cases', href: '#use-cases' },
   ],
