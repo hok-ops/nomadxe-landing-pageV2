@@ -10,7 +10,7 @@ import type { VRMData, VRMDetailData } from '@/lib/vrm';
 export type { VRMData } from '@/lib/vrm';
 
 interface Props {
-  device: { siteId: string; name: string; teltonikaRmsDeviceId?: string | null };
+  device: { siteId: string; name: string; teltonikaRmsDeviceId?: string | null; routerAccessUrl?: string | null };
   initialData: VRMData | null;
   displayName?: string | null;
   onRename?: (siteId: string, newName: string) => Promise<void>;
@@ -455,9 +455,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
 
   const activeDisplayName = displayName ?? device.name;
   const vrmUrl = `https://vrm.victronenergy.com/installation/${device.siteId}/dashboard`;
-  const modemAccessUrl = device.teltonikaRmsDeviceId
-    ? `/access/device/${encodeURIComponent(device.teltonikaRmsDeviceId)}`
-    : null;
+  const modemAccessUrl = device.routerAccessUrl ?? null;
 
   return (
     <div
@@ -530,7 +528,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
               href={modemAccessUrl}
               target="_blank"
               rel="noopener noreferrer"
-              title="Open Teltonika modem WebUI through RMS"
+              title="Open router WebUI"
               className="flex items-center gap-1.5 text-[10px] font-mono text-[#22c55e]/75 hover:text-white uppercase tracking-widest transition-colors"
             >
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

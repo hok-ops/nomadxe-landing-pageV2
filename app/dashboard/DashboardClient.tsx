@@ -15,6 +15,7 @@ export interface Device {
   name: string;
   displayName: string | null;
   teltonikaRmsDeviceId: string | null;
+  routerAccessUrl: string | null;
 }
 interface Props {
   devices: Device[];

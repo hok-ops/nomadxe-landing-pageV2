@@ -22,7 +22,7 @@ export default async function DashboardPage() {
   const adminClient = createAdminClient();
   const { data: assignments } = await adminClient
     .from('device_assignments')
-    .select('device_id, vrm_devices(id, vrm_site_id, name, display_name, teltonika_rms_device_id)')
+    .select('device_id, vrm_devices(id, vrm_site_id, name, display_name, teltonika_rms_device_id, router_access_url)')
     .eq('user_id', user.id);
 
   const rawDevices = (assignments ?? [])
@@ -33,6 +33,7 @@ export default async function DashboardPage() {
       name:        String(d.name),
       displayName: d.display_name ?? null,
       teltonikaRmsDeviceId: d.teltonika_rms_device_id ? String(d.teltonika_rms_device_id) : null,
+      routerAccessUrl: d.router_access_url ? String(d.router_access_url) : null,
     }));
 
   // Deduplicate by siteId — a device may have multiple assignment rows
