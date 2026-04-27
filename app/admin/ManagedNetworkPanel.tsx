@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import {
   addManagedNetworkDevice,
   deleteManagedNetworkDevice,
@@ -28,6 +29,8 @@ type DiscoveredDeviceWithParent = DiscoveredNetworkDevice & {
   parentName: string;
   parentSiteId: string;
 };
+
+type FleetSourceFilter = 'attention' | 'unreported' | 'all';
 
 function statusClasses(status: ManagedNetworkDevice['lastStatus']) {
   if (status === 'online') return 'bg-emerald-500/12 text-emerald-300 border-emerald-500/25';
@@ -95,30 +98,66 @@ export function ManagedNetworkPanel({
   managedDevices: ManagedDeviceWithParent[];
   discoveredDevices: DiscoveredDeviceWithParent[];
 }) {
+  const [fleetSearch, setFleetSearch] = useState('');
+  const [fleetFilter, setFleetFilter] = useState<FleetSourceFilter>('attention');
   const summary = getManagedDeviceSummary(managedDevices, STALE_AFTER_MS);
   const attentionCount = summary.offline + summary.stale;
   const unmanagedDiscoveries = discoveredDevices
     .filter((device) => !device.isManaged)
     .slice(0, 8);
-  const fleetRows = devices.map((device) => {
-    const managedForDevice = managedDevices.filter((target) => target.vrmDeviceId === device.id);
-    const observedForDevice = discoveredDevices.filter((host) => host.vrmDeviceId === device.id);
-    const attentionForDevice = managedForDevice.filter(
-      (target) => target.lastStatus === 'offline' || isStale(target)
-    );
+  const fleetRows = useMemo(() => {
+    const managedByDevice = new Map<number, { managedCount: number; attentionCount: number }>();
+    const observedByDevice = new Map<number, { observedCount: number; staleDiscoveryCount: number; lastObservedAt: string | null }>();
 
-    return {
-      ...device,
-      managedCount: managedForDevice.length,
-      observedCount: observedForDevice.length,
-      attentionCount: attentionForDevice.length,
-      lastObservedAt: observedForDevice
-        .map((host) => host.lastSeenAt)
-        .sort()
-        .at(-1) ?? null,
-      staleDiscoveryCount: observedForDevice.filter(isDiscoveryStale).length,
-    };
+    for (const target of managedDevices) {
+      const current = managedByDevice.get(target.vrmDeviceId) ?? { managedCount: 0, attentionCount: 0 };
+      current.managedCount += 1;
+      if (target.lastStatus === 'offline' || isStale(target)) current.attentionCount += 1;
+      managedByDevice.set(target.vrmDeviceId, current);
+    }
+
+    for (const host of discoveredDevices) {
+      const current = observedByDevice.get(host.vrmDeviceId) ?? {
+        observedCount: 0,
+        staleDiscoveryCount: 0,
+        lastObservedAt: null,
+      };
+      current.observedCount += 1;
+      if (isDiscoveryStale(host)) current.staleDiscoveryCount += 1;
+      if (!current.lastObservedAt || host.lastSeenAt > current.lastObservedAt) {
+        current.lastObservedAt = host.lastSeenAt;
+      }
+      observedByDevice.set(host.vrmDeviceId, current);
+    }
+
+    return devices
+      .map((device) => {
+        const managed = managedByDevice.get(device.id);
+        const observed = observedByDevice.get(device.id);
+        return {
+          ...device,
+          managedCount: managed?.managedCount ?? 0,
+          observedCount: observed?.observedCount ?? 0,
+          attentionCount: managed?.attentionCount ?? 0,
+          lastObservedAt: observed?.lastObservedAt ?? null,
+          staleDiscoveryCount: observed?.staleDiscoveryCount ?? 0,
+        };
+      })
+      .sort((a, b) => {
+        if (a.attentionCount !== b.attentionCount) return b.attentionCount - a.attentionCount;
+        if (Boolean(a.lastObservedAt) !== Boolean(b.lastObservedAt)) return a.lastObservedAt ? 1 : -1;
+        return a.name.localeCompare(b.name);
+      });
+  }, [devices, managedDevices, discoveredDevices]);
+  const fleetSearchTerm = fleetSearch.trim().toLowerCase();
+  const filteredFleetRows = fleetRows.filter((device) => {
+    if (fleetFilter === 'attention' && device.attentionCount === 0) return false;
+    if (fleetFilter === 'unreported' && device.lastObservedAt) return false;
+    if (!fleetSearchTerm) return true;
+    return `${device.name} ${device.vrm_site_id}`.toLowerCase().includes(fleetSearchTerm);
   });
+  const visibleFleetRows = filteredFleetRows.slice(0, 40);
+  const unreportedFleetCount = fleetRows.filter((device) => !device.lastObservedAt).length;
   const orderedManagedDevices = [...managedDevices].sort((a, b) => {
     const aAttention = a.lastStatus === 'offline' || isStale(a) ? 0 : 1;
     const bAttention = b.lastStatus === 'offline' || isStale(b) ? 0 : 1;
@@ -156,10 +195,25 @@ export function ManagedNetworkPanel({
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-[#1e3a5f]/70 bg-[#0b1323]">
-        <div className="flex items-center justify-between border-b border-[#1e3a5f]/60 px-4 py-3">
+        <div className="border-b border-[#1e3a5f]/60 px-4 py-3">
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-[0.28em] text-[#93c5fd]/72">Dashboard Fleet Source</h3>
-            <p className="mt-1 text-[10px] text-[#93c5fd]/45">Trailers are pulled from the same registered VRM devices that power the client dashboard.</p>
+            <h3 className="text-xs font-bold uppercase tracking-[0.28em] text-[#93c5fd]/72">Fleet Source Register</h3>
+            <p className="mt-1 text-[10px] leading-relaxed text-[#93c5fd]/45">
+              Indexed from registered VRM dashboard devices. Filter first; do not browse the fleet as cards.
+            </p>
+          </div>
+
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            {[
+              { label: 'Trailers', value: fleetRows.length },
+              { label: 'No Report', value: unreportedFleetCount },
+              { label: 'Issues', value: fleetRows.reduce((total, device) => total + device.attentionCount, 0) },
+            ].map((item) => (
+              <div key={item.label} className="rounded-lg border border-[#1e3a5f]/55 bg-[#080c14]/80 px-2 py-2 text-center">
+                <div className="text-xs font-black text-white">{item.value}</div>
+                <div className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.16em] text-[#93c5fd]/38">{item.label}</div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -169,41 +223,77 @@ export function ManagedNetworkPanel({
             <p className="mt-2 text-[11px] text-[#93c5fd]/38">Register a Victron device first, then LAN inventory can attach to its site ID.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-2 p-4 md:grid-cols-2">
-            {fleetRows.map((device) => (
-              <div key={device.id} className="rounded-xl border border-[#1e3a5f]/55 bg-[#080c14]/80 px-4 py-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-bold text-white">{device.name}</div>
-                    <div className="mt-1 text-[10px] font-mono uppercase tracking-[0.18em] text-[#93c5fd]/45">
-                      Site {device.vrm_site_id}
-                    </div>
-                  </div>
-                  <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.18em] ${
-                    device.attentionCount > 0
-                      ? 'border-amber-500/25 bg-amber-500/10 text-amber-300'
-                      : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
-                  }`}>
-                    {device.attentionCount > 0 ? `${device.attentionCount} issue${device.attentionCount === 1 ? '' : 's'}` : 'Clear'}
-                  </span>
+          <div className="p-4">
+            <div className="space-y-2">
+              <input
+                value={fleetSearch}
+                onChange={(event) => setFleetSearch(event.target.value)}
+                className="w-full rounded-lg border border-[#1e3a5f] bg-[#080c14] px-3 py-2 text-xs text-white outline-none transition-colors placeholder:text-[#93c5fd]/25 focus:border-[#3b82f6]"
+                placeholder="Search trailer or site ID"
+              />
+              <div className="grid grid-cols-3 gap-1.5">
+                {[
+                  { key: 'attention' as const, label: 'Issues' },
+                  { key: 'unreported' as const, label: 'No Report' },
+                  { key: 'all' as const, label: 'All' },
+                ].map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => setFleetFilter(item.key)}
+                    className={`rounded-lg border px-2 py-2 text-[9px] font-bold uppercase tracking-[0.16em] transition-all ${
+                      fleetFilter === item.key
+                        ? 'border-[#3b82f6]/60 bg-[#2563eb]/20 text-white'
+                        : 'border-[#1e3a5f]/65 bg-[#080c14]/65 text-[#93c5fd]/48 hover:text-white'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-3 max-h-[24rem] overflow-y-auto pr-1">
+              {filteredFleetRows.length === 0 ? (
+                <div className="rounded-xl border border-[#1e3a5f]/45 bg-[#080c14]/70 px-3 py-5 text-center">
+                  <p className="text-xs text-[#93c5fd]/55">No trailers match this filter.</p>
                 </div>
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  {[
-                    { label: 'Observed', value: device.observedCount },
-                    { label: 'Managed', value: device.managedCount },
-                    { label: 'Stale', value: device.staleDiscoveryCount },
-                  ].map((item) => (
-                    <div key={item.label} className="rounded-lg border border-[#1e3a5f]/55 px-2 py-2 text-center">
-                      <div className="text-xs font-black text-white">{item.value}</div>
-                      <div className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.18em] text-[#93c5fd]/38">{item.label}</div>
+              ) : (
+                <div className="divide-y divide-[#1e3a5f]/38 overflow-hidden rounded-xl border border-[#1e3a5f]/45 bg-[#080c14]/70">
+                  {visibleFleetRows.map((device) => (
+                    <div key={device.id} className="px-3 py-2.5 transition-colors hover:bg-[#0f1a30]/60">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="truncate text-xs font-bold text-white">{device.name}</div>
+                          <div className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.16em] text-[#93c5fd]/42">
+                            Site {device.vrm_site_id}
+                          </div>
+                        </div>
+                        <span className={`flex-shrink-0 rounded-full border px-2 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] ${
+                          device.attentionCount > 0
+                            ? 'border-amber-500/25 bg-amber-500/10 text-amber-300'
+                            : device.lastObservedAt
+                              ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
+                              : 'border-slate-500/25 bg-slate-500/10 text-slate-300'
+                        }`}>
+                          {device.attentionCount > 0 ? `${device.attentionCount} issue${device.attentionCount === 1 ? '' : 's'}` : device.lastObservedAt ? 'Reporting' : 'No report'}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[9px] font-mono text-[#93c5fd]/42">
+                        <span>{device.observedCount} observed</span>
+                        <span>{device.managedCount} managed</span>
+                        <span>{device.staleDiscoveryCount} stale</span>
+                        <span>{device.lastObservedAt ? formatAgo(device.lastObservedAt) : 'never'}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
-                <div className="mt-2 text-[10px] text-[#93c5fd]/42">
-                  Last LAN report: {device.lastObservedAt ? formatAgo(device.lastObservedAt) : 'No report yet'}
-                </div>
-              </div>
-            ))}
+              )}
+            </div>
+
+            <div className="mt-2 text-[9px] text-[#93c5fd]/35">
+              Showing {visibleFleetRows.length} of {filteredFleetRows.length} matching trailers. Use search to narrow large fleets.
+            </div>
           </div>
         )}
       </div>
