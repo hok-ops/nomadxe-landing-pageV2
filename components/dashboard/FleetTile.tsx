@@ -8,6 +8,15 @@ import { useTheme } from '@/components/ThemeProvider';
 // Module-level cache so reverse-geocode is only called once per unique location per session.
 const geocodeCache = new Map<string, string>();
 
+// Simple serial queue — Nominatim enforces 1 req/sec; burst requests get rejected.
+let geocodeQueue = Promise.resolve();
+function enqueueGeocode(fn: () => Promise<void>) {
+  geocodeQueue = geocodeQueue.then(() => fn()).then(
+    () => new Promise<void>(resolve => setTimeout(resolve, 1100)),
+    () => new Promise<void>(resolve => setTimeout(resolve, 1100)),
+  );
+}
+
 const US_STATES: Record<string, string> = {
   'Alabama':'AL','Alaska':'AK','Arizona':'AZ','Arkansas':'AR','California':'CA',
   'Colorado':'CO','Connecticut':'CT','Delaware':'DE','Florida':'FL','Georgia':'GA',
@@ -21,28 +30,35 @@ const US_STATES: Record<string, string> = {
   'Virginia':'VA','Washington':'WA','West Virginia':'WV','Wisconsin':'WI','Wyoming':'WY',
 };
 
-async function reverseGeocode(lat: number, lon: number): Promise<string> {
+function reverseGeocode(lat: number, lon: number): Promise<string> {
   const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
-  if (geocodeCache.has(key)) return geocodeCache.get(key)!;
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14`,
-      { headers: { 'Accept-Language': 'en-US,en' } }
-    );
-    if (!res.ok) throw new Error('geocode failed');
-    const json = await res.json();
-    const a = json.address ?? {};
-    const city  = a.city ?? a.town ?? a.village ?? a.county ?? '';
-    const state = a.state ?? '';
-    const zip   = a.postcode ?? '';
-    const stateCode = US_STATES[state] ?? state;
-    const label = [city, stateCode, zip].filter(Boolean).join(', ');
-    geocodeCache.set(key, label || key);
-    return geocodeCache.get(key)!;
-  } catch {
-    geocodeCache.set(key, key);
-    return key;
-  }
+  if (geocodeCache.has(key)) return Promise.resolve(geocodeCache.get(key)!);
+
+  // Mark in-flight immediately so duplicate tiles don't enqueue separate calls.
+  geocodeCache.set(key, key);
+
+  return new Promise<string>((resolve) => {
+    enqueueGeocode(async () => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18`,
+          { headers: { 'Accept-Language': 'en-US,en' } }
+        );
+        if (!res.ok) throw new Error('geocode failed');
+        const json = await res.json();
+        const a = json.address ?? {};
+        const city  = a.city ?? a.town ?? a.village ?? a.county ?? '';
+        const state = a.state ?? '';
+        const zip   = a.postcode ?? '';
+        const stateCode = US_STATES[state] ?? state;
+        const label = [city, stateCode, zip].filter(Boolean).join(', ');
+        geocodeCache.set(key, label || key);
+      } catch {
+        // leave the placeholder (raw coords) in the cache
+      }
+      resolve(geocodeCache.get(key)!);
+    });
+  });
 }
 
 function getBatteryColor(soc: number, light: boolean) {
