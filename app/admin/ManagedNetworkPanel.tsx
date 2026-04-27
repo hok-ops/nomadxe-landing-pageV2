@@ -32,6 +32,22 @@ type DiscoveredDeviceWithParent = DiscoveredNetworkDevice & {
 
 type FleetSourceFilter = 'attention' | 'unreported' | 'all';
 
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 14 14"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={`transition-transform duration-200 ${open ? 'rotate-0' : '-rotate-90'}`}
+      aria-hidden="true"
+    >
+      <path d="M2.5 5L7 9.5L11.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function statusClasses(status: ManagedNetworkDevice['lastStatus']) {
   if (status === 'online') return 'bg-emerald-500/12 text-emerald-300 border-emerald-500/25';
   if (status === 'offline') return 'bg-rose-500/12 text-rose-300 border-rose-500/25';
@@ -98,6 +114,7 @@ export function ManagedNetworkPanel({
   managedDevices: ManagedDeviceWithParent[];
   discoveredDevices: DiscoveredDeviceWithParent[];
 }) {
+  const [open, setOpen] = useState(true);
   const [fleetSearch, setFleetSearch] = useState('');
   const [fleetFilter, setFleetFilter] = useState<FleetSourceFilter>('attention');
   const summary = getManagedDeviceSummary(managedDevices, STALE_AFTER_MS);
@@ -166,7 +183,27 @@ export function ManagedNetworkPanel({
   });
 
   return (
-    <div className="space-y-6">
+    <div className="overflow-hidden rounded-2xl border border-[#1e3a5f]/70 bg-[#0d1526]">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-controls="lan-device-operations-panel"
+        className="flex w-full items-center justify-between gap-4 border-b border-[#1e3a5f]/70 px-4 py-4 text-left transition-colors hover:bg-[#111d36] sm:px-5"
+      >
+        <div>
+          <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#93c5fd]/70">LAN Device Operations</div>
+          <p className="mt-1 text-[11px] text-[#93c5fd]/48">
+            {managedDevices.length} managed, {discoveredDevices.length} observed, {attentionCount} needing attention
+          </p>
+        </div>
+        <span className="text-[#93c5fd]/55">
+          <ChevronIcon open={open} />
+        </span>
+      </button>
+
+      {open && (
+        <div id="lan-device-operations-panel" className="space-y-6 p-4 sm:p-5">
       <div className="rounded-2xl border border-[#1e3a5f]/70 bg-[linear-gradient(180deg,rgba(13,21,38,0.96),rgba(8,12,20,0.98))] p-4 sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -480,6 +517,8 @@ export function ManagedNetworkPanel({
           </div>
         )}
       </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -32,6 +32,22 @@ function deviceNames(assignments: Assignment[]): string[] {
   });
 }
 
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 14 14"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={`transition-transform duration-200 ${open ? 'rotate-0' : '-rotate-90'}`}
+      aria-hidden="true"
+    >
+      <path d="M2.5 5L7 9.5L11.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function RosterTable({
   users,
   totalDevices,
@@ -40,6 +56,7 @@ export function RosterTable({
   totalDevices: number;
 }) {
   const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(true);
 
   const q = query.trim().toLowerCase();
   const filtered = q
@@ -52,16 +69,24 @@ export function RosterTable({
   return (
     <div className="bg-[#0d1526] border border-[#1e3a5f] rounded-xl shadow-2xl overflow-hidden">
 
-      {/* Header */}
       <div className="flex flex-wrap gap-4 items-center justify-between px-7 py-5 border-b border-[#1e3a5f]">
-        <div>
-          <h3 className="text-base font-bold text-white">Client &amp; Device Roster</h3>
-          <p className="text-[11px] text-[#93c5fd]/65 mt-0.5">
-            {q
-              ? `${filtered.length} of ${users.length} user${users.length !== 1 ? 's' : ''} match`
-              : 'All accounts and their assigned Victron units'}
-          </p>
-        </div>
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
+          aria-controls="client-device-roster-panel"
+          className="flex items-center gap-3 text-left transition-opacity hover:opacity-85"
+        >
+          <span className="text-[#93c5fd]/55"><ChevronIcon open={open} /></span>
+          <span>
+            <span className="block text-base font-bold text-white">Client &amp; Device Roster</span>
+            <span className="mt-0.5 block text-[11px] text-[#93c5fd]/65">
+              {q
+                ? `${filtered.length} of ${users.length} user${users.length !== 1 ? 's' : ''} match`
+                : 'All accounts and their assigned Victron units'}
+            </span>
+          </span>
+        </button>
         <div className="flex items-center gap-3">
           {/* Search */}
           <div className="relative">
@@ -91,8 +116,8 @@ export function RosterTable({
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
+      {open && (
+      <div id="client-device-roster-panel" className="overflow-x-auto">
         <table className="w-full text-left">
           <thead>
             <tr className="text-[10px] font-bold text-[#93c5fd]/65 uppercase tracking-widest border-b border-[#1e3a5f] bg-[#080c14]/60">
@@ -218,6 +243,7 @@ export function RosterTable({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
