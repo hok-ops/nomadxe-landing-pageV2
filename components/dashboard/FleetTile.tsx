@@ -5,6 +5,46 @@ import { createPortal } from 'react-dom';
 import type { VRMData } from './NomadXECoreView';
 import { useTheme } from '@/components/ThemeProvider';
 
+// Module-level cache so reverse-geocode is only called once per unique location per session.
+const geocodeCache = new Map<string, string>();
+
+const US_STATES: Record<string, string> = {
+  'Alabama':'AL','Alaska':'AK','Arizona':'AZ','Arkansas':'AR','California':'CA',
+  'Colorado':'CO','Connecticut':'CT','Delaware':'DE','Florida':'FL','Georgia':'GA',
+  'Hawaii':'HI','Idaho':'ID','Illinois':'IL','Indiana':'IN','Iowa':'IA',
+  'Kansas':'KS','Kentucky':'KY','Louisiana':'LA','Maine':'ME','Maryland':'MD',
+  'Massachusetts':'MA','Michigan':'MI','Minnesota':'MN','Mississippi':'MS','Missouri':'MO',
+  'Montana':'MT','Nebraska':'NE','Nevada':'NV','New Hampshire':'NH','New Jersey':'NJ',
+  'New Mexico':'NM','New York':'NY','North Carolina':'NC','North Dakota':'ND','Ohio':'OH',
+  'Oklahoma':'OK','Oregon':'OR','Pennsylvania':'PA','Rhode Island':'RI','South Carolina':'SC',
+  'South Dakota':'SD','Tennessee':'TN','Texas':'TX','Utah':'UT','Vermont':'VT',
+  'Virginia':'VA','Washington':'WA','West Virginia':'WV','Wisconsin':'WI','Wyoming':'WY',
+};
+
+async function reverseGeocode(lat: number, lon: number): Promise<string> {
+  const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+  if (geocodeCache.has(key)) return geocodeCache.get(key)!;
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14`,
+      { headers: { 'Accept-Language': 'en-US,en' } }
+    );
+    if (!res.ok) throw new Error('geocode failed');
+    const json = await res.json();
+    const a = json.address ?? {};
+    const city  = a.city ?? a.town ?? a.village ?? a.county ?? '';
+    const state = a.state ?? '';
+    const zip   = a.postcode ?? '';
+    const stateCode = US_STATES[state] ?? state;
+    const label = [city, stateCode, zip].filter(Boolean).join(', ');
+    geocodeCache.set(key, label || key);
+    return geocodeCache.get(key)!;
+  } catch {
+    geocodeCache.set(key, key);
+    return key;
+  }
+}
+
 function getBatteryColor(soc: number, light: boolean) {
   if (soc >= 75) return light ? '#16a34a' : '#22c55e';
   if (soc >= 25) return light ? '#2563eb' : '#3b82f6';
@@ -116,10 +156,17 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
   const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({});
   const [entered, setEntered] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [location, setLocation] = useState<string | null>(null);
   const tileRef = useRef<HTMLDivElement>(null);
 
   // Portal target is document.body — only available after mount (SSR safety).
   useEffect(() => { setMounted(true); }, []);
+
+  // Reverse-geocode once when GPS coordinates first become available.
+  useEffect(() => {
+    if (data?.lat == null || data?.lon == null) return;
+    reverseGeocode(data.lat, data.lon).then(setLocation);
+  }, [data?.lat, data?.lon]);
 
   // Mount stagger — tiles appear in a gentle cascade. Cap delay so large
   // fleets don't wait forever; respect reduced-motion by skipping the fade.
@@ -237,7 +284,9 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
             {charging ? '↑ chg' : discharging ? '↓ bat' : noData ? '—' : 'stby'}
           </span>
         </div>
-        <div className="mt-1 text-[9px] font-mono text-[#93c5fd]/50 truncate">{device.siteId}</div>
+        <div className="mt-1 text-[9px] font-mono text-[#93c5fd]/50 truncate">
+          {location ?? device.siteId}
+        </div>
       </button>
       {modemAccessUrl && (
         <a

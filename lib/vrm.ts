@@ -53,6 +53,9 @@ export interface VRMData {
   dcLoad: number;
   sparkline: number[];
   batterySparkline?: number[];
+  /** GPS coordinates from the VRM GPS widget — null when unavailable */
+  lat: number | null;
+  lon: number | null;
 }
 
 export interface VRMWidgetMetric {
@@ -545,7 +548,7 @@ export async function fetchVRMData(siteId: string): Promise<VRMData> {
   const now = Math.floor(Date.now() / 1000);
   const threeHrsAgo = now - 3 * 3_600;
 
-  const [diagJson, statsJson] = await Promise.all([
+  const [diagJson, statsJson, gpsJson] = await Promise.all([
     fetchVRM(`/installations/${siteId}/diagnostics`),
     fetchVRM(
       `/installations/${siteId}/stats` +
@@ -557,6 +560,7 @@ export async function fetchVRMData(siteId: string): Promise<VRMData> {
         end: now,
       })
     ).catch(() => null),
+    safeFetchVRM(`/installations/${siteId}/widgets/GPS`),
   ]);
 
   const records: unknown[] = (diagJson as any)?.records ?? [];
@@ -571,6 +575,8 @@ export async function fetchVRMData(siteId: string): Promise<VRMData> {
   const sparkline = sparklineRaw.length > 0
     ? sparklineRaw
     : extractSparkline(statsJson, A.SOLAR_W_SYS);
+
+  const gps = extractGps(gpsJson);
 
   return {
     siteId,
@@ -592,6 +598,8 @@ export async function fetchVRMData(siteId: string): Promise<VRMData> {
     dcLoad,
     sparkline,
     batterySparkline: extractSparkline(statsJson, A.BATTERY_SOC),
+    lat: gps?.latitude ?? null,
+    lon: gps?.longitude ?? null,
   };
 }
 
