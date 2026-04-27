@@ -5,6 +5,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
+interface PhotoAttachment {
+  name: string;
+  type: string;
+  data: string; // base64 data URL
+}
+
 interface OrderPayload {
   full_name: string; email: string; company: string; phone: string;
   location_name: string; site_type: string;
@@ -14,9 +20,10 @@ interface OrderPayload {
   start_date: string; duration: string; trailer_count: string;
   deployment_option: string; technician_setup: string; forklift_available: string;
   notes?: string; additional_recipients?: string;
+  photos?: PhotoAttachment[];
   utm_source?: string; utm_medium?: string; utm_campaign?: string;
   utm_term?: string; utm_content?: string; utm_id?: string;
-  [key: string]: string | undefined;
+  [key: string]: string | undefined | PhotoAttachment[];
 }
 
 const LAT_RE = /^-?(([0-8]?\d(\.\d{1,8})?)|90(\.0{1,8})?)$/;
@@ -136,6 +143,22 @@ export async function POST(req: NextRequest) {
     utm_id:             cap(body.utm_id, 100),
     ...(body.gps_lat ? { gps_lat: parseFloat(body.gps_lat) } : {}),
     ...(body.gps_lng ? { gps_lng: parseFloat(body.gps_lng) } : {}),
+    // Photos: validate and pass through base64 attachments (max 4, image types only)
+    ...(Array.isArray(body.photos) && body.photos.length > 0 ? {
+      photos: (body.photos as PhotoAttachment[])
+        .slice(0, 4)
+        .filter(p =>
+          typeof p.name === 'string' &&
+          typeof p.data === 'string' &&
+          /^image\/(jpeg|png|webp|heic|heif)$/.test(p.type ?? '') &&
+          p.data.startsWith('data:image/')
+        )
+        .map(p => ({
+          name: cap(p.name, 200),
+          type: p.type,
+          data: p.data.slice(0, 4_000_000), // hard cap at ~3 MB base64 per photo
+        })),
+    } : {}),
     submitted_at: new Date().toISOString(),
   };
 

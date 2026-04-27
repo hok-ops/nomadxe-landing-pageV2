@@ -41,6 +41,29 @@ const YES_NO = ['Yes', 'No'];
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error';
 
+interface PhotoFile {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  preview: string;   // object URL for thumbnail
+  data: string;      // base64 data URL sent in payload
+}
+
+const MAX_PHOTOS    = 4;
+const MAX_PHOTO_MB  = 2;
+const MAX_PHOTO_B   = MAX_PHOTO_MB * 1024 * 1024;
+const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('File read failed'));
+    reader.readAsDataURL(file);
+  });
+}
+
 interface DeliveryContact {
   name: string;
   phone: string;
@@ -210,6 +233,9 @@ export default function OrderFormClient() {
   const [recipientErrors, setRecipientErrors] = useState<(string | undefined)[]>([]);
   const [deliveryContacts, setDeliveryContacts] = useState<DeliveryContact[]>([{ ...INITIAL_DELIVERY_CONTACT }]);
   const [deliveryContactErrors, setDeliveryContactErrors] = useState<DeliveryContactError[]>([{}]);
+  const [photos, setPhotos] = useState<PhotoFile[]>([]);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Capture UTMs on mount
   useEffect(() => {
@@ -250,6 +276,34 @@ export default function OrderFormClient() {
   function removeDeliveryContact(i: number) {
     setDeliveryContacts(deliveryContacts.filter((_, j) => j !== i));
     setDeliveryContactErrors(deliveryContactErrors.filter((_, j) => j !== i));
+  }
+
+  async function addPhotos(files: FileList | File[]) {
+    setPhotoError(null);
+    const incoming = Array.from(files);
+    const remaining = MAX_PHOTOS - photos.length;
+    if (remaining <= 0) { setPhotoError(`Maximum ${MAX_PHOTOS} photos allowed.`); return; }
+    const toAdd = incoming.slice(0, remaining);
+    const errors: string[] = [];
+    const valid: PhotoFile[] = [];
+    for (const file of toAdd) {
+      if (!ACCEPTED_TYPES.includes(file.type)) { errors.push(`${file.name}: unsupported type`); continue; }
+      if (file.size > MAX_PHOTO_B) { errors.push(`${file.name}: exceeds ${MAX_PHOTO_MB} MB limit`); continue; }
+      try {
+        const data = await readFileAsBase64(file);
+        valid.push({ id: crypto.randomUUID(), name: file.name, type: file.type, size: file.size, preview: URL.createObjectURL(file), data });
+      } catch { errors.push(`${file.name}: could not read file`); }
+    }
+    if (errors.length) setPhotoError(errors.join(' · '));
+    if (valid.length) setPhotos(p => [...p, ...valid]);
+  }
+
+  function removePhoto(id: string) {
+    setPhotos(p => {
+      const removed = p.find(f => f.id === id);
+      if (removed) URL.revokeObjectURL(removed.preview);
+      return p.filter(f => f.id !== id);
+    });
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -325,6 +379,9 @@ export default function OrderFormClient() {
           additional_recipients: validRecipients.join(', '),
         }),
         ...(fields.notes.trim() && { notes: fields.notes.trim() }),
+        ...(photos.length > 0 && {
+          photos: photos.map(p => ({ name: p.name, type: p.type, data: p.data })),
+        }),
         ...utmParams,
       };
       const res = await fetch('/api/order', {
@@ -358,6 +415,9 @@ export default function OrderFormClient() {
     setRecipientErrors([]);
     setDeliveryContacts([{ ...INITIAL_DELIVERY_CONTACT }]);
     setDeliveryContactErrors([{}]);
+    photos.forEach(p => URL.revokeObjectURL(p.preview));
+    setPhotos([]);
+    setPhotoError(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -829,6 +889,77 @@ export default function OrderFormClient() {
                 placeholder="Access requirements, existing infrastructure, preferred monitoring partner…"
                 className={`${INPUT(false)} resize-none`} />
             </div>
+          </Section>
+
+          {/* ── Site Photos ── */}
+          <Section title="Site Photos">
+            <p className="font-mono text-[10.5px] text-slate-400 -mt-1">
+              Optional — upload up to {MAX_PHOTOS} photos of the site (JPG, PNG, WEBP · max {MAX_PHOTO_MB} MB each).
+            </p>
+
+            {/* Drop zone */}
+            {photos.length < MAX_PHOTOS && (
+              <div
+                onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={e => { e.preventDefault(); setIsDragging(false); addPhotos(e.dataTransfer.files); }}
+                className={`relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-8 transition-all duration-200 cursor-pointer
+                  ${isDragging ? 'border-blue/60 bg-blue/[0.06]' : 'border-slate-200 hover:border-blue/40 hover:bg-blue/[0.03]'}`}
+                onClick={() => document.getElementById('photo-input')?.click()}
+              >
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={isDragging ? '#0EA5E9' : '#94a3b8'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+                <div className="text-center">
+                  <p className="text-[13px] font-semibold text-slate-600">
+                    {isDragging ? 'Drop photos here' : 'Drag & drop or click to upload'}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {MAX_PHOTOS - photos.length} of {MAX_PHOTOS} slots remaining
+                  </p>
+                </div>
+                <input
+                  id="photo-input"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                  multiple
+                  className="sr-only"
+                  onChange={e => { if (e.target.files) addPhotos(e.target.files); e.target.value = ''; }}
+                />
+              </div>
+            )}
+
+            {/* Thumbnails */}
+            {photos.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {photos.map(photo => (
+                  <div key={photo.id} className="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-50 aspect-square">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photo.preview} alt={photo.name} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-200" />
+                    <button
+                      type="button"
+                      onClick={() => removePhoto(photo.id)}
+                      className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-500"
+                      aria-label={`Remove ${photo.name}`}
+                    >
+                      <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <line x1="1" y1="1" x2="13" y2="13" /><line x1="13" y1="1" x2="1" y2="13" />
+                      </svg>
+                    </button>
+                    <div className="absolute bottom-0 inset-x-0 px-2 py-1 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <p className="text-[9px] text-white truncate">{photo.name}</p>
+                      <p className="text-[9px] text-white/60">{(photo.size / 1024).toFixed(0)} KB</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {photoError && (
+              <p className={ERR} role="alert">{photoError}</p>
+            )}
           </Section>
 
           {/* Server error */}
