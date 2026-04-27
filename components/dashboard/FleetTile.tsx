@@ -5,17 +5,8 @@ import { createPortal } from 'react-dom';
 import type { VRMData } from './NomadXECoreView';
 import { useTheme } from '@/components/ThemeProvider';
 
-// Module-level cache so reverse-geocode is only called once per unique location per session.
+// Module-level cache — geocode is called once per unique location per session.
 const geocodeCache = new Map<string, string>();
-
-// Simple serial queue — Nominatim enforces 1 req/sec; burst requests get rejected.
-let geocodeQueue = Promise.resolve();
-function enqueueGeocode(fn: () => Promise<void>) {
-  geocodeQueue = geocodeQueue.then(() => fn()).then(
-    () => new Promise<void>(resolve => setTimeout(resolve, 1100)),
-    () => new Promise<void>(resolve => setTimeout(resolve, 1100)),
-  );
-}
 
 const US_STATES: Record<string, string> = {
   'Alabama':'AL','Alaska':'AK','Arizona':'AZ','Arkansas':'AR','California':'CA',
@@ -30,35 +21,27 @@ const US_STATES: Record<string, string> = {
   'Virginia':'VA','Washington':'WA','West Virginia':'WV','Wisconsin':'WI','Wyoming':'WY',
 };
 
-function reverseGeocode(lat: number, lon: number): Promise<string> {
+async function reverseGeocode(lat: number, lon: number): Promise<string | null> {
   const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
-  if (geocodeCache.has(key)) return Promise.resolve(geocodeCache.get(key)!);
-
-  // Mark in-flight immediately so duplicate tiles don't enqueue separate calls.
-  geocodeCache.set(key, key);
-
-  return new Promise<string>((resolve) => {
-    enqueueGeocode(async () => {
-      try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18`,
-          { headers: { 'Accept-Language': 'en-US,en' } }
-        );
-        if (!res.ok) throw new Error('geocode failed');
-        const json = await res.json();
-        const a = json.address ?? {};
-        const city  = a.city ?? a.town ?? a.village ?? a.county ?? '';
-        const state = a.state ?? '';
-        const zip   = a.postcode ?? '';
-        const stateCode = US_STATES[state] ?? state;
-        const label = [city, stateCode, zip].filter(Boolean).join(', ');
-        geocodeCache.set(key, label || key);
-      } catch {
-        // leave the placeholder (raw coords) in the cache
-      }
-      resolve(geocodeCache.get(key)!);
-    });
-  });
+  if (geocodeCache.has(key)) return geocodeCache.get(key)!;
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18`,
+      { headers: { 'Accept-Language': 'en-US,en' } }
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    const a = json.address ?? {};
+    const city = a.city ?? a.town ?? a.village ?? a.suburb ?? a.neighbourhood ?? a.county ?? '';
+    const state = a.state ?? '';
+    const zip = a.postcode ?? '';
+    const stateCode = US_STATES[state] ?? state;
+    const label = [city, stateCode, zip].filter(Boolean).join(', ');
+    if (label) geocodeCache.set(key, label);
+    return label || null;
+  } catch {
+    return null;
+  }
 }
 
 function getBatteryColor(soc: number, light: boolean) {
@@ -178,11 +161,21 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
   // Portal target is document.body — only available after mount (SSR safety).
   useEffect(() => { setMounted(true); }, []);
 
-  // Reverse-geocode once when GPS coordinates first become available.
+  // Reverse-geocode once when GPS coordinates become available.
+  // Stagger by tile index (1.1s apart) to stay within Nominatim's 1 req/sec limit.
   useEffect(() => {
     if (data?.lat == null || data?.lon == null) return;
-    reverseGeocode(data.lat, data.lon).then(setLocation);
-  }, [data?.lat, data?.lon]);
+    const lat = data.lat;
+    const lon = data.lon;
+    const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+    // Already cached — update immediately without waiting.
+    if (geocodeCache.has(key)) { setLocation(geocodeCache.get(key)!); return; }
+    const delay = index * 1100;
+    const t = setTimeout(() => {
+      reverseGeocode(lat, lon).then(result => { if (result) setLocation(result); });
+    }, delay);
+    return () => clearTimeout(t);
+  }, [data?.lat, data?.lon, index]);
 
   // Mount stagger — tiles appear in a gentle cascade. Cap delay so large
   // fleets don't wait forever; respect reduced-motion by skipping the fade.
