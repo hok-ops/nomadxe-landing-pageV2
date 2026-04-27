@@ -251,15 +251,7 @@ export default function VRMDeepDivePanel({ siteId, data, details, loading }: Pro
   return (
     <div className="mt-6 space-y-6">
       <section className="rounded-2xl border border-[#1e3a5f]/45 bg-[#080c14]/75 p-4 sm:p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <div>
-            <h2 className="text-[11px] font-bold text-[#93c5fd]/70 uppercase tracking-[0.35em] font-mono">
-              Trailer Intelligence
-            </h2>
-            <p className="text-sm text-[#e2e8f0] mt-1">
-              Customer-facing power visibility pulled from the broader VRM API surface.
-            </p>
-          </div>
+        <div className="flex items-center justify-end mb-4">
           {loading && (
             <div className="text-[10px] font-mono uppercase tracking-widest text-[#93c5fd]/40">
               Loading VRM detail...
