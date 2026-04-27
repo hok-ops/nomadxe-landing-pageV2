@@ -43,6 +43,153 @@ async function reverseGeocode(lat: number, lon: number): Promise<string | null> 
   }
 }
 
+// ── Weather ───────────────────────────────────────────────────────────────────
+
+interface WeatherDay {
+  date: string;       // "Mon", "Tue", etc.
+  code: number;
+  high: number;
+  low: number;
+  precip: number;     // precipitation probability 0-100
+}
+interface WeatherData {
+  temp: number;
+  feelsLike: number;
+  code: number;
+  wind: number;
+  humidity: number;
+  days: WeatherDay[];
+  windyUrl: string;
+}
+
+const weatherCache = new Map<string, WeatherData>();
+
+function wmoDescription(code: number): string {
+  if (code === 0)              return 'Clear';
+  if (code <= 2)               return 'Mostly Clear';
+  if (code === 3)              return 'Overcast';
+  if (code <= 48)              return 'Foggy';
+  if (code <= 55)              return 'Drizzle';
+  if (code <= 65)              return 'Rain';
+  if (code <= 77)              return 'Snow';
+  if (code <= 82)              return 'Showers';
+  if (code <= 86)              return 'Snow Showers';
+  return 'Thunderstorm';
+}
+
+function wmoEmoji(code: number): string {
+  if (code === 0)              return '☀️';
+  if (code <= 2)               return '🌤️';
+  if (code === 3)              return '☁️';
+  if (code <= 48)              return '🌫️';
+  if (code <= 67)              return '🌧️';
+  if (code <= 77)              return '❄️';
+  if (code <= 82)              return '🌦️';
+  if (code <= 86)              return '🌨️';
+  return '⛈️';
+}
+
+async function fetchWeather(lat: number, lon: number): Promise<WeatherData | null> {
+  const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+  if (weatherCache.has(key)) return weatherCache.get(key)!;
+  try {
+    const url =
+      `https://api.open-meteo.com/v1/forecast` +
+      `?latitude=${lat}&longitude=${lon}` +
+      `&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m` +
+      `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max` +
+      `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=5`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const json = await res.json();
+    const c = json.current ?? {};
+    const d = json.daily ?? {};
+    const days: WeatherDay[] = (d.time ?? []).map((t: string, i: number) => ({
+      date: new Date(t + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' }),
+      code: d.weather_code?.[i] ?? 0,
+      high: Math.round(d.temperature_2m_max?.[i] ?? 0),
+      low:  Math.round(d.temperature_2m_min?.[i] ?? 0),
+      precip: d.precipitation_probability_max?.[i] ?? 0,
+    }));
+    const weather: WeatherData = {
+      temp:      Math.round(c.temperature_2m ?? 0),
+      feelsLike: Math.round(c.apparent_temperature ?? 0),
+      code:      c.weather_code ?? 0,
+      wind:      Math.round(c.wind_speed_10m ?? 0),
+      humidity:  Math.round(c.relative_humidity_2m ?? 0),
+      days,
+      windyUrl: `https://www.windy.com/?${lat.toFixed(3)},${lon.toFixed(3)},10`,
+    };
+    weatherCache.set(key, weather);
+    return weather;
+  } catch {
+    return null;
+  }
+}
+
+// ── WeatherCard ───────────────────────────────────────────────────────────────
+
+function WeatherCard({ weather, isLight }: { weather: WeatherData; isLight: boolean }) {
+  const border  = isLight ? '#e2e8f0' : '#1e3a5f';
+  const bg      = isLight ? '#f8fafc' : '#060b14';
+  const dim     = isLight ? '#94a3b8' : '#93c5fd60';
+  const textCol = isLight ? '#1e293b' : '#e2e8f0';
+
+  return (
+    <div className="mt-4 rounded-xl border overflow-hidden" style={{ borderColor: border, background: bg }}>
+      {/* Current conditions */}
+      <div className="flex items-center justify-between px-4 py-3 gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="text-3xl leading-none select-none">{wmoEmoji(weather.code)}</span>
+          <div className="min-w-0">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-2xl font-black tabular-nums" style={{ color: textCol }}>{weather.temp}°</span>
+              <span className="text-[11px] font-mono" style={{ color: dim }}>feels {weather.feelsLike}°</span>
+            </div>
+            <div className="text-[10px] font-mono uppercase tracking-widest" style={{ color: dim }}>
+              {wmoDescription(weather.code)}
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-1 text-right flex-shrink-0">
+          <span className="text-[10px] font-mono" style={{ color: dim }}>{weather.wind} mph wind</span>
+          <span className="text-[10px] font-mono" style={{ color: dim }}>{weather.humidity}% humidity</span>
+          <a
+            href={weather.windyUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[9px] font-mono font-bold uppercase tracking-widest mt-1 hover:underline"
+            style={{ color: '#3b82f6' }}
+          >
+            Full Forecast →
+          </a>
+        </div>
+      </div>
+
+      {/* 5-day strip */}
+      <div className="grid grid-cols-5 border-t" style={{ borderColor: border }}>
+        {weather.days.map((day, i) => (
+          <div
+            key={i}
+            className="flex flex-col items-center py-2.5 gap-0.5 text-center"
+            style={{ borderRight: i < 4 ? `1px solid ${border}` : undefined }}
+          >
+            <span className="text-[9px] font-mono font-bold uppercase tracking-widest" style={{ color: dim }}>
+              {i === 0 ? 'Today' : day.date}
+            </span>
+            <span className="text-lg leading-none select-none my-0.5">{wmoEmoji(day.code)}</span>
+            <span className="text-[11px] font-black tabular-nums" style={{ color: textCol }}>{day.high}°</span>
+            <span className="text-[10px] tabular-nums" style={{ color: dim }}>{day.low}°</span>
+            {day.precip > 0 && (
+              <span className="text-[9px] font-mono mt-0.5" style={{ color: '#60a5fa' }}>{day.precip}%💧</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type { VRMData } from '@/lib/vrm';
@@ -312,6 +459,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
 
   const [data, setData]         = useState<VRMData | null>(initialData);
   const [location, setLocation] = useState<string | null>(null);
+  const [weather, setWeather]   = useState<WeatherData | null>(null);
   const [details, setDetails]   = useState<VRMDetailData | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [lastPoll, setLastPoll] = useState(new Date());
@@ -366,6 +514,12 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
   useEffect(() => {
     if (data?.lat == null || data?.lon == null) return;
     reverseGeocode(data.lat, data.lon).then(result => { if (result) setLocation(result); });
+  }, [data?.lat, data?.lon]);
+
+  // Fetch weather once per device open — re-fetches only if coordinates change.
+  useEffect(() => {
+    if (data?.lat == null || data?.lon == null) return;
+    fetchWeather(data.lat, data.lon).then(result => { if (result) setWeather(result); });
   }, [data?.lat, data?.lon]);
 
   // Staggered GSAP entrance for the three power cards. Runs once per mount,
@@ -760,6 +914,8 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
             })()}
           </div>
         </div>
+
+        {weather && <WeatherCard weather={weather} isLight={isLight} />}
 
         <VRMDeepDivePanel siteId={device.siteId} data={data} details={details} loading={detailsLoading} />
       </div>
