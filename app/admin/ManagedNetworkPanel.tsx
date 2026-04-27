@@ -60,6 +60,11 @@ function isStale(device: ManagedNetworkDevice) {
   return !Number.isFinite(lastReportedMs) || (Date.now() - lastReportedMs) > STALE_AFTER_MS;
 }
 
+function isDiscoveryStale(device: DiscoveredNetworkDevice) {
+  const lastSeenMs = Date.parse(device.lastSeenAt);
+  return !Number.isFinite(lastSeenMs) || (Date.now() - lastSeenMs) > STALE_AFTER_MS;
+}
+
 function statusPresentation(device: ManagedDeviceWithParent) {
   if (device.lastStatus === 'offline') {
     return {
@@ -95,6 +100,25 @@ export function ManagedNetworkPanel({
   const unmanagedDiscoveries = discoveredDevices
     .filter((device) => !device.isManaged)
     .slice(0, 8);
+  const fleetRows = devices.map((device) => {
+    const managedForDevice = managedDevices.filter((target) => target.vrmDeviceId === device.id);
+    const observedForDevice = discoveredDevices.filter((host) => host.vrmDeviceId === device.id);
+    const attentionForDevice = managedForDevice.filter(
+      (target) => target.lastStatus === 'offline' || isStale(target)
+    );
+
+    return {
+      ...device,
+      managedCount: managedForDevice.length,
+      observedCount: observedForDevice.length,
+      attentionCount: attentionForDevice.length,
+      lastObservedAt: observedForDevice
+        .map((host) => host.lastSeenAt)
+        .sort()
+        .at(-1) ?? null,
+      staleDiscoveryCount: observedForDevice.filter(isDiscoveryStale).length,
+    };
+  });
   const orderedManagedDevices = [...managedDevices].sort((a, b) => {
     const aAttention = a.lastStatus === 'offline' || isStale(a) ? 0 : 1;
     const bAttention = b.lastStatus === 'offline' || isStale(b) ? 0 : 1;
@@ -131,6 +155,59 @@ export function ManagedNetworkPanel({
         </div>
       </div>
 
+      <div className="overflow-hidden rounded-2xl border border-[#1e3a5f]/70 bg-[#0b1323]">
+        <div className="flex items-center justify-between border-b border-[#1e3a5f]/60 px-4 py-3">
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-[0.28em] text-[#93c5fd]/72">Dashboard Fleet Source</h3>
+            <p className="mt-1 text-[10px] text-[#93c5fd]/45">Trailers are pulled from the same registered VRM devices that power the client dashboard.</p>
+          </div>
+        </div>
+
+        {fleetRows.length === 0 ? (
+          <div className="px-4 py-8 text-center">
+            <p className="text-sm text-[#93c5fd]/55">No dashboard trailers are registered yet.</p>
+            <p className="mt-2 text-[11px] text-[#93c5fd]/38">Register a Victron device first, then LAN inventory can attach to its site ID.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-2 p-4 md:grid-cols-2">
+            {fleetRows.map((device) => (
+              <div key={device.id} className="rounded-xl border border-[#1e3a5f]/55 bg-[#080c14]/80 px-4 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-bold text-white">{device.name}</div>
+                    <div className="mt-1 text-[10px] font-mono uppercase tracking-[0.18em] text-[#93c5fd]/45">
+                      Site {device.vrm_site_id}
+                    </div>
+                  </div>
+                  <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.18em] ${
+                    device.attentionCount > 0
+                      ? 'border-amber-500/25 bg-amber-500/10 text-amber-300'
+                      : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
+                  }`}>
+                    {device.attentionCount > 0 ? `${device.attentionCount} issue${device.attentionCount === 1 ? '' : 's'}` : 'Clear'}
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {[
+                    { label: 'Observed', value: device.observedCount },
+                    { label: 'Managed', value: device.managedCount },
+                    { label: 'Stale', value: device.staleDiscoveryCount },
+                  ].map((item) => (
+                    <div key={item.label} className="rounded-lg border border-[#1e3a5f]/55 px-2 py-2 text-center">
+                      <div className="text-xs font-black text-white">{item.value}</div>
+                      <div className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.18em] text-[#93c5fd]/38">{item.label}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 text-[10px] text-[#93c5fd]/42">
+                  Last LAN report: {device.lastObservedAt ? formatAgo(device.lastObservedAt) : 'No report yet'}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <form action={addManagedNetworkDevice} className="space-y-4 rounded-2xl border border-[#1e3a5f]/70 bg-[#0b1323] p-4">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div className="space-y-1.5">
@@ -139,7 +216,8 @@ export function ManagedNetworkPanel({
               name="vrm_device_id"
               required
               className="w-full rounded-lg border border-[#1e3a5f] bg-[#080c14] px-4 py-3 text-sm text-white outline-none transition-colors focus:border-[#3b82f6]"
-              defaultValue=""
+              defaultValue={devices.length === 1 ? String(devices[0].id) : ''}
+              disabled={devices.length === 0}
             >
               <option value="" disabled>Select trailer</option>
               {devices.map((device) => (
@@ -154,6 +232,7 @@ export function ManagedNetworkPanel({
             <input
               name="name"
               required
+              disabled={devices.length === 0}
               className="w-full rounded-lg border border-[#1e3a5f] bg-[#080c14] px-4 py-3 text-sm text-white outline-none transition-colors placeholder:text-[#93c5fd]/20 focus:border-[#3b82f6]"
               placeholder="Camera switch, LTE radio, NVR, gateway"
             />
@@ -166,6 +245,7 @@ export function ManagedNetworkPanel({
             <input
               name="ip_address"
               required
+              disabled={devices.length === 0}
               className="w-full rounded-lg border border-[#1e3a5f] bg-[#080c14] px-4 py-3 text-sm text-white outline-none transition-colors placeholder:text-[#93c5fd]/20 focus:border-[#3b82f6]"
               placeholder="192.168.1.50"
               inputMode="decimal"
@@ -183,7 +263,8 @@ export function ManagedNetworkPanel({
           </p>
           <button
             type="submit"
-            className="flex-shrink-0 rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-bold text-white transition-all hover:bg-[#3b82f6] hover:shadow-[0_0_20px_rgba(59,130,246,0.35)] active:scale-[0.98]"
+            disabled={devices.length === 0}
+            className="flex-shrink-0 rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-bold text-white transition-all hover:bg-[#3b82f6] hover:shadow-[0_0_20px_rgba(59,130,246,0.35)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-[#2563eb] disabled:hover:shadow-none"
           >
             Add Managed Device
           </button>
