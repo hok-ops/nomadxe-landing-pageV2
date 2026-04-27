@@ -51,7 +51,7 @@ interface PhotoFile {
 }
 
 const MAX_PHOTOS    = 4;
-const MAX_PHOTO_MB  = 2;
+const MAX_PHOTO_MB  = 10;
 const MAX_PHOTO_B   = MAX_PHOTO_MB * 1024 * 1024;
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 
