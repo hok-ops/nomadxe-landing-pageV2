@@ -13,6 +13,22 @@ const nextConfig = {
   },
 
   /**
+   * Canonical domain redirect: www → non-www.
+   * Eliminates the "Alternate page with proper canonical tag" GSC warning
+   * caused by Google treating www and non-www as separate URLs.
+   */
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'www.nomadxe.com' }],
+        destination: 'https://nomadxe.com/:path*',
+        permanent: true, // 308 — tells Google to permanently update its index
+      },
+    ];
+  },
+
+  /**
    * HTTP response headers applied to every route.
    *
    * Security headers improve trust signals Google uses in ranking.

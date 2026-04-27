@@ -6,8 +6,23 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        // Private app routes — never index
-        disallow: ['/dashboard/', '/admin/', '/staff/', '/api/', '/auth/'],
+        // Private app routes and auth flows — never index
+        disallow: [
+          '/dashboard/',
+          '/admin/',
+          '/staff/',
+          '/api/',
+          '/auth/',
+          '/login',
+          '/forgot-password',
+          '/reset-password',
+          '/reset-otp',
+          '/activate-account',
+          '/access/',
+          '/order',
+          '/deactivate',
+          '/relocate',
+        ],
       },
     ],
     sitemap: 'https://nomadxe.com/sitemap.xml',
