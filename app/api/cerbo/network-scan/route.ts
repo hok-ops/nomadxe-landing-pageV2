@@ -74,11 +74,12 @@ export async function POST(request: Request) {
     if (!vrmDevice) {
       return NextResponse.json({ error: 'Unknown vrmSiteId' }, { status: 404 });
     }
+    const vrmDeviceRow = vrmDevice;
 
     const { data: managedDevices, error: managedError } = await adminClient
       .from('managed_network_devices')
       .select('*')
-      .eq('vrm_device_id', vrmDevice.id)
+      .eq('vrm_device_id', vrmDeviceRow.id)
       .eq('is_active', true);
 
     if (managedError) {
@@ -101,46 +102,18 @@ export async function POST(request: Request) {
 
     let updated = 0;
     let discovered = 0;
+    let markedOffline = 0;
     const ignored: string[] = [];
+    const reportedIps = new Set<string>();
+    const isFullScan = body.scanMode === 'full';
 
-    for (const report of body.devices) {
-      const ipAddress = String(report.ipAddress ?? '').trim();
-      const status = report.status;
-      if (!ipAddress || !isReportedStatus(status)) {
-        ignored.push(ipAddress || 'unknown');
-        continue;
-      }
-
-      const nextStatus = status;
-      const latencyMs = typeof report.latencyMs === 'number' && report.latencyMs >= 0
-        ? Math.round(report.latencyMs)
-        : null;
-      const detail = report.detail ? String(report.detail).slice(0, 500) : null;
-      const macAddress = report.macAddress ? String(report.macAddress).slice(0, 64) : null;
-      const hostname = report.hostname ? String(report.hostname).slice(0, 255) : null;
-
-      const { error: discoveryError } = await adminClient
-        .from('discovered_network_devices')
-        .upsert([{
-          vrm_device_id: vrmDevice.id,
-          ip_address: ipAddress,
-          mac_address: macAddress,
-          hostname,
-          last_status: nextStatus,
-          last_seen_at: observedAt,
-          last_latency_ms: latencyMs,
-          last_detail: detail,
-        }], { onConflict: 'vrm_device_id,ip_address' });
-
-      if (discoveryError) {
-        console.error('[cerbo-network-scan] discovery upsert error:', discoveryError.message);
-      } else {
-        discovered += 1;
-      }
-
-      const managedDevice = devicesByIp.get(ipAddress);
-      if (!managedDevice) continue;
-
+    const applyManagedStatus = async (
+      managedDevice: ManagedDeviceRow,
+      nextStatus: ManagedNetworkStatus,
+      latencyMs: number | null,
+      detail: string | null,
+      ipAddress: string
+    ) => {
       const previousStatus = String(managedDevice.last_status) as ManagedNetworkStatus;
 
       const updatePatch = {
@@ -158,10 +131,11 @@ export async function POST(request: Request) {
 
       if (updateError) {
         console.error('[cerbo-network-scan] update error:', updateError.message);
-        continue;
+        return false;
       }
 
       updated += 1;
+      managedDevice.last_status = nextStatus;
 
       if (previousStatus !== nextStatus) {
         await adminClient.from('managed_network_device_events').insert([{
@@ -184,9 +158,9 @@ export async function POST(request: Request) {
           await sendAlertWebhook({
             eventType: nextStatus === 'offline' ? 'managed_device_offline' : 'managed_device_recovered',
             observedAt,
-            vrmSiteId: vrmDevice.vrm_site_id,
-            trailerName: vrmDevice.name,
-            routerAccessUrl: vrmDevice.router_access_url ?? null,
+            vrmSiteId: vrmDeviceRow.vrm_site_id,
+            trailerName: vrmDeviceRow.name,
+            routerAccessUrl: vrmDeviceRow.router_access_url ?? null,
             device: {
               id: managedDevice.id,
               name: managedDevice.name,
@@ -199,13 +173,108 @@ export async function POST(request: Request) {
           });
         }
       }
+
+      return true;
+    };
+
+    for (const report of body.devices) {
+      const ipAddress = String(report.ipAddress ?? '').trim();
+      const status = report.status;
+      if (!ipAddress || !isReportedStatus(status)) {
+        ignored.push(ipAddress || 'unknown');
+        continue;
+      }
+
+      const nextStatus = status;
+      reportedIps.add(ipAddress);
+      const latencyMs = typeof report.latencyMs === 'number' && report.latencyMs >= 0
+        ? Math.round(report.latencyMs)
+        : null;
+      const detail = report.detail ? String(report.detail).slice(0, 500) : null;
+      const macAddress = report.macAddress ? String(report.macAddress).slice(0, 64) : null;
+      const hostname = report.hostname ? String(report.hostname).slice(0, 255) : null;
+
+      const { error: discoveryError } = await adminClient
+        .from('discovered_network_devices')
+        .upsert([{
+          vrm_device_id: vrmDeviceRow.id,
+          ip_address: ipAddress,
+          mac_address: macAddress,
+          hostname,
+          last_status: nextStatus,
+          last_seen_at: observedAt,
+          last_latency_ms: latencyMs,
+          last_detail: detail,
+        }], { onConflict: 'vrm_device_id,ip_address' });
+
+      if (discoveryError) {
+        console.error('[cerbo-network-scan] discovery upsert error:', discoveryError.message);
+      } else {
+        discovered += 1;
+      }
+
+      const managedDevice = devicesByIp.get(ipAddress);
+      if (!managedDevice) continue;
+
+      await applyManagedStatus(managedDevice, nextStatus, latencyMs, detail, ipAddress);
+    }
+
+    if (isFullScan) {
+      const offlineDetail = 'not present in full Cerbo LAN scan';
+      for (const managedDevice of Array.from(devicesByIp.values())) {
+        if (reportedIps.has(managedDevice.ip_address) || managedDevice.last_status === 'offline') {
+          continue;
+        }
+        const didUpdate = await applyManagedStatus(
+          managedDevice,
+          'offline',
+          null,
+          offlineDetail,
+          managedDevice.ip_address
+        );
+        if (didUpdate) markedOffline += 1;
+      }
+
+      const { data: previouslyDiscovered, error: previousDiscoveryError } = await adminClient
+        .from('discovered_network_devices')
+        .select('id, ip_address, last_status')
+        .eq('vrm_device_id', vrmDeviceRow.id)
+        .eq('is_ignored', false);
+
+      if (previousDiscoveryError) {
+        console.error('[cerbo-network-scan] previous discovery lookup error:', previousDiscoveryError.message);
+      } else {
+        for (const device of previouslyDiscovered ?? []) {
+          const ipAddress = String(device.ip_address);
+          const lastStatus = String(device.last_status) as ManagedNetworkStatus;
+          if (reportedIps.has(ipAddress) || lastStatus === 'offline') continue;
+
+          const { error: discoveryOfflineError } = await adminClient
+            .from('discovered_network_devices')
+            .update({
+              last_status: 'offline',
+              last_seen_at: observedAt,
+              last_latency_ms: null,
+              last_detail: offlineDetail,
+            })
+            .eq('id', device.id);
+
+          if (discoveryOfflineError) {
+            console.error('[cerbo-network-scan] discovery offline update error:', discoveryOfflineError.message);
+          } else {
+            markedOffline += 1;
+          }
+        }
+      }
     }
 
     return NextResponse.json({
       ok: true,
-      vrmSiteId: vrmDevice.vrm_site_id,
+      vrmSiteId: vrmDeviceRow.vrm_site_id,
       discovered,
       updated,
+      markedOffline,
+      scanMode: isFullScan ? 'full' : 'targets',
       ignored,
     });
   } catch (error) {

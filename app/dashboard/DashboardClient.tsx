@@ -20,9 +20,10 @@ export interface Device {
 interface Props {
   devices: Device[];
   initialDataMap: Record<string, VRMData | null>;
+  isAdmin: boolean;
 }
 
-export default function DashboardClient({ devices, initialDataMap }: Props) {
+export default function DashboardClient({ devices, initialDataMap, isAdmin }: Props) {
   const [dataMap, setDataMap] = useState<Record<string, VRMData | null>>(initialDataMap);
   const [displayNames, setDisplayNames] = useState<Record<string, string | null>>(
     Object.fromEntries(devices.map(d => [d.siteId, d.displayName]))
@@ -193,6 +194,12 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <ReadingKey />
+            {isAdmin && (
+              <Link href="/admin"
+                className="text-[10px] font-bold font-mono border border-[#2563eb]/45 bg-[#1e40af]/22 text-[#bfdbfe] hover:text-white hover:border-[#3b82f6]/70 hover:bg-[#2563eb]/30 px-4 sm:px-5 py-2.5 rounded-lg transition-all uppercase tracking-widest">
+                Admin
+              </Link>
+            )}
             <Link href="/"
               className="text-[10px] font-bold font-mono border border-[#1e3a5f] text-[#93c5fd]/50 hover:text-white hover:border-[#3b82f6]/50 px-4 sm:px-5 py-2.5 rounded-lg transition-all uppercase tracking-widest">
               &larr; Home

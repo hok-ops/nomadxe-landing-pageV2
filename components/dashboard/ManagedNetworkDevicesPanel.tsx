@@ -3,16 +3,11 @@
 import { useEffect, useState } from 'react';
 import {
   getManagedDeviceSummary,
+  type DiscoveredNetworkDevice,
   type ManagedNetworkDevice,
 } from '@/lib/networkDevices';
 
 const STALE_AFTER_MS = 10 * 60_000;
-
-function statusTone(status: ManagedNetworkDevice['lastStatus']) {
-  if (status === 'online') return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300';
-  if (status === 'offline') return 'border-rose-500/20 bg-rose-500/10 text-rose-300';
-  return 'border-slate-500/20 bg-slate-500/10 text-slate-300';
-}
 
 function formatAgo(value: string | null) {
   if (!value) return 'No check-in yet';
@@ -26,37 +21,43 @@ function formatAgo(value: string | null) {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-function isStale(device: ManagedNetworkDevice) {
+function isManagedStale(device: ManagedNetworkDevice) {
   if (!device.lastReportedAt) return true;
   const lastReportedMs = Date.parse(device.lastReportedAt);
   return !Number.isFinite(lastReportedMs) || (Date.now() - lastReportedMs) > STALE_AFTER_MS;
 }
 
-function sortForScan(a: ManagedNetworkDevice, b: ManagedNetworkDevice) {
-  const aAttention = a.lastStatus === 'offline' || isStale(a) ? 0 : 1;
-  const bAttention = b.lastStatus === 'offline' || isStale(b) ? 0 : 1;
-  if (aAttention !== bAttention) return aAttention - bAttention;
-  if (a.lastStatus !== b.lastStatus) {
-    if (a.lastStatus === 'offline') return -1;
-    if (b.lastStatus === 'offline') return 1;
-  }
-  return a.name.localeCompare(b.name);
+function isDiscoveryStale(device: DiscoveredNetworkDevice) {
+  const lastSeenMs = Date.parse(device.lastSeenAt);
+  return !Number.isFinite(lastSeenMs) || (Date.now() - lastSeenMs) > STALE_AFTER_MS;
 }
 
-function panelState(device: ManagedNetworkDevice) {
+function deviceKey(device: Pick<ManagedNetworkDevice | DiscoveredNetworkDevice, 'vrmDeviceId' | 'ipAddress'>) {
+  return `${device.vrmDeviceId}:${device.ipAddress}`;
+}
+
+function ipSortValue(ipAddress: string) {
+  const parts = ipAddress.split('.').map((part) => Number(part));
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part))) return Number.MAX_SAFE_INTEGER;
+  return parts.reduce((acc, part) => (acc * 256) + part, 0);
+}
+
+function observedState(device: DiscoveredNetworkDevice) {
   if (device.lastStatus === 'offline') {
     return {
       label: 'Offline',
       tone: 'border-rose-500/20 bg-rose-500/10 text-rose-300',
-      detail: 'No response from target',
+      detail: 'Cerbo reported no response',
+      rank: 0,
     };
   }
 
-  if (isStale(device)) {
+  if (isDiscoveryStale(device)) {
     return {
-      label: 'Check overdue',
+      label: 'Stale',
       tone: 'border-amber-500/20 bg-amber-500/10 text-amber-300',
-      detail: 'Cerbo has not reported this target recently',
+      detail: 'No recent Cerbo observation',
+      rank: 1,
     };
   }
 
@@ -64,21 +65,55 @@ function panelState(device: ManagedNetworkDevice) {
     return {
       label: 'Online',
       tone: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300',
-      detail: 'Recent Cerbo check passed',
+      detail: 'Observed on the trailer LAN',
+      rank: 2,
     };
   }
 
   return {
     label: 'Unknown',
     tone: 'border-slate-500/20 bg-slate-500/10 text-slate-300',
-    detail: 'Waiting for first Cerbo report',
+    detail: 'Waiting for a definitive scan result',
+    rank: 3,
   };
 }
 
+function managedState(device: ManagedNetworkDevice) {
+  if (device.lastStatus === 'offline') {
+    return {
+      label: 'Offline',
+      tone: 'border-rose-500/20 bg-rose-500/10 text-rose-300',
+      detail: 'Alert target did not respond',
+    };
+  }
+
+  if (isManagedStale(device)) {
+    return {
+      label: 'Check overdue',
+      tone: 'border-amber-500/20 bg-amber-500/10 text-amber-300',
+      detail: 'Cerbo has not reported this alert target recently',
+    };
+  }
+
+  return {
+    label: 'Covered',
+    tone: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300',
+    detail: 'Alert target is healthy',
+  };
+}
+
+function sortObservedDevices(a: DiscoveredNetworkDevice, b: DiscoveredNetworkDevice) {
+  const stateDelta = observedState(a).rank - observedState(b).rank;
+  if (stateDelta !== 0) return stateDelta;
+  if (a.isManaged !== b.isManaged) return a.isManaged ? -1 : 1;
+  return ipSortValue(a.ipAddress) - ipSortValue(b.ipAddress);
+}
+
 export default function ManagedNetworkDevicesPanel({ siteId }: { siteId: string }) {
-  const [devices, setDevices] = useState<ManagedNetworkDevice[]>([]);
+  const [managedDevices, setManagedDevices] = useState<ManagedNetworkDevice[]>([]);
+  const [discoveredDevices, setDiscoveredDevices] = useState<DiscoveredNetworkDevice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAllHealthy, setShowAllHealthy] = useState(false);
+  const [showAllObserved, setShowAllObserved] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,7 +123,9 @@ export default function ManagedNetworkDevicesPanel({ siteId }: { siteId: string 
         const response = await fetch(`/api/devices/${siteId}/managed-network`, { cache: 'no-store' });
         if (!response.ok) return;
         const payload = await response.json();
-        if (!cancelled) setDevices(Array.isArray(payload.devices) ? payload.devices : []);
+        if (cancelled) return;
+        setManagedDevices(Array.isArray(payload.devices) ? payload.devices : []);
+        setDiscoveredDevices(Array.isArray(payload.discoveredDevices) ? payload.discoveredDevices : []);
       } catch {
         // Keep panel quiet on network failures; the main dashboard owns session UX.
       } finally {
@@ -104,37 +141,41 @@ export default function ManagedNetworkDevicesPanel({ siteId }: { siteId: string 
     };
   }, [siteId]);
 
-  const orderedDevices = [...devices].sort(sortForScan);
-  const summary = getManagedDeviceSummary(orderedDevices, STALE_AFTER_MS);
-  const attentionDevices = orderedDevices.filter(
-    (device) => device.lastStatus === 'offline' || isStale(device)
+  const managedByKey = new Map(managedDevices.map((device) => [deviceKey(device), device]));
+  const orderedObserved = [...discoveredDevices].sort(sortObservedDevices);
+  const visibleObserved = showAllObserved ? orderedObserved : orderedObserved.slice(0, 8);
+  const managedSummary = getManagedDeviceSummary(managedDevices, STALE_AFTER_MS);
+  const alertingAttention = managedDevices.filter(
+    (device) => device.lastStatus === 'offline' || isManagedStale(device)
   );
-  const healthyDevices = orderedDevices.filter(
-    (device) => device.lastStatus === 'online' && !isStale(device)
+  const observedAttention = orderedObserved.filter(
+    (device) => device.lastStatus === 'offline' || isDiscoveryStale(device)
   );
-  const visibleHealthyDevices = showAllHealthy ? healthyDevices : healthyDevices.slice(0, 3);
-  const hasExceptions = summary.offline > 0 || summary.stale > 0;
-
-  if (!loading && devices.length === 0) return null;
+  const attentionKeys = new Set<string>([
+    ...alertingAttention.map(deviceKey),
+    ...observedAttention.map(deviceKey),
+  ]);
+  const hasExceptions = attentionKeys.size > 0;
+  const hasAnyInventory = orderedObserved.length > 0 || managedDevices.length > 0;
 
   return (
-    <div className="mt-4 rounded-2xl border border-[#1e3a5f]/65 bg-[linear-gradient(180deg,rgba(8,12,20,0.88),rgba(10,16,30,0.96))] overflow-hidden">
-      <div className="px-4 sm:px-5 py-4 border-b border-[#1e3a5f]/45">
-        <div className="flex items-start justify-between gap-4">
+    <div className="mt-4 overflow-hidden rounded-2xl border border-[#1e3a5f]/65 bg-[linear-gradient(180deg,rgba(8,12,20,0.88),rgba(10,16,30,0.96))]">
+      <div className="border-b border-[#1e3a5f]/45 px-4 py-4 sm:px-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="flex items-center gap-2.5">
-              <span className={`h-2 w-2 rounded-full ${hasExceptions ? 'bg-rose-400' : 'bg-emerald-400'}`} />
-              <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-white">Managed LAN Health</h3>
+              <span className={`h-2 w-2 rounded-full ${hasExceptions ? 'bg-rose-400' : hasAnyInventory ? 'bg-emerald-400' : 'bg-sky-400'}`} />
+              <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-white">LAN Device Inventory</h3>
             </div>
-            <p className="mt-2 max-w-xl text-[11px] text-[#93c5fd]/56">
-              Curated device checks from the Cerbo. Critical targets appear here in an exception-first flow so the operator can scan quickly.
+            <p className="mt-2 max-w-xl text-[11px] leading-relaxed text-[#93c5fd]/56">
+              Cerbo-reported hosts for this trailer appear automatically. Promote only mission-critical hosts into managed targets when they should trigger alerts.
             </p>
           </div>
-          <div className="grid min-w-[170px] grid-cols-3 gap-2">
+          <div className="grid min-w-[250px] grid-cols-3 gap-2">
             {[
-              { label: 'Healthy', value: summary.online, tone: 'text-emerald-300' },
-              { label: 'Offline', value: summary.offline, tone: 'text-rose-300' },
-              { label: 'Stale', value: summary.stale, tone: 'text-amber-300' },
+              { label: 'Observed', value: orderedObserved.length, tone: 'text-sky-200' },
+              { label: 'Managed', value: managedSummary.total, tone: 'text-emerald-300' },
+              { label: 'Attention', value: attentionKeys.size, tone: hasExceptions ? 'text-rose-300' : 'text-[#93c5fd]/45' },
             ].map((item) => (
               <div key={item.label} className="rounded-xl border border-[#1e3a5f]/60 bg-[#080c14]/88 px-3 py-2 text-center">
                 <div className={`text-sm font-black ${item.tone}`}>{loading ? '--' : item.value}</div>
@@ -145,27 +186,34 @@ export default function ManagedNetworkDevicesPanel({ siteId }: { siteId: string 
         </div>
       </div>
 
-      <div className="space-y-3 px-4 py-3 sm:px-5">
+      <div className="space-y-4 px-4 py-3 sm:px-5">
         {loading ? (
-          <div className="py-3 text-[11px] text-[#93c5fd]/48">Loading managed device status...</div>
+          <div className="py-3 text-[11px] text-[#93c5fd]/48">Loading Cerbo LAN inventory...</div>
+        ) : !hasAnyInventory ? (
+          <div className="rounded-xl border border-[#1e3a5f]/35 bg-[#0b1323]/62 px-4 py-5 text-center">
+            <div className="text-sm font-bold text-white">Waiting for the first Cerbo scan</div>
+            <p className="mx-auto mt-2 max-w-xl text-[11px] leading-relaxed text-[#93c5fd]/52">
+              Once the Cerbo reporter posts a scan for this site ID, devices it can reach on the trailer LAN will show here automatically.
+            </p>
+          </div>
         ) : (
           <>
-            {attentionDevices.length > 0 && (
+            {alertingAttention.length > 0 && (
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h4 className="text-[10px] font-bold uppercase tracking-[0.24em] text-rose-200">Needs Attention</h4>
+                    <h4 className="text-[10px] font-bold uppercase tracking-[0.24em] text-rose-200">Alerting Targets</h4>
                     <p className="mt-1 text-[11px] text-[#93c5fd]/52">
-                      Devices that are down or overdue are surfaced first.
+                      Managed devices that are offline or overdue are surfaced first.
                     </p>
                   </div>
                   <span className="rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.18em] text-rose-300">
-                    {attentionDevices.length} issue{attentionDevices.length === 1 ? '' : 's'}
+                    {alertingAttention.length} issue{alertingAttention.length === 1 ? '' : 's'}
                   </span>
                 </div>
 
-                {attentionDevices.map((device) => {
-                  const state = panelState(device);
+                {alertingAttention.map((device) => {
+                  const state = managedState(device);
                   return (
                     <div key={device.id} className="flex items-start justify-between gap-4 rounded-xl border border-[#1e3a5f]/40 bg-[#0b1323]/85 px-4 py-3">
                       <div className="min-w-0">
@@ -181,9 +229,6 @@ export default function ManagedNetworkDevicesPanel({ siteId }: { siteId: string 
                           <span>{formatAgo(device.lastReportedAt)}</span>
                           {typeof device.lastLatencyMs === 'number' && <span>{device.lastLatencyMs} ms</span>}
                         </div>
-                        {device.lastDetail && (
-                          <div className="mt-2 truncate text-[11px] text-[#93c5fd]/58">{device.lastDetail}</div>
-                        )}
                       </div>
                       {device.alertOnOffline && (
                         <span className="inline-flex flex-shrink-0 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.18em] text-amber-300">
@@ -196,50 +241,68 @@ export default function ManagedNetworkDevicesPanel({ siteId }: { siteId: string 
               </div>
             )}
 
-            {healthyDevices.length > 0 && (
-              <div className="space-y-2.5 pt-1">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h4 className="text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-200">Healthy Devices</h4>
-                    <p className="mt-1 text-[11px] text-[#93c5fd]/52">
-                      Stable devices stay visually quiet so the eye remains on exceptions.
-                    </p>
-                  </div>
-                  {healthyDevices.length > 3 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowAllHealthy((value) => !value)}
-                      className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#93c5fd]/58 transition-colors hover:text-white"
-                    >
-                      {showAllHealthy ? 'Show fewer' : `Show all ${healthyDevices.length}`}
-                    </button>
-                  )}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-[10px] font-bold uppercase tracking-[0.24em] text-sky-200">Observed Devices</h4>
+                  <p className="mt-1 text-[11px] text-[#93c5fd]/52">
+                    Full Cerbo-discovered inventory. Observed-only devices are visible but do not alert.
+                  </p>
                 </div>
+                {orderedObserved.length > 8 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllObserved((value) => !value)}
+                    className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#93c5fd]/58 transition-colors hover:text-white"
+                  >
+                    {showAllObserved ? 'Show fewer' : `Show all ${orderedObserved.length}`}
+                  </button>
+                )}
+              </div>
 
-                {visibleHealthyDevices.map((device) => (
-                  <div key={device.id} className="flex items-start justify-between gap-4 rounded-xl border border-[#1e3a5f]/30 bg-[#0b1323]/72 px-4 py-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2.5">
-                        <span className="text-sm font-bold text-white">{device.name}</span>
-                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] ${statusTone(device.lastStatus)}`}>
-                          online
-                        </span>
+              <div className="grid gap-2.5 xl:grid-cols-2">
+                {visibleObserved.map((device) => {
+                  const state = observedState(device);
+                  const managedDevice = managedByKey.get(deviceKey(device));
+                  const displayName = managedDevice?.name ?? device.hostname ?? 'LAN host';
+
+                  return (
+                    <div key={device.id} className="rounded-xl border border-[#1e3a5f]/34 bg-[#0b1323]/72 px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="truncate text-sm font-bold text-white">{displayName}</span>
+                            <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] ${state.tone}`}>
+                              {state.label}
+                            </span>
+                            <span className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.18em] ${
+                              device.isManaged
+                                ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
+                                : 'border-sky-500/20 bg-sky-500/10 text-sky-300'
+                            }`}>
+                              {device.isManaged ? 'Managed' : 'Observed'}
+                            </span>
+                          </div>
+                          <div className="mt-1 text-[11px] text-[#93c5fd]/58">{state.detail}</div>
+                        </div>
+                        {typeof device.lastLatencyMs === 'number' && (
+                          <div className="flex-shrink-0 rounded-lg border border-[#1e3a5f]/40 bg-[#080c14]/70 px-2.5 py-1 text-[10px] font-bold text-[#93c5fd]/70">
+                            {device.lastLatencyMs} ms
+                          </div>
+                        )}
                       </div>
-                      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-mono text-[#93c5fd]/45">
-                        <span>{device.ipAddress}</span>
-                        <span>{formatAgo(device.lastReportedAt)}</span>
-                        {typeof device.lastLatencyMs === 'number' && <span>{device.lastLatencyMs} ms</span>}
+
+                      <div className="mt-3 grid gap-1 text-[10px] font-mono text-[#93c5fd]/45 sm:grid-cols-2">
+                        <span>IP {device.ipAddress}</span>
+                        <span>Seen {formatAgo(device.lastSeenAt)}</span>
+                        {device.macAddress && <span>MAC {device.macAddress}</span>}
+                        {device.hostname && <span>Host {device.hostname}</span>}
                       </div>
                     </div>
-                    {device.alertOnOffline && (
-                      <span className="inline-flex flex-shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.18em] text-emerald-300">
-                        Covered
-                      </span>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-            )}
+            </div>
           </>
         )}
       </div>

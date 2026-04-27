@@ -39,6 +39,7 @@ export interface ManagedNetworkDeviceStatusSummary {
 export interface CerboNetworkScanPayload {
   vrmSiteId: string;
   observedAt?: string;
+  scanMode?: 'full' | 'targets';
   devices: Array<{
     ipAddress: string;
     status: 'online' | 'offline';

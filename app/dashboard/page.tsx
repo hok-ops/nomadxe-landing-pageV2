@@ -49,6 +49,11 @@ export default async function DashboardPage() {
     .from('device_assignments')
     .select('device_id, vrm_devices(id, vrm_site_id, name, display_name, teltonika_rms_device_id, router_access_url)')
     .eq('user_id', user.id);
+  const { data: profile } = await adminClient
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
 
   const rawDevices = (assignments ?? [])
     .map((a: any) => a.vrm_devices)
@@ -78,5 +83,11 @@ export default async function DashboardPage() {
   );
   const initialDataMap = Object.fromEntries(pairs);
 
-  return <DashboardClient devices={devices} initialDataMap={initialDataMap} />;
+  return (
+    <DashboardClient
+      devices={devices}
+      initialDataMap={initialDataMap}
+      isAdmin={profile?.role === 'admin'}
+    />
+  );
 }

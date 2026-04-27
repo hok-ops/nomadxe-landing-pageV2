@@ -8,8 +8,8 @@ The operator-facing model is:
 
 1. Let the Cerbo observe hosts on the same Teltonika LAN.
 2. Store those hosts as discovered inventory.
-3. Promote only mission-critical hosts into managed targets.
-4. Surface managed exceptions first in the dashboard.
+3. Show discovered hosts automatically in each trailer dashboard detail view.
+4. Promote only mission-critical hosts into managed targets.
 5. Send alerts only on confirmed managed-target status transitions.
 
 That keeps the interface legible under pressure and aligns with usability guidance around:
@@ -63,7 +63,8 @@ What this cannot guarantee:
 The Cerbo script expects:
 
 - a config file at `/data/conf/managed-network-monitor.conf`
-- a target list at `/data/conf/managed-network-targets.txt`
+- no target list for automatic `/24` LAN discovery
+- an optional target list at `/data/conf/managed-network-targets.txt` only when `SCAN_MODE=targets`
 
 ### Example config
 
@@ -71,9 +72,14 @@ The Cerbo script expects:
 SITE_URL="https://www.nomadxe.com"
 CERBO_INGEST_TOKEN="replace-with-your-secret"
 VRM_SITE_ID="123456"
+SCAN_MODE="auto"
+# Optional. If omitted, the script detects the default IPv4 LAN CIDR.
+# Automatic scanning intentionally supports /24 networks only.
+SCAN_CIDR="192.168.1.0/24"
+MAX_PARALLEL="32"
 ```
 
-### Example targets file
+### Optional targets file
 
 ```txt
 # One IP per line. Comments allowed.
@@ -92,19 +98,24 @@ chmod +x /data/report-managed-lan.sh
 The script:
 
 - loads the configured trailer site ID
-- pings each registered target
+- scans the Cerbo's `/24` LAN automatically by default
+- pings each target only when `SCAN_MODE=targets`
 - sends a compact JSON payload to `/api/cerbo/network-scan`
 - includes latency when the local ping output exposes it cleanly
+- includes MAC addresses from the Cerbo ARP table when available
 
 The website ingest route now accepts both use cases:
 
 - known managed IPs update alertable target status
-- unpromoted IPs are stored as discovered inventory
+- unpromoted IPs are stored as discovered inventory and appear in the dashboard device details
+- full automatic scans mark previously observed missing hosts as offline
 
 It self-checks for:
 
 - `ping`
 - `date`
+- `ip`
+- `awk`
 - either `curl` or `wget`
 
 ## Alert behavior
@@ -133,11 +144,11 @@ Required environment variable for Cerbo authentication:
 
 1. Register the trailer in the existing admin console.
 2. Install the Cerbo reporter on the trailer.
-3. Let the first LAN scan populate observed inventory.
-4. Promote the camera, gateway, or other critical hosts that should alert.
-5. Validate manual post success.
-6. Turn on scheduled execution on the Cerbo.
-7. Use the dashboard as an exception board, not an exhaustive network inventory.
+3. Let the first automatic LAN scan populate observed inventory.
+4. Open that trailer tile in the dashboard to view discovered hosts.
+5. Promote only devices that should alert.
+6. Validate manual post success.
+7. Turn on scheduled execution on the Cerbo.
 
 ## UX rationale
 
