@@ -51,6 +51,6 @@ export async function GET(
       lastChangeAt: device.last_change_at ? String(device.last_change_at) : null,
       lastLatencyMs: typeof device.last_latency_ms === 'number' ? device.last_latency_ms : null,
       lastDetail: device.last_detail ? String(device.last_detail) : null,
-    }),
+    })),
   });
 }
