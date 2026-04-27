@@ -5,20 +5,14 @@ import { inviteNewUser, registerDevice } from './actions';
 import { AssignDeviceForm } from './AssignDeviceForm';
 import CopyOrderLink from './CopyOrderLink';
 import GenerateLinkTool from './GenerateLinkTool';
-import { ManagedNetworkPanel } from './ManagedNetworkPanel';
-import type { DiscoveredNetworkDevice, ManagedNetworkDevice } from '@/lib/networkDevices';
 
 type UserItem = { id: string; email: string | undefined };
 type DeviceItem = { id: number; name: string; vrm_site_id: string };
-type ManagedDeviceItem = ManagedNetworkDevice & { parentName: string; parentSiteId: string };
-type DiscoveredDeviceItem = DiscoveredNetworkDevice & { parentName: string; parentSiteId: string };
 
 interface Props {
   userList: UserItem[];
   deviceList: DeviceItem[];
   assignmentMap: Record<string, number[]>;
-  managedDevices: ManagedDeviceItem[];
-  discoveredDevices: DiscoveredDeviceItem[];
 }
 
 function ChevronIcon({ open }: { open: boolean }) {
@@ -71,8 +65,6 @@ export function AdminLeftPanel({
   userList,
   deviceList,
   assignmentMap,
-  managedDevices,
-  discoveredDevices,
 }: Props) {
   return (
     <div className="space-y-4">
@@ -174,14 +166,6 @@ export function AdminLeftPanel({
         </div>
       </AccordionSection>
 
-      <AccordionSection label="Managed LAN Devices" defaultOpen={true}>
-        <ManagedNetworkPanel
-          devices={deviceList}
-          managedDevices={managedDevices}
-          discoveredDevices={discoveredDevices}
-        />
-      </AccordionSection>
-
       <AccordionSection label="Tools & Reference" defaultOpen={false}>
         <div className="pt-4">
           <GenerateLinkTool users={userList} />
@@ -195,7 +179,7 @@ export function AdminLeftPanel({
             {[
               ['Invite a client', 'They receive an activation email and set their own password.'],
               ['Assign additional units', 'Use "Assign Device" to link extra Victron units after signup.'],
-              ['Link network targets', 'Add only the LAN devices that matter operationally for each trailer.'],
+              ['Review LAN operations', 'Use the full-width LAN Device Operations section for fleet network visibility.'],
               ['Manage roles & access', 'Toggle Admin, suspend, send a new password reset, or delete.'],
             ].map(([title, desc], i) => (
               <li key={i} className="flex gap-3">

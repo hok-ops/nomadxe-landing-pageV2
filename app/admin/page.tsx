@@ -2,6 +2,7 @@ import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { redirect } from 'next/navigation';
 import { AdminLeftPanel } from './AdminLeftPanel';
+import { ManagedNetworkPanel } from './ManagedNetworkPanel';
 import { RosterTable } from './RosterTable';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -247,21 +248,27 @@ export default async function AdminDashboard({
           ))}
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
+        <section id="lan-device-operations" className="mb-10">
+          <ManagedNetworkPanel
+            devices={deviceList}
+            managedDevices={managedDeviceList}
+            discoveredDevices={discoveredDeviceList}
+          />
+        </section>
+
+        <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(20rem,24rem)_minmax(0,1fr)]">
 
           {/* ── Left Panel ── */}
-          <div className="xl:col-span-1">
+          <div>
             <AdminLeftPanel
               userList={userList}
               deviceList={deviceList}
               assignmentMap={assignmentMap}
-              managedDevices={managedDeviceList}
-              discoveredDevices={discoveredDeviceList}
             />
           </div>
 
           {/* ── Right Panel: Roster ── */}
-          <div className="xl:col-span-3">
+          <div className="min-w-0">
             <RosterTable users={rosterUsers} totalDevices={totalDevices} />
           </div>
 

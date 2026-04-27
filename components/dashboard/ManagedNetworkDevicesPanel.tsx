@@ -113,6 +113,7 @@ export default function ManagedNetworkDevicesPanel({ siteId }: { siteId: string 
   const [managedDevices, setManagedDevices] = useState<ManagedNetworkDevice[]>([]);
   const [discoveredDevices, setDiscoveredDevices] = useState<DiscoveredNetworkDevice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showAllObserved, setShowAllObserved] = useState(false);
 
   useEffect(() => {
@@ -121,13 +122,17 @@ export default function ManagedNetworkDevicesPanel({ siteId }: { siteId: string 
     async function load() {
       try {
         const response = await fetch(`/api/devices/${siteId}/managed-network`, { cache: 'no-store' });
-        if (!response.ok) return;
+        if (!response.ok) {
+          if (!cancelled) setLoadError('LAN inventory could not be loaded for this site.');
+          return;
+        }
         const payload = await response.json();
         if (cancelled) return;
+        setLoadError(null);
         setManagedDevices(Array.isArray(payload.devices) ? payload.devices : []);
         setDiscoveredDevices(Array.isArray(payload.discoveredDevices) ? payload.discoveredDevices : []);
       } catch {
-        // Keep panel quiet on network failures; the main dashboard owns session UX.
+        if (!cancelled) setLoadError('Network error while loading LAN inventory.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -189,11 +194,18 @@ export default function ManagedNetworkDevicesPanel({ siteId }: { siteId: string 
       <div className="space-y-4 px-4 py-3 sm:px-5">
         {loading ? (
           <div className="py-3 text-[11px] text-[#93c5fd]/48">Loading Cerbo LAN inventory...</div>
+        ) : loadError ? (
+          <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-5 text-center">
+            <div className="text-sm font-bold text-rose-200">LAN inventory unavailable</div>
+            <p className="mx-auto mt-2 max-w-xl text-[11px] leading-relaxed text-rose-100/70">
+              {loadError} The dashboard will retry automatically while this tile stays open.
+            </p>
+          </div>
         ) : !hasAnyInventory ? (
           <div className="rounded-xl border border-[#1e3a5f]/35 bg-[#0b1323]/62 px-4 py-5 text-center">
             <div className="text-sm font-bold text-white">Waiting for the first Cerbo scan</div>
             <p className="mx-auto mt-2 max-w-xl text-[11px] leading-relaxed text-[#93c5fd]/52">
-              Once the Cerbo reporter posts a scan for this site ID, devices it can reach on the trailer LAN will show here automatically.
+              No LAN inventory has been received for this site yet. Devices appear here after the Cerbo reporter posts a successful scan with the matching VRM site ID and ingest token.
             </p>
           </div>
         ) : (

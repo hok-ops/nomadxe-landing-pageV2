@@ -166,16 +166,16 @@ export function ManagedNetworkPanel({
   });
 
   return (
-    <div className="space-y-5 pt-4">
-      <div className="rounded-2xl border border-[#1e3a5f]/70 bg-[linear-gradient(180deg,rgba(13,21,38,0.96),rgba(8,12,20,0.98))] p-4">
-        <div className="flex items-start justify-between gap-4">
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-[#1e3a5f]/70 bg-[linear-gradient(180deg,rgba(13,21,38,0.96),rgba(8,12,20,0.98))] p-4 sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h2 className="mb-1 text-sm font-bold text-white">Managed LAN Devices</h2>
             <p className="max-w-md text-[11px] leading-relaxed text-[#93c5fd]/68">
               Add only the devices that matter operationally. The Cerbo reports health for this curated list, so the UI stays calm and exception-driven.
             </p>
           </div>
-          <div className="grid min-w-[180px] grid-cols-3 gap-2">
+          <div className="grid w-full grid-cols-3 gap-2 sm:w-auto sm:min-w-[24rem]">
             {[
               { label: 'Managed', value: managedDevices.length, tone: 'text-white' },
               { label: 'Observed', value: discoveredDevices.length, tone: 'text-emerald-300' },
@@ -224,7 +224,7 @@ export function ManagedNetworkPanel({
           </div>
         ) : (
           <div className="p-4">
-            <div className="space-y-2">
+            <div className="grid gap-2 lg:grid-cols-[minmax(18rem,1fr)_24rem]">
               <input
                 value={fleetSearch}
                 onChange={(event) => setFleetSearch(event.target.value)}
