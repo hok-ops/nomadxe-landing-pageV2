@@ -5,6 +5,7 @@ import { AdminLeftPanel } from './AdminLeftPanel';
 import { RosterTable } from './RosterTable';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
+import type { ManagedNetworkStatus } from '@/lib/networkDevices';
 
 export const metadata = {
   title: 'Operations Console | NomadXE',
@@ -23,6 +24,8 @@ const EVENT_MESSAGES: Record<string, { type: 'success' | 'error'; text: string }
   device_assigned:   { type: 'success', text: 'Device assigned.' },
   assignment_removed:{ type: 'success', text: 'Device assignment removed.' },
   account_created:   { type: 'success', text: 'Account created.' },
+  managed_device_added: { type: 'success', text: 'Managed LAN device added.' },
+  managed_device_removed: { type: 'success', text: 'Managed LAN device removed.' },
 };
 
 export default async function AdminDashboard({
@@ -48,6 +51,42 @@ export default async function AdminDashboard({
   const authUsers = authUsersResponse?.users || [];
   const { data: profiles } = await adminClient.from('profiles').select('*');
   const { data: devices } = await adminClient.from('vrm_devices').select('*');
+  const { data: managedDevices } = await adminClient
+    .from('managed_network_devices')
+    .select(`
+      id,
+      vrm_device_id,
+      name,
+      ip_address,
+      alert_on_offline,
+      is_active,
+      last_status,
+      last_reported_at,
+      last_change_at,
+      last_latency_ms,
+      last_detail,
+      vrm_devices!inner(name, vrm_site_id)
+    `)
+    .order('last_status', { ascending: true })
+    .order('name', { ascending: true });
+  const { data: discoveredDevices } = await adminClient
+    .from('discovered_network_devices')
+    .select(`
+      id,
+      vrm_device_id,
+      ip_address,
+      mac_address,
+      hostname,
+      last_status,
+      first_seen_at,
+      last_seen_at,
+      last_latency_ms,
+      last_detail,
+      is_ignored,
+      vrm_devices!inner(name, vrm_site_id)
+    `)
+    .eq('is_ignored', false)
+    .order('last_seen_at', { ascending: false });
   const { data: assignments } = await adminClient
     .from('device_assignments')
     .select(`id, user_id, device_id, vrm_devices(name, vrm_site_id)`);
@@ -68,6 +107,51 @@ export default async function AdminDashboard({
     if (!assignmentMap[a.user_id]) assignmentMap[a.user_id] = [];
     assignmentMap[a.user_id].push(a.device_id as number);
   }
+
+  const managedDeviceList = (managedDevices ?? []).map((device: any) => {
+    const parent = Array.isArray(device.vrm_devices) ? device.vrm_devices[0] : device.vrm_devices;
+    return {
+      id: Number(device.id),
+      vrmDeviceId: Number(device.vrm_device_id),
+      name: String(device.name),
+      ipAddress: String(device.ip_address),
+      alertOnOffline: Boolean(device.alert_on_offline),
+      isActive: Boolean(device.is_active),
+      lastStatus: String(device.last_status) as ManagedNetworkStatus,
+      lastReportedAt: device.last_reported_at ? String(device.last_reported_at) : null,
+      lastChangeAt: device.last_change_at ? String(device.last_change_at) : null,
+      lastLatencyMs: typeof device.last_latency_ms === 'number' ? device.last_latency_ms : null,
+      lastDetail: device.last_detail ? String(device.last_detail) : null,
+      parentName: String(parent?.name ?? 'Unknown trailer'),
+      parentSiteId: String(parent?.vrm_site_id ?? ''),
+    };
+  });
+
+  const managedIps = new Set(
+    managedDeviceList.map((device) => `${device.vrmDeviceId}:${device.ipAddress}`)
+  );
+
+  const discoveredDeviceList = (discoveredDevices ?? []).map((device: any) => {
+    const parent = Array.isArray(device.vrm_devices) ? device.vrm_devices[0] : device.vrm_devices;
+    const vrmDeviceId = Number(device.vrm_device_id);
+    const ipAddress = String(device.ip_address);
+    return {
+      id: Number(device.id),
+      vrmDeviceId,
+      ipAddress,
+      macAddress: device.mac_address ? String(device.mac_address) : null,
+      hostname: device.hostname ? String(device.hostname) : null,
+      lastStatus: String(device.last_status) as ManagedNetworkStatus,
+      firstSeenAt: String(device.first_seen_at),
+      lastSeenAt: String(device.last_seen_at),
+      lastLatencyMs: typeof device.last_latency_ms === 'number' ? device.last_latency_ms : null,
+      lastDetail: device.last_detail ? String(device.last_detail) : null,
+      isIgnored: Boolean(device.is_ignored),
+      isManaged: managedIps.has(`${vrmDeviceId}:${ipAddress}`),
+      parentName: String(parent?.name ?? 'Unknown trailer'),
+      parentSiteId: String(parent?.vrm_site_id ?? ''),
+    };
+  });
 
   const rosterUsers = authUsers.map(u => {
     const p = profiles?.find(prof => prof.id === u.id);
@@ -171,6 +255,8 @@ export default async function AdminDashboard({
               userList={userList}
               deviceList={deviceList}
               assignmentMap={assignmentMap}
+              managedDevices={managedDeviceList}
+              discoveredDevices={discoveredDeviceList}
             />
           </div>
 

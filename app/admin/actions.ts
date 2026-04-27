@@ -23,6 +23,9 @@ const ERROR_CODES: Record<string, string> = {
   'Password must be at least 12 characters': 'password_too_short',
   'Invalid device ID': 'invalid_input',
   'Invalid assignment ID': 'invalid_input',
+  'Managed device name, target trailer, and IP address are required': 'missing_fields',
+  'Invalid managed network device ID': 'invalid_input',
+  'Invalid discovered network device ID': 'invalid_input',
 };
 
 function toErrorCode(message: string): string {
@@ -417,6 +420,116 @@ export async function deleteAssignment(formData: FormData) {
     if (error) throw new Error(error.message);
     revalidatePath('/admin');
     redirect('/admin?event=assignment_removed');
+  } catch (err: any) {
+    if (err.digest) throw err;
+    redirect(`/admin?event=error&code=${toErrorCode(err.message)}`);
+  }
+}
+
+export async function addManagedNetworkDevice(formData: FormData) {
+  try {
+    await verifyAdmin();
+
+    const vrmDeviceId = formData.get('vrm_device_id') as string;
+    const name = formData.get('name') as string;
+    const ipAddress = formData.get('ip_address') as string;
+    const alertOnOffline = formData.get('alert_on_offline') === 'on';
+
+    if (!vrmDeviceId || !name || !ipAddress) {
+      throw new Error('Managed device name, target trailer, and IP address are required');
+    }
+
+    const parsedVrmDeviceId = parseInt(vrmDeviceId, 10);
+    if (Number.isNaN(parsedVrmDeviceId)) throw new Error('Invalid device ID');
+
+    const adminClient = createAdminClient();
+    const { error } = await adminClient
+      .from('managed_network_devices')
+      .insert([{
+        vrm_device_id: parsedVrmDeviceId,
+        name: name.trim(),
+        ip_address: ipAddress.trim(),
+        alert_on_offline: alertOnOffline,
+      }]);
+
+    if (error) throw new Error(error.message);
+
+    revalidatePath('/admin');
+    revalidatePath('/dashboard');
+    redirect('/admin?event=managed_device_added');
+  } catch (err: any) {
+    if (err.digest) throw err;
+    redirect(`/admin?event=error&code=${toErrorCode(err.message)}`);
+  }
+}
+
+export async function deleteManagedNetworkDevice(formData: FormData) {
+  try {
+    await verifyAdmin();
+
+    const id = formData.get('id') as string;
+    if (!id) throw new Error('Invalid managed network device ID');
+
+    const parsedId = parseInt(id, 10);
+    if (Number.isNaN(parsedId)) throw new Error('Invalid managed network device ID');
+
+    const adminClient = createAdminClient();
+    const { error } = await adminClient
+      .from('managed_network_devices')
+      .delete()
+      .eq('id', parsedId);
+
+    if (error) throw new Error(error.message);
+
+    revalidatePath('/admin');
+    revalidatePath('/dashboard');
+    redirect('/admin?event=managed_device_removed');
+  } catch (err: any) {
+    if (err.digest) throw err;
+    redirect(`/admin?event=error&code=${toErrorCode(err.message)}`);
+  }
+}
+
+export async function promoteDiscoveredNetworkDevice(formData: FormData) {
+  try {
+    await verifyAdmin();
+
+    const id = formData.get('id') as string;
+    const label = formData.get('name') as string | null;
+    const alertOnOffline = formData.get('alert_on_offline') === 'on';
+
+    if (!id) throw new Error('Invalid discovered network device ID');
+    const parsedId = parseInt(id, 10);
+    if (Number.isNaN(parsedId)) throw new Error('Invalid discovered network device ID');
+
+    const adminClient = createAdminClient();
+    const { data: discovered, error: discoveredError } = await adminClient
+      .from('discovered_network_devices')
+      .select('vrm_device_id, ip_address, hostname')
+      .eq('id', parsedId)
+      .maybeSingle();
+
+    if (discoveredError) throw new Error(discoveredError.message);
+    if (!discovered) throw new Error('Invalid discovered network device ID');
+
+    const fallbackName = discovered.hostname || String(discovered.ip_address);
+    const name = label?.trim() || fallbackName;
+
+    const { error } = await adminClient
+      .from('managed_network_devices')
+      .upsert([{
+        vrm_device_id: discovered.vrm_device_id,
+        name,
+        ip_address: discovered.ip_address,
+        alert_on_offline: alertOnOffline,
+        is_active: true,
+      }], { onConflict: 'vrm_device_id,ip_address' });
+
+    if (error) throw new Error(error.message);
+
+    revalidatePath('/admin');
+    revalidatePath('/dashboard');
+    redirect('/admin?event=managed_device_added');
   } catch (err: any) {
     if (err.digest) throw err;
     redirect(`/admin?event=error&code=${toErrorCode(err.message)}`);

@@ -5,24 +5,33 @@ import { inviteNewUser, registerDevice } from './actions';
 import { AssignDeviceForm } from './AssignDeviceForm';
 import CopyOrderLink from './CopyOrderLink';
 import GenerateLinkTool from './GenerateLinkTool';
+import { ManagedNetworkPanel } from './ManagedNetworkPanel';
+import type { DiscoveredNetworkDevice, ManagedNetworkDevice } from '@/lib/networkDevices';
 
-type UserItem   = { id: string; email: string | undefined };
+type UserItem = { id: string; email: string | undefined };
 type DeviceItem = { id: number; name: string; vrm_site_id: string };
+type ManagedDeviceItem = ManagedNetworkDevice & { parentName: string; parentSiteId: string };
+type DiscoveredDeviceItem = DiscoveredNetworkDevice & { parentName: string; parentSiteId: string };
 
 interface Props {
-  userList:      UserItem[];
-  deviceList:    DeviceItem[];
+  userList: UserItem[];
+  deviceList: DeviceItem[];
   assignmentMap: Record<string, number[]>;
+  managedDevices: ManagedDeviceItem[];
+  discoveredDevices: DiscoveredDeviceItem[];
 }
 
 function ChevronIcon({ open }: { open: boolean }) {
   return (
     <svg
-      width="14" height="14" viewBox="0 0 14 14" fill="none"
+      width="14"
+      height="14"
+      viewBox="0 0 14 14"
+      fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={`transition-transform duration-200 ${open ? 'rotate-0' : '-rotate-90'}`}
     >
-      <path d="M2.5 5L7 9.5L11.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M2.5 5L7 9.5L11.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -41,7 +50,7 @@ function AccordionSection({
     <div className="bg-[#0d1526] border border-[#1e3a5f] rounded-xl overflow-hidden">
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-[#111d36] transition-colors"
       >
         <span className="text-[10px] font-bold uppercase tracking-widest text-[#93c5fd]/70">{label}</span>
@@ -58,14 +67,16 @@ function AccordionSection({
   );
 }
 
-export function AdminLeftPanel({ userList, deviceList, assignmentMap }: Props) {
+export function AdminLeftPanel({
+  userList,
+  deviceList,
+  assignmentMap,
+  managedDevices,
+  discoveredDevices,
+}: Props) {
   return (
     <div className="space-y-4">
-
-      {/* ── CLIENT MANAGEMENT ── */}
       <AccordionSection label="Client Management" defaultOpen={true}>
-
-        {/* Invite */}
         <div className="pt-4 space-y-4">
           <div>
             <h2 className="text-sm font-bold text-white mb-1">Invite New Client</h2>
@@ -76,7 +87,10 @@ export function AdminLeftPanel({ userList, deviceList, assignmentMap }: Props) {
           <form action={inviteNewUser} className="space-y-4">
             <div className="space-y-1.5">
               <label className="text-[10px] uppercase tracking-widest text-[#93c5fd]/75 font-bold">Client Email</label>
-              <input name="email" type="email" required
+              <input
+                name="email"
+                type="email"
+                required
                 className="w-full bg-[#080c14] border border-[#1e3a5f] rounded-lg px-4 py-3 text-sm text-white placeholder:text-[#93c5fd]/20 outline-none focus:border-[#3b82f6] transition-colors"
                 placeholder="client@example.com"
               />
@@ -85,7 +99,8 @@ export function AdminLeftPanel({ userList, deviceList, assignmentMap }: Props) {
               <label className="text-[10px] uppercase tracking-widest text-[#93c5fd]/75 font-bold">
                 Victron Site ID <span className="normal-case text-[#93c5fd]/60 font-normal">(optional)</span>
               </label>
-              <input name="vrm_site_id"
+              <input
+                name="vrm_site_id"
                 className="w-full bg-[#080c14] border border-[#1e3a5f] rounded-lg px-4 py-3 text-sm text-white placeholder:text-[#93c5fd]/20 outline-none focus:border-[#3b82f6] transition-colors"
                 placeholder="e.g. 123456"
               />
@@ -94,12 +109,14 @@ export function AdminLeftPanel({ userList, deviceList, assignmentMap }: Props) {
               <label className="text-[10px] uppercase tracking-widest text-[#93c5fd]/75 font-bold">
                 Device Name <span className="normal-case text-[#93c5fd]/60 font-normal">(optional)</span>
               </label>
-              <input name="device_name"
+              <input
+                name="device_name"
                 className="w-full bg-[#080c14] border border-[#1e3a5f] rounded-lg px-4 py-3 text-sm text-white placeholder:text-[#93c5fd]/20 outline-none focus:border-[#3b82f6] transition-colors"
                 placeholder="e.g. Unit Alpha"
               />
             </div>
-            <button type="submit"
+            <button
+              type="submit"
               className="w-full bg-[#2563eb] hover:bg-[#3b82f6] text-white font-bold py-3 rounded-lg text-sm transition-all hover:shadow-[0_0_20px_rgba(59,130,246,0.4)] active:scale-[0.98]"
             >
               Send Invitation
@@ -109,7 +126,6 @@ export function AdminLeftPanel({ userList, deviceList, assignmentMap }: Props) {
 
         <div className="border-t border-[#1e3a5f]/40" />
 
-        {/* Assign Device */}
         <div className="space-y-3">
           <div>
             <h2 className="text-sm font-bold text-white mb-1">Assign Device to User</h2>
@@ -122,72 +138,77 @@ export function AdminLeftPanel({ userList, deviceList, assignmentMap }: Props) {
 
         <div className="border-t border-[#1e3a5f]/40" />
 
-        {/* Register Device */}
         <div className="space-y-3">
           <div>
             <h2 className="text-sm font-bold text-white mb-1">Register Victron Device</h2>
             <p className="text-[11px] text-[#93c5fd]/70 leading-relaxed">
-              Add a device to the fleet. Find the Site ID in VRM → Installation Settings.
+              Add a device to the fleet. Find the Site ID in VRM to link trailer telemetry.
             </p>
           </div>
           <form action={registerDevice} className="space-y-4">
-            <input name="vrm_site_id" required
+            <input
+              name="vrm_site_id"
+              required
               className="w-full bg-[#080c14] border border-[#1e3a5f] rounded-lg px-4 py-3 text-sm text-white placeholder:text-[#93c5fd]/20 outline-none focus:border-[#3b82f6] transition-colors"
               placeholder="VRM Site ID"
             />
-            <input name="name" required
+            <input
+              name="name"
+              required
               className="w-full bg-[#080c14] border border-[#1e3a5f] rounded-lg px-4 py-3 text-sm text-white placeholder:text-[#93c5fd]/20 outline-none focus:border-[#3b82f6] transition-colors"
               placeholder="Device name (e.g. Unit Bravo)"
             />
-            <button type="submit"
+            <button
+              type="submit"
               className="w-full border border-[#1e40af]/60 text-[#93c5fd]/70 hover:bg-[#1e40af]/20 font-bold py-3 rounded-lg text-sm transition-all active:scale-[0.98]"
             >
               Register Device
             </button>
           </form>
         </div>
-
       </AccordionSection>
 
-      {/* ── FIELD OPERATIONS ── */}
       <AccordionSection label="Field Operations" defaultOpen={true}>
         <div className="pt-4">
           <CopyOrderLink />
         </div>
       </AccordionSection>
 
-      {/* ── TOOLS & REFERENCE ── */}
-      <AccordionSection label="Tools & Reference" defaultOpen={false}>
+      <AccordionSection label="Managed LAN Devices" defaultOpen={true}>
+        <ManagedNetworkPanel
+          devices={deviceList}
+          managedDevices={managedDevices}
+          discoveredDevices={discoveredDevices}
+        />
+      </AccordionSection>
 
+      <AccordionSection label="Tools & Reference" defaultOpen={false}>
         <div className="pt-4">
           <GenerateLinkTool users={userList} />
         </div>
 
         <div className="border-t border-[#1e3a5f]/40" />
 
-        {/* How This Works */}
         <div className="pt-1 space-y-4">
           <h2 className="text-xs font-bold text-[#3b82f6] uppercase tracking-widest">How This Works</h2>
           <ol className="space-y-3 text-[11px] text-[#93c5fd]/70 leading-relaxed">
             {[
               ['Invite a client', 'They receive an activation email and set their own password.'],
               ['Assign additional units', 'Use "Assign Device" to link extra Victron units after signup.'],
-              ['Finding the Site ID', 'VRM portal → select installation → 6–8 digit ID in the URL.'],
+              ['Link network targets', 'Add only the LAN devices that matter operationally for each trailer.'],
               ['Manage roles & access', 'Toggle Admin, suspend, send a new password reset, or delete.'],
             ].map(([title, desc], i) => (
               <li key={i} className="flex gap-3">
                 <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#1e40af] text-white flex items-center justify-center text-[9px] font-black">{i + 1}</span>
-                <span><strong className="text-white">{title} — </strong>{desc}</span>
+                <span><strong className="text-white">{title} - </strong>{desc}</span>
               </li>
             ))}
           </ol>
           <div className="pt-3 border-t border-[#1e3a5f]/40 text-[10px] text-amber-400/80">
-            ⚠ Set <code className="text-amber-300">NEXT_PUBLIC_SITE_URL=https://www.nomadxe.com</code> in Vercel so invite/reset emails link correctly.
+            Set <code className="text-amber-300">NEXT_PUBLIC_SITE_URL=https://www.nomadxe.com</code> in Vercel so invite/reset emails link correctly.
           </div>
         </div>
-
       </AccordionSection>
-
     </div>
   );
 }

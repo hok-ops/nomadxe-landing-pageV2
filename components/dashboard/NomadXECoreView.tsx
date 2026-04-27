@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useState, useRef } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
 import VRMDeepDivePanel from '@/components/dashboard/VRMDeepDivePanel';
+import ManagedNetworkDevicesPanel from '@/components/dashboard/ManagedNetworkDevicesPanel';
 import type { VRMData, VRMDetailData } from '@/lib/vrm';
 import { getCachedLocation, reverseGeocode } from '@/lib/geocode';
 
@@ -888,6 +889,8 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
             })()}
           </div>
         </div>
+
+        <ManagedNetworkDevicesPanel siteId={device.siteId} />
 
         {weather && <WeatherCard weather={weather} isLight={isLight} />}
 

@@ -14,6 +14,11 @@ const REQUIRED_SECRETS = [
 const OPTIONAL_WEBHOOKS = [
   'MAKE_DEACTIVATE_WEBHOOK_URL',   // Dedicated webhook for deactivation form
   'MAKE_RELOCATE_WEBHOOK_URL',     // Dedicated webhook for relocation form
+  'MAKE_NETWORK_ALERT_WEBHOOK_URL',// Dedicated webhook for Cerbo-managed LAN offline/recovery alerts
+];
+
+const OPTIONAL_FEATURE_ENVS = [
+  'CERBO_INGEST_TOKEN',            // Shared bearer token for Cerbo GX managed-network status posts
 ];
 
 const FORBIDDEN_PUBLIC_PREFIX = 'NEXT_PUBLIC_';
@@ -40,6 +45,12 @@ REQUIRED_SECRETS.forEach(secret => {
 OPTIONAL_WEBHOOKS.forEach(key => {
   if (!process.env[key]) {
     console.warn('\x1b[33m%s\x1b[0m', `ℹ️  Optional: "${key}" not set — falling back to MAKE_WEBHOOK_URL (form_type distinguishes submissions).`);
+  }
+});
+
+OPTIONAL_FEATURE_ENVS.forEach(key => {
+  if (!process.env[key]) {
+    console.warn('\x1b[33m%s\x1b[0m', `ℹ️  Optional: "${key}" not set — Cerbo managed-network ingestion will reject requests until configured.`);
   }
 });
 
