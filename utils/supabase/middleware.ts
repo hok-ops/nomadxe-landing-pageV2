@@ -38,7 +38,10 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl
   const isDashboard = pathname.startsWith('/dashboard')
-  const isAdmin = pathname.startsWith('/admin')
+  const isAdmin     = pathname.startsWith('/admin')
+  // /access/* proxies modem WebUI sessions — enforce auth at the middleware layer
+  // in addition to the handler-level check, so a handler error returns 302 not 500.
+  const isAccess    = pathname.startsWith('/access')
 
   // Auth callback and password pages are public — never block them.
   const isPublicAuthRoute =
@@ -52,7 +55,7 @@ export async function updateSession(request: NextRequest) {
   if (isPublicAuthRoute) return response
 
   // Redirect unauthenticated users to login — hard block, no fallback.
-  if ((isDashboard || isAdmin) && !user) {
+  if ((isDashboard || isAdmin || isAccess) && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.search = ''

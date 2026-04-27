@@ -1,27 +1,22 @@
 /**
- * Shared reverse-geocode utility using Nominatim (OpenStreetMap).
+ * Shared reverse-geocode utility — calls /api/geocode (server proxy → Nominatim).
+ *
+ * Why proxy and not Nominatim directly from the browser?
+ *  - Nominatim ToS requires a valid User-Agent; browsers block setting it on fetch.
+ *  - Proxying prevents end-user IPs from being sent to Nominatim's servers.
+ *  - The server owns rate-limit compliance; tiles just call our own endpoint.
  *
  * Rules:
  *  - One module-level cache shared across all callers (FleetTile + NomadXECoreView)
  *  - Each unique lat/lon key is only ever fetched once per browser session
- *  - Returns null on failure — callers fall back to siteId or a skeleton
- *  - Nominatim ToS: max 1 req/sec; callers must stagger concurrent calls
+ *  - Cache is capped at MAX_CACHE_SIZE entries — oldest entry evicted on overflow
+ *  - Returns null on failure — callers fall back to siteId
  */
 
-const geocodeCache = new Map<string, string>();
+const MAX_CACHE_SIZE = 500;
 
-const US_STATES: Record<string, string> = {
-  'Alabama':'AL','Alaska':'AK','Arizona':'AZ','Arkansas':'AR','California':'CA',
-  'Colorado':'CO','Connecticut':'CT','Delaware':'DE','Florida':'FL','Georgia':'GA',
-  'Hawaii':'HI','Idaho':'ID','Illinois':'IL','Indiana':'IN','Iowa':'IA',
-  'Kansas':'KS','Kentucky':'KY','Louisiana':'LA','Maine':'ME','Maryland':'MD',
-  'Massachusetts':'MA','Michigan':'MI','Minnesota':'MN','Mississippi':'MS','Missouri':'MO',
-  'Montana':'MT','Nebraska':'NE','Nevada':'NV','New Hampshire':'NH','New Jersey':'NJ',
-  'New Mexico':'NM','New York':'NY','North Carolina':'NC','North Dakota':'ND','Ohio':'OH',
-  'Oklahoma':'OK','Oregon':'OR','Pennsylvania':'PA','Rhode Island':'RI','South Carolina':'SC',
-  'South Dakota':'SD','Tennessee':'TN','Texas':'TX','Utah':'UT','Vermont':'VT',
-  'Virginia':'VA','Washington':'WA','West Virginia':'WV','Wisconsin':'WI','Wyoming':'WY',
-};
+// Insertion-ordered Map — oldest entry is always at the front (.keys().next())
+const geocodeCache = new Map<string, string>();
 
 /** Stable cache key rounded to ~110 m precision. */
 export function geocodeKey(lat: number, lon: number): string {
@@ -33,33 +28,30 @@ export function getCachedLocation(lat: number, lon: number): string | null {
   return geocodeCache.get(geocodeKey(lat, lon)) ?? null;
 }
 
+function cacheSet(key: string, value: string) {
+  // Evict the oldest entry when the cap is reached
+  if (geocodeCache.size >= MAX_CACHE_SIZE && !geocodeCache.has(key)) {
+    const oldest = geocodeCache.keys().next().value;
+    if (oldest !== undefined) geocodeCache.delete(oldest);
+  }
+  geocodeCache.set(key, value);
+}
+
 /**
- * Reverse-geocode lat/lon → "City, ST ZIP".
- * Returns null when GPS unavailable, Nominatim fails, or address fields
- * can't be assembled into a meaningful string.
+ * Reverse-geocode lat/lon → "City, ST ZIP" via /api/geocode server proxy.
+ * Returns null when the proxy fails or no meaningful address can be assembled.
  */
 export async function reverseGeocode(lat: number, lon: number): Promise<string | null> {
   const key = geocodeKey(lat, lon);
   if (geocodeCache.has(key)) return geocodeCache.get(key)!;
 
   try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18`,
-      { headers: { 'Accept-Language': 'en-US,en' } }
-    );
+    const res = await fetch(`/api/geocode?lat=${lat}&lon=${lon}`);
     if (!res.ok) return null;
-
     const json = await res.json();
-    const a    = json.address ?? {};
-
-    const city      = a.city ?? a.town ?? a.village ?? a.suburb ?? a.neighbourhood ?? a.county ?? '';
-    const state     = a.state ?? '';
-    const zip       = a.postcode ?? '';
-    const stateCode = US_STATES[state] ?? state;
-
-    const label = [city, stateCode, zip].filter(Boolean).join(', ');
-    if (label) geocodeCache.set(key, label);
-    return label || null;
+    const label: string | null = json.location ?? null;
+    if (label) cacheSet(key, label);
+    return label;
   } catch {
     return null;
   }

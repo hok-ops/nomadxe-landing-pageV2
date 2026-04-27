@@ -66,10 +66,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid email address.', fields: ['email'] }, { status: 422, headers: corsHeaders() });
   }
 
-  const webhookUrl = process.env.MAKE_DEACTIVATE_WEBHOOK_URL ?? process.env.MAKE_WEBHOOK_URL;
+  // Require the deactivation-specific webhook. Falling back to MAKE_WEBHOOK_URL
+  // (the order webhook) would silently route deactivation requests to the wrong
+  // Make.com scenario and corrupt the workflow data.
+  const webhookUrl = process.env.MAKE_DEACTIVATE_WEBHOOK_URL;
   if (!webhookUrl) {
-    console.error('[deactivate] Neither MAKE_DEACTIVATE_WEBHOOK_URL nor MAKE_WEBHOOK_URL is set.');
-    return NextResponse.json({ error: 'Webhook not configured.' }, { status: 500, headers: corsHeaders() });
+    console.error('[deactivate] MAKE_DEACTIVATE_WEBHOOK_URL is not set — deactivation submissions will fail.');
+    return NextResponse.json({ error: 'Deactivation endpoint not configured.' }, { status: 500, headers: corsHeaders() });
   }
 
   // ── Sanitised payload with field length caps ──────────────────────────────

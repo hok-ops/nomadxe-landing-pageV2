@@ -14,6 +14,31 @@ async function fetchInitialVRMData(siteId: string): Promise<VRMData | null> {
   }
 }
 
+/**
+ * Concurrency-capped Promise.all.
+ * Limits simultaneous upstream VRM fan-out to avoid thundering herd on SSR.
+ * VRM's rate limit is generous but each fetchVRMData fires 3 sub-requests;
+ * a 20-device fleet uncapped = 60 simultaneous upstream calls on every page load.
+ */
+async function pLimit<T>(
+  tasks: (() => Promise<T>)[],
+  limit: number
+): Promise<T[]> {
+  const results: T[] = new Array(tasks.length);
+  let index = 0;
+
+  async function worker() {
+    while (index < tasks.length) {
+      const i = index++;
+      results[i] = await tasks[i]();
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, tasks.length) }, worker);
+  await Promise.all(workers);
+  return results;
+}
+
 export default async function DashboardPage() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -45,11 +70,13 @@ export default async function DashboardPage() {
     return true;
   });
 
-  const initialDataMap = Object.fromEntries(
-    await Promise.all(
-      devices.map(async (d) => [d.siteId, await fetchInitialVRMData(d.siteId)])
-    )
+  // Cap concurrent VRM fetches at 4 — each call fans out to 3 sub-requests;
+  // uncapped this causes a thundering herd (20 devices = 60 simultaneous calls).
+  const pairs = await pLimit(
+    devices.map((d) => () => fetchInitialVRMData(d.siteId).then((data) => [d.siteId, data] as const)),
+    4
   );
+  const initialDataMap = Object.fromEntries(pairs);
 
   return <DashboardClient devices={devices} initialDataMap={initialDataMap} />;
 }

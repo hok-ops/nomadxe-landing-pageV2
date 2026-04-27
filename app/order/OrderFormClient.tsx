@@ -237,6 +237,18 @@ export default function OrderFormClient() {
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  // Revoke all preview objectURLs when the component unmounts to prevent memory leaks.
+  // removePhoto() and the success-reset handler revoke on user action, but navigation
+  // away mid-upload would leave blobs alive for the session without this cleanup.
+  useEffect(() => {
+    return () => {
+      setPhotos(current => {
+        current.forEach(p => URL.revokeObjectURL(p.preview));
+        return current;
+      });
+    };
+  }, []);
+
   // Capture UTMs on mount
   useEffect(() => {
     if (typeof window === 'undefined') return;

@@ -48,7 +48,7 @@ export async function PATCH(
 
   if (error) {
     console.error('[display-name] update error:', error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Could not save device name' }, { status: 500 });
   }
 
   return NextResponse.json({ displayName: trimmed || null });

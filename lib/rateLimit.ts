@@ -8,23 +8,30 @@
  * Usage:
  *   const ok = checkRateLimit(`send-reset:${ip}`, 3, 60_000);
  *   if (!ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+ *
+ * Design note — maybePrune fix:
+ *   Previously maybePrune received the per-call windowMs and used it to evict
+ *   timestamps from ALL buckets. A bucket with a long window (e.g. 1 hour) could
+ *   be incorrectly pruned if a short-window route (e.g. 60 s) triggered the prune.
+ *   Fix: each bucket now stores its own windowMs so prune uses the correct window
+ *   per bucket rather than whatever happened to call maybePrune last.
  */
 
 interface Bucket {
   timestamps: number[];
+  windowMs: number; // stored per bucket to ensure correct per-bucket pruning
 }
 
 const store = new Map<string, Bucket>();
 
-// Prune stale entries every 5 minutes to prevent unbounded memory growth
 let lastPrune = Date.now();
 const PRUNE_INTERVAL_MS = 5 * 60_000;
 
-function maybePrune(now: number, windowMs: number) {
+function maybePrune(now: number) {
   if (now - lastPrune < PRUNE_INTERVAL_MS) return;
   lastPrune = now;
   for (const [key, bucket] of Array.from(store.entries())) {
-    bucket.timestamps = bucket.timestamps.filter((t: number) => now - t < windowMs);
+    bucket.timestamps = bucket.timestamps.filter((t) => now - t < bucket.windowMs);
     if (bucket.timestamps.length === 0) store.delete(key);
   }
 }
@@ -43,11 +50,13 @@ export function checkRateLimit(
   windowMs = 60_000
 ): boolean {
   const now = Date.now();
-  maybePrune(now, windowMs);
+  maybePrune(now);
 
-  const bucket = store.get(key) ?? { timestamps: [] };
+  const bucket = store.get(key) ?? { timestamps: [], windowMs };
+  // Always sync windowMs in case the same key is reused with a different window
+  bucket.windowMs = windowMs;
   // Remove timestamps outside the current window
-  bucket.timestamps = bucket.timestamps.filter(t => now - t < windowMs);
+  bucket.timestamps = bucket.timestamps.filter((t) => now - t < windowMs);
 
   if (bucket.timestamps.length >= maxCount) {
     store.set(key, bucket);

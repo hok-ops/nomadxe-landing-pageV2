@@ -25,7 +25,9 @@ interface WeatherData {
   windyUrl: string;
 }
 
-const weatherCache = new Map<string, WeatherData>();
+const WEATHER_TTL_MS = 30 * 60_000; // 30 minutes — weather is slow-changing
+interface WeatherCacheEntry { data: WeatherData; fetchedAt: number }
+const weatherCache = new Map<string, WeatherCacheEntry>();
 
 function wmoDescription(code: number): string {
   if (code === 0)              return 'Clear';
@@ -54,7 +56,8 @@ function wmoEmoji(code: number): string {
 
 async function fetchWeather(lat: number, lon: number): Promise<WeatherData | null> {
   const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
-  if (weatherCache.has(key)) return weatherCache.get(key)!;
+  const cached = weatherCache.get(key);
+  if (cached && Date.now() - cached.fetchedAt < WEATHER_TTL_MS) return cached.data;
   try {
     const url =
       `https://api.open-meteo.com/v1/forecast` +
@@ -83,7 +86,7 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData | nul
       days,
       windyUrl: `https://www.windy.com/${lat.toFixed(4)}/${lon.toFixed(4)}?wind,${lat.toFixed(4)},${lon.toFixed(4)},10`,
     };
-    weatherCache.set(key, weather);
+    weatherCache.set(key, { data: weather, fetchedAt: Date.now() });
     return weather;
   } catch {
     return null;
@@ -586,19 +589,22 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
   };
 
   // Parent (DashboardClient) handles polling and pushes fresh data via `initialData`.
-  // Syncing local `data` when `initialData` changes keeps flash/count-up animations
-  // firing on every poll tick without a second fetch per core view.
+  // Compare by lastSeen timestamp rather than object reference — the parent spreads
+  // a new object on every poll regardless of whether the values changed, so a
+  // reference comparison would fire on every parent re-render (stale closure risk).
   useEffect(() => {
-    if (initialData && initialData !== data) {
+    if (initialData && initialData.lastSeen !== data?.lastSeen) {
       setData(initialData);
       setLastPoll(new Date());
       onData?.(device.siteId, initialData);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialData]);
+  }, [initialData?.lastSeen]);
 
+  // 10s is sufficient — staleness text shows "Xm ago" for most real-world data ages.
+  // Reduces from 1 re-render/sec per open device card to 1 per 10s.
   useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 1000);
+    const id = setInterval(() => setTick(t => t + 1), 10_000);
     return () => clearInterval(id);
   }, []);
 

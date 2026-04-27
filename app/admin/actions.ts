@@ -5,6 +5,30 @@ import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
+// Safe error codes for redirect URLs — never put raw error messages in the URL.
+// Raw strings can expose DB constraint names, table names, user emails, and
+// internal Supabase error details in browser history and server access logs.
+const ERROR_CODES: Record<string, string> = {
+  'Unauthorized': 'unauthorized',
+  'Forbidden': 'forbidden',
+  'Email is required': 'email_required',
+  'User ID and email are required': 'missing_fields',
+  'User ID and role required': 'missing_fields',
+  'User ID and status required': 'missing_fields',
+  'User ID required': 'missing_fields',
+  'VRM ID and nickname are required': 'missing_fields',
+  'User and device selection are required': 'missing_fields',
+  'Assignment ID required': 'missing_fields',
+  'Email and password required': 'missing_fields',
+  'Password must be at least 12 characters': 'password_too_short',
+  'Invalid device ID': 'invalid_input',
+  'Invalid assignment ID': 'invalid_input',
+};
+
+function toErrorCode(message: string): string {
+  return ERROR_CODES[message] ?? 'server_error';
+}
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const VALID_ROLES   = new Set(['admin', 'user']);
@@ -140,7 +164,7 @@ export async function inviteNewUser(formData: FormData) {
     redirect('/admin?event=user_invited');
   } catch (err: any) {
     if (err.digest) throw err;
-    redirect(`/admin?event=error&msg=${encodeURIComponent(err.message)}`);
+    redirect(`/admin?event=error&code=${toErrorCode(err.message)}`);
   }
 }
 
@@ -168,7 +192,7 @@ export async function resendInvite(formData: FormData) {
     redirect('/admin?event=invite_resent');
   } catch (err: any) {
     if (err.digest) throw err;
-    redirect(`/admin?event=error&msg=${encodeURIComponent(err.message)}`);
+    redirect(`/admin?event=error&code=${toErrorCode(err.message)}`);
   }
 }
 
@@ -200,7 +224,7 @@ export async function sendPasswordReset(formData: FormData) {
     redirect('/admin?event=reset_sent');
   } catch (err: any) {
     if (err.digest) throw err;
-    redirect(`/admin?event=error&msg=${encodeURIComponent(err.message)}`);
+    redirect(`/admin?event=error&code=${toErrorCode(err.message)}`);
   }
 }
 
@@ -243,7 +267,7 @@ export async function requestPasswordReset(formData: FormData) {
   } catch (err: any) {
     if (err.digest) throw err;
     // Generic error message — don't expose internal details in URL
-    redirect('/forgot-password?event=error');
+    redirect('/forgot-password?event=error&code=server_error');
   }
 }
 
@@ -267,7 +291,7 @@ export async function updateUserRole(formData: FormData) {
     redirect('/admin?event=role_updated');
   } catch (err: any) {
     if (err.digest) throw err;
-    redirect(`/admin?event=error&msg=${encodeURIComponent(err.message)}`);
+    redirect(`/admin?event=error&code=${toErrorCode(err.message)}`);
   }
 }
 
@@ -293,7 +317,7 @@ export async function updateUserStatus(formData: FormData) {
     redirect('/admin?event=status_updated');
   } catch (err: any) {
     if (err.digest) throw err;
-    redirect(`/admin?event=error&msg=${encodeURIComponent(err.message)}`);
+    redirect(`/admin?event=error&code=${toErrorCode(err.message)}`);
   }
 }
 
@@ -310,7 +334,7 @@ export async function deleteUser(formData: FormData) {
     redirect('/admin?event=user_deleted');
   } catch (err: any) {
     if (err.digest) throw err;
-    redirect(`/admin?event=error&msg=${encodeURIComponent(err.message)}`);
+    redirect(`/admin?event=error&code=${toErrorCode(err.message)}`);
   }
 }
 
@@ -329,7 +353,7 @@ export async function registerDevice(formData: FormData) {
     redirect('/admin?event=device_registered');
   } catch (err: any) {
     if (err.digest) throw err;
-    redirect(`/admin?event=error&msg=${encodeURIComponent(err.message)}`);
+    redirect(`/admin?event=error&code=${toErrorCode(err.message)}`);
   }
 }
 
@@ -372,7 +396,7 @@ export async function assignDevice(formData: FormData) {
     redirect('/admin?event=device_assigned');
   } catch (err: any) {
     if (err.digest) throw err;
-    redirect(`/admin?event=error&msg=${encodeURIComponent(err.message)}`);
+    redirect(`/admin?event=error&code=${toErrorCode(err.message)}`);
   }
 }
 
@@ -395,7 +419,7 @@ export async function deleteAssignment(formData: FormData) {
     redirect('/admin?event=assignment_removed');
   } catch (err: any) {
     if (err.digest) throw err;
-    redirect(`/admin?event=error&msg=${encodeURIComponent(err.message)}`);
+    redirect(`/admin?event=error&code=${toErrorCode(err.message)}`);
   }
 }
 
@@ -420,6 +444,6 @@ export async function createClientAccount(formData: FormData) {
     redirect('/admin?event=account_created');
   } catch (err: any) {
     if (err.digest) throw err;
-    redirect(`/admin?event=error&msg=${encodeURIComponent(err.message)}`);
+    redirect(`/admin?event=error&code=${toErrorCode(err.message)}`);
   }
 }

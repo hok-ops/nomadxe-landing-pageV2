@@ -33,12 +33,22 @@ export async function GET(
   const rawKind = url.searchParams.get('kind') ?? 'csv';
   const kind = ['csv', 'xlsx', 'gps-kml'].includes(rawKind) ? rawKind : 'csv';
   const range = url.searchParams.get('range') ?? '7d';
-  const now = Math.floor(Date.now() / 1000);
+  const now  = Math.floor(Date.now() / 1000);
   const span = RANGE_TO_SECONDS[range] ?? RANGE_TO_SECONDS['7d'];
   const rawStart = Number(url.searchParams.get('start'));
   const rawEnd   = Number(url.searchParams.get('end'));
   const start = Number.isFinite(rawStart) && rawStart > 0 ? Math.floor(rawStart) : now - span;
   const end   = Number.isFinite(rawEnd)   && rawEnd   > 0 ? Math.floor(rawEnd)   : now;
+
+  // Hard cap at 90 days — prevents a caller from requesting years of data that
+  // could time out or return a response too large to buffer in serverless memory.
+  const MAX_RANGE_S = 90 * 24 * 3_600;
+  if (end - start > MAX_RANGE_S) {
+    return NextResponse.json(
+      { error: 'Requested range exceeds the 90-day maximum' },
+      { status: 400 }
+    );
+  }
 
   try {
     const vrmPath =

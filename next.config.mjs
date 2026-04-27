@@ -43,6 +43,37 @@ const nextConfig = {
           },
           // Basic XSS protection for older browsers (modern browsers use CSP)
           { key: 'X-XSS-Protection', value: '1; mode=block' },
+          /**
+           * Content-Security-Policy
+           *
+           * Prevents XSS escalation if any user input reaches the DOM unsanitised.
+           * Directives are tight but permit what the app actually uses:
+           *  - 'self'              — same-origin scripts, styles, images, fonts
+           *  - data:               — base64 photo previews in OrderFormClient
+           *  - blob:               — object URLs for photo thumbnails
+           *  - images.unsplash.com — Next.js <Image> remote pattern (next.config)
+           *  - vrmapi.victronenergy.com — VRM API (server-side only, included for SW)
+           *  - api.open-meteo.com  — weather fetch from browser
+           *  - nominatim.openstreetmap.org — blocked; geocoding now proxied via /api/geocode
+           *  - rms.teltonika-networks.com  — modem session API (server-side only)
+           *  - *.supabase.co       — Supabase auth/realtime
+           *  - 'unsafe-inline'     — required by Tailwind CSS-in-JS and GSAP; remove if
+           *                          a nonce-based approach is adopted in future
+           */
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob: https://images.unsplash.com",
+              "font-src 'self'",
+              "connect-src 'self' https://*.supabase.co https://api.open-meteo.com https://www.windy.com",
+              "frame-ancestors 'self'",
+              "base-uri 'self'",
+              "form-action 'self'",
+            ].join('; '),
+          },
         ],
       },
       {

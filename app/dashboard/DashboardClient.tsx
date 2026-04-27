@@ -81,8 +81,9 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
   useEffect(() => { devicesRef.current = devices; }, [devices]);
 
   // VRM logs telemetry every 1–5 min; polling faster wastes API quota and CPU.
-  // We tick every 5 min and jitter each device's fetch across a short window to
-  // avoid a thundering herd when many trailers are assigned.
+  // Fire an immediate fan-out on mount so data is fresh regardless of when the
+  // user opens the page relative to the VRM telemetry cycle. Then tick every
+  // 5 min with per-device jitter to avoid a thundering herd on large fleets.
   useEffect(() => {
     const POLL_MS = 5 * 60_000;
     const JITTER_MAX_MS = 4_000;
@@ -92,6 +93,7 @@ export default function DashboardClient({ devices, initialDataMap }: Props) {
         setTimeout(() => pollDevice(d.siteId), delay);
       });
     };
+    fanOut(); // immediate on mount — don't wait for first interval tick
     const id = setInterval(fanOut, POLL_MS);
     return () => clearInterval(id);
   }, [pollDevice]);
