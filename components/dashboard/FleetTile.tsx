@@ -205,8 +205,8 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
         className={`w-full text-left rounded-xl border p-3 transition-all duration-200 focus:outline-none ${
           selected
             ? isOffline
-              ? 'border-red-500/50 bg-red-950/20 shadow-[0_0_0_2px_rgba(59,130,246,0.5),0_0_0_1px_rgba(239,68,68,0.3)]'
-              : 'border-[#3b82f6]/70 bg-[#1e40af]/15 shadow-[0_0_0_2px_rgba(59,130,246,0.4)]'
+              ? 'border-red-500/50 bg-red-950/20 shadow-[0_0_0_2px_rgba(59,130,246,0.5),0_0_0_1px_rgba(239,68,68,0.3)] hover:border-red-500/70 hover:bg-red-950/30'
+              : 'border-[#3b82f6]/70 bg-[#1e40af]/15 shadow-[0_0_0_2px_rgba(59,130,246,0.4)] hover:border-red-500/50 hover:bg-red-950/10 hover:shadow-[0_0_0_2px_rgba(239,68,68,0.3)]'
             : 'border-[#1e3a5f] bg-[#080c14] hover:border-[#1e3a5f]/80 hover:bg-[#0d1526] hover:-translate-y-px hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)]'
         }`}
       >
@@ -219,7 +219,10 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
             <span className="text-[13px] font-bold text-white truncate">{device.displayName ?? device.name}</span>
           </div>
           {selected && (
-            <span className="flex-shrink-0 ml-1 text-[8px] font-black font-mono uppercase tracking-wider text-[#3b82f6] bg-[#3b82f6]/15 border border-[#3b82f6]/30 px-1.5 py-0.5 rounded">OPEN</span>
+            <span className="group/badge flex-shrink-0 ml-1 text-[8px] font-black font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border transition-colors duration-150 text-[#3b82f6] bg-[#3b82f6]/15 border-[#3b82f6]/30 hover:text-white hover:bg-red-500/20 hover:border-red-500/40">
+              <span className="group-hover/badge:hidden">OPEN</span>
+              <span className="hidden group-hover/badge:inline">✕ CLOSE</span>
+            </span>
           )}
           {!selected && (
             <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-md flex-shrink-0 ml-2"
