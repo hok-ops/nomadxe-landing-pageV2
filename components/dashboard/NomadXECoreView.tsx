@@ -81,7 +81,7 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData | nul
       wind:      Math.round(c.wind_speed_10m ?? 0),
       humidity:  Math.round(c.relative_humidity_2m ?? 0),
       days,
-      windyUrl: `https://www.windy.com/?${lat.toFixed(3)},${lon.toFixed(3)},10`,
+      windyUrl: `https://www.windy.com/${lat.toFixed(4)}/${lon.toFixed(4)}?wind,${lat.toFixed(4)},${lon.toFixed(4)},10`,
     };
     weatherCache.set(key, weather);
     return weather;
