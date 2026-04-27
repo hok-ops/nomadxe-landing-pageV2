@@ -2,6 +2,14 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import type { CerboNetworkScanPayload, ManagedNetworkStatus } from '@/lib/networkDevices';
 
+type ManagedDeviceRow = {
+  id: number;
+  name: string;
+  ip_address: string;
+  last_status: ManagedNetworkStatus;
+  alert_on_offline: boolean;
+};
+
 function getCerboIngestToken() {
   const token = process.env.CERBO_INGEST_TOKEN;
   if (!token) throw new Error('CERBO_INGEST_TOKEN not configured');
@@ -14,8 +22,8 @@ function parseBearer(request: Request) {
   return scheme?.toLowerCase() === 'bearer' ? token : null;
 }
 
-function isStatus(value: unknown): value is ManagedNetworkStatus {
-  return value === 'online' || value === 'offline' || value === 'unknown';
+function isReportedStatus(value: unknown): value is CerboNetworkScanPayload['devices'][number]['status'] {
+  return value === 'online' || value === 'offline';
 }
 
 async function sendAlertWebhook(payload: Record<string, unknown>) {
@@ -78,8 +86,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Managed device lookup failed' }, { status: 500 });
     }
 
-    const devicesByIp = new Map(
-      (managedDevices ?? []).map((device: any) => [String(device.ip_address), device])
+    const devicesByIp = new Map<string, ManagedDeviceRow>(
+      (managedDevices ?? []).map((device: any) => [
+        String(device.ip_address),
+        {
+          id: Number(device.id),
+          name: String(device.name),
+          ip_address: String(device.ip_address),
+          last_status: String(device.last_status) as ManagedNetworkStatus,
+          alert_on_offline: Boolean(device.alert_on_offline),
+        },
+      ])
     );
 
     let updated = 0;
@@ -89,7 +106,7 @@ export async function POST(request: Request) {
     for (const report of body.devices) {
       const ipAddress = String(report.ipAddress ?? '').trim();
       const status = report.status;
-      if (!ipAddress || !isStatus(status) || status === 'unknown') {
+      if (!ipAddress || !isReportedStatus(status)) {
         ignored.push(ipAddress || 'unknown');
         continue;
       }
