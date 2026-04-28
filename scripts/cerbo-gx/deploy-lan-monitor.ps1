@@ -31,6 +31,11 @@ param(
 
   [string] $Token = $env:CERBO_INGEST_TOKEN,
 
+  [ValidateRange(60, 86400)]
+  [int] $IntervalSeconds = 900,
+
+  [switch] $NoSchedule,
+
   [switch] $RunTest
 )
 
@@ -50,13 +55,6 @@ function Require-Command($Name) {
 function Shell-Quote($Value) {
   $text = if ($null -eq $Value) { "" } else { [string] $Value }
   return "'" + ($text -replace "'", "'\''") + "'"
-}
-
-function Config-Quote($Value) {
-  $text = if ($null -eq $Value) { "" } else { [string] $Value }
-  $text = $text -replace '\\', '\\'
-  $text = $text -replace '"', '\"'
-  return '"' + $text + '"'
 }
 
 function Run-ProcessChecked($FilePath, [string[]] $Arguments, $Label) {
@@ -95,6 +93,79 @@ if (-not $Token) {
 $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ("cerbo-lan-deploy-" + [Guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $tempRoot | Out-Null
 
+$loopPath = Join-Path $tempRoot "managed-network-monitor-loop.sh"
+$loopContent = @"
+#!/bin/sh
+set -eu
+
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+INTERVAL_SECONDS="$IntervalSeconds"
+PID_FILE="/var/run/managed-network-monitor-loop.pid"
+LOG_FILE="/tmp/managed-network-monitor.log"
+
+is_running() {
+    [ -f "`$PID_FILE" ] || return 1
+    pid="`$(cat "`$PID_FILE" 2>/dev/null || true)"
+    [ -n "`$pid" ] || return 1
+    kill -0 "`$pid" 2>/dev/null
+}
+
+if is_running; then
+    exit 0
+fi
+
+echo "`$`$" > "`$PID_FILE"
+
+cleanup() {
+    rm -f "`$PID_FILE"
+    exit 0
+}
+
+trap cleanup INT TERM HUP
+
+while :; do
+    {
+        printf '%s Starting NomadXE managed LAN scan\n' "`$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date)"
+        /data/report-managed-lan.sh
+        printf '%s Finished NomadXE managed LAN scan\n' "`$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date)"
+    } >>"`$LOG_FILE" 2>&1 || true
+    sleep "`$INTERVAL_SECONDS"
+done
+"@
+Set-Content -LiteralPath $loopPath -Value $loopContent -Encoding ascii
+
+$installerPath = Join-Path $tempRoot "install-managed-network-monitor.sh"
+$installerContent = @'
+#!/bin/sh
+set -eu
+
+RC_FILE="/data/rc.local"
+START_MARK="# BEGIN NOMADXE MANAGED NETWORK MONITOR"
+END_MARK="# END NOMADXE MANAGED NETWORK MONITOR"
+TMP_FILE="${RC_FILE}.tmp.$$"
+
+if [ -f "$RC_FILE" ]; then
+    sed "/$START_MARK/,/$END_MARK/d" "$RC_FILE" > "$TMP_FILE"
+else
+    printf '#!/bin/sh\n' > "$TMP_FILE"
+fi
+
+cat >> "$TMP_FILE" <<'BLOCK'
+# BEGIN NOMADXE MANAGED NETWORK MONITOR
+if [ -x /data/managed-network-monitor-loop.sh ]; then
+    /data/managed-network-monitor-loop.sh >/tmp/managed-network-monitor-loop.out 2>&1 &
+fi
+# END NOMADXE MANAGED NETWORK MONITOR
+BLOCK
+
+chmod +x "$TMP_FILE"
+mv "$TMP_FILE" "$RC_FILE"
+chmod +x "$RC_FILE"
+
+/data/managed-network-monitor-loop.sh >/tmp/managed-network-monitor-loop.out 2>&1 &
+'@
+Set-Content -LiteralPath $installerPath -Value $installerContent -Encoding ascii
+
 $results = New-Object System.Collections.Generic.List[object]
 
 try {
@@ -127,33 +198,53 @@ try {
     $target = "$sshUser@$hostName"
     $configPath = Join-Path $tempRoot ("managed-network-monitor-$siteId.conf")
     $configLines = @(
-      "SITE_URL=$(Config-Quote $SiteUrl)",
-      "CERBO_INGEST_TOKEN=$(Config-Quote $rowToken)",
-      "VRM_SITE_ID=$(Config-Quote $siteId)",
-      "SCAN_MODE=$(Config-Quote $scanMode)",
-      "MAX_PARALLEL=""32""",
-      "PING_TIMEOUT=""1"""
+      "SITE_URL=$(Shell-Quote $SiteUrl)",
+      "CERBO_INGEST_TOKEN=$(Shell-Quote $rowToken)",
+      "VRM_SITE_ID=$(Shell-Quote $siteId)",
+      "SCAN_MODE=$(Shell-Quote $scanMode)",
+      "MAX_PARALLEL='32'",
+      "PING_TIMEOUT='1'"
     )
     if ($scanCidr) {
-      $configLines += "SCAN_CIDR=$(Config-Quote $scanCidr)"
+      $configLines += "SCAN_CIDR=$(Shell-Quote $scanCidr)"
     }
     Set-Content -LiteralPath $configPath -Value $configLines -Encoding ascii
 
     Write-Host "Deploying Cerbo LAN monitor to $target for site $siteId..." -ForegroundColor Cyan
 
     try {
+      $didDeploy = $false
       if ($PSCmdlet.ShouldProcess($target, "Deploy Cerbo LAN monitor")) {
         Run-ProcessChecked "ssh" @("-p", $sshPort, $target, "mkdir -p /data/conf && chmod 700 /data/conf") "prepare remote directories"
         Run-ProcessChecked "scp" @("-P", $sshPort, $configPath, "${target}:/data/conf/managed-network-monitor.conf") "copy config"
         Run-ProcessChecked "scp" @("-P", $sshPort, $ReporterPath, "${target}:/data/report-managed-lan.sh") "copy reporter"
         Run-ProcessChecked "ssh" @("-p", $sshPort, $target, "chmod 600 /data/conf/managed-network-monitor.conf && chmod +x /data/report-managed-lan.sh") "set permissions"
 
+        if (-not $NoSchedule) {
+          Run-ProcessChecked "scp" @("-P", $sshPort, $loopPath, "${target}:/data/managed-network-monitor-loop.sh") "copy scheduler loop"
+          Run-ProcessChecked "scp" @("-P", $sshPort, $installerPath, "${target}:/tmp/install-managed-network-monitor.sh") "copy scheduler installer"
+          Run-ProcessChecked "ssh" @("-p", $sshPort, $target, "chmod +x /data/managed-network-monitor-loop.sh /tmp/install-managed-network-monitor.sh") "prepare scheduler"
+        }
+
         if ($RunTest) {
           Run-ProcessChecked "ssh" @("-p", $sshPort, $target, "/data/report-managed-lan.sh") "test scan"
         }
+
+        if (-not $NoSchedule) {
+          Run-ProcessChecked "ssh" @("-p", $sshPort, $target, "/tmp/install-managed-network-monitor.sh") "install scheduler"
+        }
+        $didDeploy = $true
       }
 
-      $results.Add([pscustomobject]@{ Host = $hostName; SiteId = $siteId; Status = "OK"; Detail = if ($RunTest) { "Deployed and test scan ran" } else { "Deployed" } })
+      if (-not $didDeploy) {
+        $results.Add([pscustomobject]@{ Host = $hostName; SiteId = $siteId; Status = "Preview"; Detail = "WhatIf only; no changes made" })
+      } else {
+        $detail = if ($NoSchedule) { "Deployed without schedule" } else { "Deployed and scheduled every $IntervalSeconds seconds" }
+        if ($RunTest) {
+          $detail = "$detail; test scan ran"
+        }
+        $results.Add([pscustomobject]@{ Host = $hostName; SiteId = $siteId; Status = "OK"; Detail = $detail })
+      }
     } catch {
       $results.Add([pscustomobject]@{ Host = $hostName; SiteId = $siteId; Status = "Failed"; Detail = $_.Exception.Message })
       Write-Warning "$hostName failed: $($_.Exception.Message)"

@@ -123,7 +123,7 @@ cidr_base_24() {
 
 lookup_mac() {
     [ -r /proc/net/arp ] || return 0
-    awk -v ip_addr="$1" '$1 == ip_addr && $4 != "00:00:00:00:00:00" { print $4; exit }' /proc/net/arp
+    awk -v ip_addr="$1" '$1 == ip_addr && $3 == "0x2" && $4 != "00:00:00:00:00:00" { print $4; exit }' /proc/net/arp
 }
 
 lookup_hostname() {
@@ -172,6 +172,11 @@ probe_target_json() {
     if ping -c 1 -W "$PING_TIMEOUT" "$ip_addr" >"$ping_out" 2>"$ping_err"; then
         latency="$(sed -n 's/.*time[=<]\([0-9.]*\).*/\1/p' "$ping_out" | tail -n 1)"
         json_device_entry "$ip_addr" "online" "$latency" "ping ok"
+        return 0
+    fi
+
+    if [ -n "$(lookup_mac "$ip_addr")" ]; then
+        json_device_entry "$ip_addr" "online" "" "arp observed"
         return 0
     fi
 

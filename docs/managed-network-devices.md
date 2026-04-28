@@ -32,6 +32,9 @@ That keeps the interface legible under pressure and aligns with usability guidan
   - [Cerbo ingest route](/C:/Users/hlim/.gemini/antigravity/scratch/nomadxe-v2/app/api/cerbo/network-scan/route.ts)
 - Cerbo reporter script:
   - [report-managed-lan.sh](/C:/Users/hlim/.gemini/antigravity/scratch/nomadxe-v2/scripts/cerbo-gx/report-managed-lan.sh)
+- Operator runbooks:
+  - [Cerbo batch LAN scan deployment](./cerbo-batch-lan-scan-deployment.md)
+  - [Cerbo LAN inventory using Node-RED](./cerbo-node-red-lan-scan.md)
 
 ## Verified platform facts used
 
@@ -125,10 +128,13 @@ The script:
 
 - loads the configured trailer site ID
 - scans the Cerbo's `/24` LAN automatically by default
-- pings each target only when `SCAN_MODE=targets`
+- pings candidates to trigger ARP resolution
+- treats a host as online when ping succeeds or a complete ARP entry exists
 - sends a compact JSON payload to `/api/cerbo/network-scan`
 - includes latency when the local ping output exposes it cleanly
 - includes MAC addresses from the Cerbo ARP table when available
+
+The batch deployer also installs a small `/data/managed-network-monitor-loop.sh` scheduler and an idempotent `/data/rc.local` boot block by default. Use `-NoSchedule` only when you want to copy the files and run a one-time test without recurring scans.
 
 The website ingest route now accepts both use cases:
 
