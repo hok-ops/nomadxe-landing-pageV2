@@ -1,0 +1,3 @@
+Host,SiteId,SshPort,SshUser,ScanCidr,ScanMode
+192.168.1.246,799263,22,root,192.168.1.0/24,auto
+cerbo-unit-02.example.net,810801,22,root,192.168.1.0/24,auto

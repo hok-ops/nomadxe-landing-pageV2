@@ -95,6 +95,32 @@ chmod +x /data/report-managed-lan.sh
 /data/report-managed-lan.sh
 ```
 
+### Batch remote deployment
+
+If your workstation can reach each Cerbo SSH endpoint through VPN, RMS remote access, or port forwarding, deploy the reporter and config from a CSV:
+
+```powershell
+$env:CERBO_INGEST_TOKEN = "same-token-configured-in-vercel"
+.\scripts\cerbo-gx\deploy-lan-monitor.ps1 -CsvPath .\scripts\cerbo-gx\cerbos.example.csv -RunTest
+```
+
+If Windows blocks local PowerShell scripts, run it with an execution-policy bypass for this process only:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\cerbo-gx\deploy-lan-monitor.ps1 -CsvPath .\scripts\cerbo-gx\cerbos.example.csv -RunTest
+```
+
+CSV columns:
+
+- `Host`: reachable SSH host/IP for that Cerbo
+- `SiteId`: VRM site ID for the dashboard trailer
+- `SshPort`: optional, defaults to `22`
+- `SshUser`: optional, defaults to `root`
+- `ScanCidr`: optional `/24`, for example `192.168.1.0/24`
+- `ScanMode`: optional, defaults to `auto`
+
+This does not bypass routing. Private `192.168.x.x` addresses only work from a separate network if your VPN/RMS/port-forward path makes each Cerbo reachable.
+
 The script:
 
 - loads the configured trailer site ID
