@@ -547,6 +547,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin, leas
 
         {devices.length === 1 && (
           <div className="space-y-6 pb-10">
+            <ShiftBriefingPanel briefing={briefing} isLight={isLight} onOpenDevice={openSite} />
             <LeaseCommandCenter
               devices={intelligenceDevices}
               dataMap={dataMap}
@@ -560,6 +561,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin, leas
 
         {devices.length > 1 && !hasMany && (
           <div className="space-y-6 pb-10">
+            <ShiftBriefingPanel briefing={briefing} isLight={isLight} onOpenDevice={openSite} />
             <LeaseCommandCenter
               devices={intelligenceDevices}
               dataMap={dataMap}
@@ -567,7 +569,6 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin, leas
               fleetIntelligence={fleetIntelligence}
               onTicketCreated={handleTicketCreated}
             />
-            <ShiftBriefingPanel briefing={briefing} isLight={isLight} onOpenDevice={openSite} />
             <FleetIntelligenceBriefing devices={intelligenceDevices} dataMap={dataMap} />
             {devices.map(d => (
               <div key={d.siteId} data-site-id={d.siteId}>
@@ -579,6 +580,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin, leas
 
         {hasMany && (
           <>
+            <ShiftBriefingPanel briefing={briefing} isLight={isLight} onOpenDevice={openSite} />
             <LeaseCommandCenter
               devices={intelligenceDevices}
               dataMap={dataMap}
@@ -586,7 +588,6 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin, leas
               fleetIntelligence={fleetIntelligence}
               onTicketCreated={handleTicketCreated}
             />
-            <ShiftBriefingPanel briefing={briefing} isLight={isLight} onOpenDevice={openSite} />
             <FleetIntelligenceBriefing devices={intelligenceDevices} dataMap={dataMap} />
             <div className="lg:hidden pb-10">
               {mobileView === 'detail' && (
@@ -609,7 +610,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin, leas
                   ) : (
                     <div className="grid grid-cols-1 gap-3 items-start content-start">
                       {sortedDevices.map((d, i) => (
-                        <FleetTile key={d.siteId} index={i} device={d} data={dataMap[d.siteId] ?? null} selected={selectedIds.includes(d.siteId)} onClick={() => toggleSite(d.siteId)} />
+                        <FleetTile key={d.siteId} index={i} device={d} data={dataMap[d.siteId] ?? null} selected={selectedIds.includes(d.siteId)} hoverEnabled={!hasSelection} onClick={() => toggleSite(d.siteId)} />
                       ))}
                     </div>
                   )}
@@ -655,7 +656,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin, leas
                     style={{ height: hasSelection ? 'calc(100vh - 20rem)' : 'auto', maxHeight: hasSelection ? undefined : 'none' }}
                   >
                     {sortedDevices.map((d, i) => (
-                      <FleetTile key={d.siteId} index={i} device={d} data={dataMap[d.siteId] ?? null} selected={selectedIds.includes(d.siteId)} onClick={() => toggleSite(d.siteId)} />
+                      <FleetTile key={d.siteId} index={i} device={d} data={dataMap[d.siteId] ?? null} selected={selectedIds.includes(d.siteId)} hoverEnabled={!hasSelection} onClick={() => toggleSite(d.siteId)} />
                     ))}
                   </div>
                 )}

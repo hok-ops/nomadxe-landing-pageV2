@@ -126,6 +126,7 @@ interface Props {
   };
   data: VRMData | null;
   selected: boolean;
+  hoverEnabled?: boolean;
   onClick: () => void;
   index?: number;
 }
@@ -225,9 +226,10 @@ function HoverDetail({
   );
 }
 
-export default function FleetTile({ device, data, selected, onClick, index = 0 }: Props) {
+export default function FleetTile({ device, data, selected, hoverEnabled = true, onClick, index = 0 }: Props) {
   const { theme } = useTheme();
   const isLight = theme === 'light';
+  const effectiveHoverEnabled = hoverEnabled && !selected;
   const [hovered, setHovered] = useState(false);
   const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({});
   const [entered, setEntered] = useState(false);
@@ -287,6 +289,7 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
   }, [data?.lat, data?.lon]);
 
   const handleMouseEnter = () => {
+    if (!effectiveHoverEnabled) return;
     if (tileRef.current) {
       const rect = tileRef.current.getBoundingClientRect();
       const spaceAbove = rect.top;
@@ -321,10 +324,12 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
         type="button"
         onClick={onClick}
         aria-pressed={selected}
-        className={`relative w-full overflow-hidden rounded-xl border bg-[#f7f1e6] p-3.5 text-left text-[#15120c] shadow-[0_16px_34px_rgba(0,0,0,0.22)] transition-all duration-200 focus:outline-none hover:-translate-y-px hover:shadow-[0_22px_44px_rgba(0,0,0,0.28)] ${
+        className={`relative w-full overflow-hidden rounded-xl border bg-[#f7f1e6] p-3.5 text-left text-[#15120c] shadow-[0_16px_34px_rgba(0,0,0,0.22)] transition-all duration-200 focus:outline-none ${
+          effectiveHoverEnabled ? 'hover:-translate-y-px hover:shadow-[0_22px_44px_rgba(0,0,0,0.28)]' : ''
+        } ${
           selected
             ? 'border-[#2563eb] ring-4 ring-[#2563eb]/35 shadow-[0_0_0_1px_rgba(37,99,235,0.75),0_24px_54px_rgba(37,99,235,0.24)]'
-            : 'border-[#d8cdb9] hover:border-[#15120c]/35'
+            : `border-[#d8cdb9] ${effectiveHoverEnabled ? 'hover:border-[#15120c]/35' : ''}`
         }`}
       >
         {selected && (
@@ -433,7 +438,7 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
           </button>
         </form>
       )}
-      {hovered && mounted && data && !noData && createPortal(
+      {effectiveHoverEnabled && hovered && mounted && data && !noData && createPortal(
         <HoverDetail
           data={data}
           device={device}
