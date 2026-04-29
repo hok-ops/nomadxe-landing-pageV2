@@ -39,7 +39,7 @@ async function loadDevice(siteId: string) {
 }
 
 function getRouterReportWebhookUrl() {
-  return process.env.MAKE_CELLULAR_REPORT_WEBHOOK_URL ?? process.env.MAKE_NETWORK_ALERT_WEBHOOK_URL ?? null;
+  return process.env.MAKE_CELLULAR_REPORT_WEBHOOK_URL ?? process.env.MAKE_NETWORK_ALERT_WEBHOOK_URL ?? process.env.MAKE_WEBHOOK_URL ?? null;
 }
 
 async function dispatchRouterReportRequest({
@@ -55,11 +55,12 @@ async function dispatchRouterReportRequest({
 }) {
   const webhookUrl = getRouterReportWebhookUrl();
   if (!webhookUrl) {
-    return { queued: false, warning: 'Router report request was logged, but MAKE_CELLULAR_REPORT_WEBHOOK_URL is not configured.' };
+    return { queued: false, warning: 'Router report request was logged, but no Make webhook is configured for cellular signal reports.' };
   }
 
   const siteUrl = (process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? request.nextUrl.origin).replace(/\/$/, '');
   const payload = {
+    form_type: 'cellular_signal_report',
     eventType: 'cellular_signal_report_requested',
     requestedAt: new Date().toISOString(),
     ticketId,
