@@ -5,17 +5,63 @@ import { createPortal } from 'react-dom';
 import type { VRMData } from './NomadXECoreView';
 import { useTheme } from '@/components/ThemeProvider';
 
-
 function getBatteryColor(soc: number, light: boolean) {
   if (soc >= 75) return light ? '#16a34a' : '#22c55e';
   if (soc >= 25) return light ? '#2563eb' : '#3b82f6';
-  return               light ? '#dc2626' : '#ef4444';
+  return light ? '#dc2626' : '#ef4444';
+}
+
+function getLedgerBatteryTone(soc: number) {
+  if (soc >= 75) return { color: '#22c55e', label: 'Strong battery' };
+  if (soc >= 45) return { color: '#2563eb', label: 'Stable battery' };
+  if (soc >= 25) return { color: '#f59e0b', label: 'Watch battery' };
+  return { color: '#ef4444', label: 'Critical battery' };
+}
+
+function formatWatts(value: number) {
+  const rounded = Math.round(value);
+  if (Math.abs(rounded) >= 1000) return `${(rounded / 1000).toFixed(1)} kW`;
+  return `${rounded} W`;
+}
+
+function formatSyncAge(lastSeen: number) {
+  if (lastSeen <= 0) return 'Awaiting first report';
+  const staleS = Date.now() / 1000 - lastSeen;
+  if (staleS < 60) return `${Math.floor(staleS)}s ago`;
+  if (staleS < 3600) return `${Math.floor(staleS / 60)}m ago`;
+  return `${Math.floor(staleS / 3600)}h ago`;
+}
+
+function LedgerSparkline({ values, color }: { values: number[]; color: string }) {
+  if (values.length < 2) {
+    return <div className="mt-2 h-7 rounded-md bg-[#15120c]/5" />;
+  }
+
+  const width = 160;
+  const height = 32;
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values);
+  const range = Math.max(max - min, 1);
+  const points = values.map((value, index) => {
+    const x = (index / (values.length - 1)) * width;
+    const y = height - ((value - min) / range) * (height - 6) - 3;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="mt-2 h-7 w-full overflow-visible" preserveAspectRatio="none" aria-hidden="true">
+      <polyline points={points} fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
 const MPPT_LABEL_COLOR: Record<string, string> = {
-  Float: '#22c55e', Storage: '#22c55e',
-  Bulk: '#f59e0b', Absorption: '#f59e0b',
-  Fault: '#ef4444', Off: '#9ca3af',
+  Float: '#22c55e',
+  Storage: '#22c55e',
+  Bulk: '#f59e0b',
+  Absorption: '#f59e0b',
+  Fault: '#ef4444',
+  Off: '#9ca3af',
 };
 
 interface Props {
@@ -28,87 +74,93 @@ interface Props {
   data: VRMData | null;
   selected: boolean;
   onClick: () => void;
-  /** Position in the rendered list, used to stagger mount-in. */
   index?: number;
 }
 
-// ── Hover detail popup (fixed positioning to escape overflow clipping) ─────────
-
 function HoverDetail({
-  data, device, isOffline, noData, isLight,
+  data,
+  device,
+  isOffline,
+  noData,
+  isLight,
   fixedStyle,
 }: {
-  data: VRMData; device: Props['device'];
-  isOffline: boolean; noData: boolean; isLight: boolean;
+  data: VRMData;
+  device: Props['device'];
+  isOffline: boolean;
+  noData: boolean;
+  isLight: boolean;
   fixedStyle: React.CSSProperties;
 }) {
-  const soc         = data.battery.soc;
-  const batColor    = getBatteryColor(soc, isLight);
-  const mpptLabel   = data.solar.mpptStateLabel ?? 'Off';
-  const mpptColor   = MPPT_LABEL_COLOR[mpptLabel] ?? '#9ca3af';
-  const charging    = data.battery.state === 1;
+  const soc = data.battery.soc;
+  const batColor = getBatteryColor(soc, isLight);
+  const mpptLabel = data.solar.mpptStateLabel ?? 'Off';
+  const mpptColor = MPPT_LABEL_COLOR[mpptLabel] ?? '#9ca3af';
+  const charging = data.battery.state === 1;
   const discharging = data.battery.state === 2;
 
-  const nowS    = Date.now() / 1000;
-  const staleS  = nowS - (data.lastSeen ?? 0);
+  const nowS = Date.now() / 1000;
+  const staleS = nowS - (data.lastSeen ?? 0);
   const syncAgo = data.lastSeen > 0
-    ? staleS < 60   ? `${Math.floor(staleS)}s ago`
-    : staleS < 3600 ? `${Math.floor(staleS / 60)}m ago`
-    : `${Math.floor(staleS / 3600)}h ago`
-    : '—';
+    ? staleS < 60
+      ? `${Math.floor(staleS)}s ago`
+      : staleS < 3600
+        ? `${Math.floor(staleS / 60)}m ago`
+        : `${Math.floor(staleS / 3600)}h ago`
+    : '-';
 
   const Row = ({ label, value, color }: { label: string; value: string; color?: string }) => (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-[10px] font-mono text-[#93c5fd]/45 uppercase tracking-widest flex-shrink-0">{label}</span>
-      <span className="text-[11px] font-black tabular-nums font-mono" style={{ color: color ?? '#e2e8f0' }}>{value}</span>
+      <span className="flex-shrink-0 text-[10px] font-mono uppercase tracking-widest text-[#93c5fd]/45">{label}</span>
+      <span className="font-mono text-[11px] font-black tabular-nums" style={{ color: color ?? '#e2e8f0' }}>{value}</span>
     </div>
   );
 
   return (
     <div
-      className="bg-[#060a12] border border-[#3b82f6]/25 rounded-xl p-3.5 shadow-2xl pointer-events-none"
+      className="pointer-events-none rounded-xl border border-[#3b82f6]/25 bg-[#060a12] p-3.5 shadow-2xl"
       style={{
         ...fixedStyle,
         boxShadow: '0 0 0 1px rgba(59,130,246,0.1), 0 20px 40px rgba(0,0,0,0.8)',
         minWidth: '220px',
       }}
     >
-      <div className="flex items-center justify-between mb-3 gap-2">
-        <span className="text-[12px] font-bold text-white truncate">{device.displayName ?? device.name}</span>
-        <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-md flex-shrink-0"
-          style={{ color: mpptColor, background: mpptColor + '18', border: `1px solid ${mpptColor}30` }}>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <span className="truncate text-[12px] font-bold text-white">{device.displayName ?? device.name}</span>
+        <span
+          className="flex-shrink-0 rounded-md px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider"
+          style={{ color: mpptColor, background: mpptColor + '18', border: `1px solid ${mpptColor}30` }}
+        >
           {mpptLabel}
         </span>
       </div>
-      <div className="flex items-center gap-1.5 mb-3">
-        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${noData ? 'bg-[#4b5563]' : isOffline ? 'bg-red-500' : 'bg-emerald-400'}`} />
-        <span className={`text-[10px] font-mono font-semibold ${noData ? 'text-[#6b7280]' : isOffline ? 'text-red-400' : 'text-emerald-400'}`}>
-          {noData ? 'No data' : isOffline ? `Offline · ${syncAgo}` : `Live · ${syncAgo}`}
+      <div className="mb-3 flex items-center gap-1.5">
+        <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${noData ? 'bg-[#4b5563]' : isOffline ? 'bg-red-500' : 'bg-emerald-400'}`} />
+        <span className={`font-mono text-[10px] font-semibold ${noData ? 'text-[#6b7280]' : isOffline ? 'text-red-400' : 'text-emerald-400'}`}>
+          {noData ? 'No data' : isOffline ? `Offline - ${syncAgo}` : `Live - ${syncAgo}`}
         </span>
       </div>
-      <div className="border-t border-[#1e3a5f]/40 pt-2.5 mb-2.5 space-y-1.5">
-        <div className="text-[9px] font-mono font-bold text-[#93c5fd]/30 uppercase tracking-widest mb-1">Battery</div>
+      <div className="mb-2.5 space-y-1.5 border-t border-[#1e3a5f]/40 pt-2.5">
+        <div className="mb-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[#93c5fd]/30">Battery</div>
         <Row label="SOC" value={`${soc}%`} color={batColor} />
         <Row label="Voltage" value={`${data.battery.voltage.toFixed(2)} V`} color="#93c5fd" />
         <Row label="Current" value={`${data.battery.current >= 0 ? '+' : ''}${data.battery.current.toFixed(1)} A`} color={charging ? '#22c55e' : discharging ? '#f59e0b' : '#93c5fd'} />
         <Row label="Power" value={`${Math.abs(data.battery.power).toFixed(1)} W`} color={charging ? '#22c55e' : discharging ? '#f59e0b' : '#93c5fd'} />
       </div>
-      <div className="border-t border-[#1e3a5f]/40 pt-2.5 mb-2.5 space-y-1.5">
-        <div className="text-[9px] font-mono font-bold text-[#93c5fd]/30 uppercase tracking-widest mb-1">Solar</div>
+      <div className="mb-2.5 space-y-1.5 border-t border-[#1e3a5f]/40 pt-2.5">
+        <div className="mb-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[#93c5fd]/30">Solar</div>
         <Row label="Output" value={`${data.solar.power.toFixed(1)} W`} color="#22c55e" />
         <Row label="Panel V" value={`${data.solar.voltage.toFixed(1)} V`} color="#22c55e88" />
         <Row label="Today" value={`${data.solar.yieldToday.toFixed(2)} kWh`} color="#22c55e88" />
       </div>
-      <div className="border-t border-[#1e3a5f]/40 pt-2.5 space-y-1.5">
-        <div className="text-[9px] font-mono font-bold text-[#93c5fd]/30 uppercase tracking-widest mb-1">DC Load</div>
+      <div className="space-y-1.5 border-t border-[#1e3a5f]/40 pt-2.5">
+        <div className="mb-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[#93c5fd]/30">DC Load</div>
         <Row label="Load" value={`${data.dcLoad.toFixed(1)} W`} color="#f59e0b" />
         <Row label="Site ID" value={device.siteId} color="#93c5fd60" />
       </div>
     </div>
   );
 }
-
-// ── Tile ──────────────────────────────────────────────────────────────────────
 
 export default function FleetTile({ device, data, selected, onClick, index = 0 }: Props) {
   const { theme } = useTheme();
@@ -119,12 +171,8 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
   const [mounted, setMounted] = useState(false);
   const tileRef = useRef<HTMLDivElement>(null);
 
-  // Portal target is document.body — only available after mount (SSR safety).
   useEffect(() => { setMounted(true); }, []);
 
-
-  // Mount stagger — tiles appear in a gentle cascade. Cap delay so large
-  // fleets don't wait forever; respect reduced-motion by skipping the fade.
   useEffect(() => {
     if (typeof window === 'undefined') { setEntered(true); return; }
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -134,18 +182,23 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
     return () => clearTimeout(t);
   }, [index]);
 
-  const nowS      = Date.now() / 1000;
+  const nowS = Date.now() / 1000;
   const lastSeenS = data?.lastSeen ?? 0;
   const isOffline = lastSeenS > 0 && (nowS - lastSeenS) > 15 * 60;
-  const noData    = lastSeenS === 0;
-  const soc        = data?.battery.soc ?? 0;
-  const batColor   = getBatteryColor(soc, isLight);
-  const solarW     = data?.solar.power ?? 0;
-  const solarActive = solarW > 5;
-  const mpptLabel  = data?.solar.mpptStateLabel ?? 'Off';
-  const mpptColor  = MPPT_LABEL_COLOR[mpptLabel] ?? '#4b5563';
-  const charging   = (data?.battery.state ?? 0) === 1;
+  const noData = lastSeenS === 0;
+  const soc = data?.battery.soc ?? 0;
+  const ledgerBattery = getLedgerBatteryTone(soc);
+  const solarW = data?.solar.power ?? 0;
+  const mpptLabel = data?.solar.mpptStateLabel ?? 'Off';
+  const mpptColor = MPPT_LABEL_COLOR[mpptLabel] ?? '#4b5563';
+  const charging = (data?.battery.state ?? 0) === 1;
   const discharging = (data?.battery.state ?? 0) === 2;
+  const dcLoadW = data?.dcLoad ?? 0;
+  const loadRatio = dcLoadW > 0 ? solarW / dcLoadW : 0;
+  const location = data?.location ?? 'Location pending';
+  const syncAge = formatSyncAge(lastSeenS);
+  const priorityLabel = noData ? 'No Data' : isOffline ? 'Review' : soc < 45 ? 'Watch' : 'Clean';
+  const priorityColor = noData ? '#64748b' : isOffline ? '#f43f5e' : soc < 45 ? '#f59e0b' : '#10b981';
 
   const handleMouseEnter = () => {
     if (tileRef.current) {
@@ -179,70 +232,70 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
       }}
     >
       <button
+        type="button"
         onClick={onClick}
-        className={`w-full text-left rounded-xl border p-3 transition-all duration-200 focus:outline-none ${
+        aria-pressed={selected}
+        className={`w-full rounded-xl border bg-[#f7f1e6] p-3.5 text-left text-[#15120c] shadow-[0_16px_34px_rgba(0,0,0,0.22)] transition-all duration-200 focus:outline-none hover:-translate-y-px hover:shadow-[0_22px_44px_rgba(0,0,0,0.28)] ${
           selected
-            ? isOffline
-              ? 'border-red-500/50 bg-red-950/20 shadow-[0_0_0_2px_rgba(59,130,246,0.5),0_0_0_1px_rgba(239,68,68,0.3)] hover:border-red-500/70 hover:bg-red-950/30'
-              : 'border-[#3b82f6]/70 bg-[#1e40af]/15 shadow-[0_0_0_2px_rgba(59,130,246,0.4)] hover:border-red-500/50 hover:bg-red-950/10 hover:shadow-[0_0_0_2px_rgba(239,68,68,0.3)]'
-            : 'border-[#1e3a5f] bg-[#080c14] hover:border-[#1e3a5f]/80 hover:bg-[#0d1526] hover:-translate-y-px hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)]'
+            ? 'border-[#15120c] ring-2 ring-[#3b82f6]/55'
+            : 'border-[#d8cdb9] hover:border-[#15120c]/35'
         }`}
       >
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <span
-              className={`flex-shrink-0 w-1.5 h-1.5 rounded-full ${noData ? 'bg-[#4b5563]' : isOffline ? 'bg-red-500' : 'bg-emerald-400 animate-pulse'}`}
-              style={(!noData && !isOffline) ? { boxShadow: '0 0 5px #4ade80' } : {}}
-            />
-            <span className="text-[13px] font-bold text-white truncate">{device.displayName ?? device.name}</span>
+        <div className="flex items-start justify-between gap-3 border-b border-[#15120c]/10 pb-3">
+          <div className="min-w-0">
+            <div className="text-[9px] font-black uppercase tracking-[0.26em] text-[#7b6a52]">{device.siteId}</div>
+            <div className="mt-1 flex min-w-0 items-center gap-2">
+              <span className="truncate text-[17px] font-black text-[#15120c]">{device.displayName ?? device.name}</span>
+              {selected && (
+                <span className="rounded-md border border-[#15120c]/10 bg-white/50 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-[#2563eb]">
+                  Open
+                </span>
+              )}
+            </div>
+            <div className="mt-1 truncate text-[11px] font-bold text-[#7b6a52]">{location}</div>
+            <div className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#7b6a52]/75">{syncAge}</div>
           </div>
-          {selected && (
-            <span className="group/badge flex-shrink-0 ml-1 text-[8px] font-black font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border transition-colors duration-150 text-[#3b82f6] bg-[#3b82f6]/15 border-[#3b82f6]/30 hover:text-white hover:bg-red-500/20 hover:border-red-500/40">
-              <span className="group-hover/badge:hidden">OPEN</span>
-              <span className="hidden group-hover/badge:inline">✕ CLOSE</span>
+          <div className="flex flex-shrink-0 flex-col items-end gap-1.5">
+            <span className="rounded-lg border border-[#15120c]/10 bg-white/55 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: priorityColor }}>
+              {priorityLabel}
             </span>
-          )}
-          {!selected && (
-            <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-md flex-shrink-0 ml-2"
-              style={{ color: mpptColor, background: mpptColor + '18', border: `1px solid ${mpptColor}30` }}>
+            <span className="rounded-md border border-[#15120c]/10 bg-[#15120c]/5 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em]" style={{ color: mpptColor }}>
               {mpptLabel}
             </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2 mb-1.5">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={batColor} strokeWidth="2">
-            <rect x="2" y="7" width="18" height="10" rx="2" /><path d="M22 11v2" />
-          </svg>
-          <div className="flex-1 h-1.5 bg-[#0a0f1e] rounded-full overflow-hidden border border-[#1e3a5f]/60">
-            <div className="h-full rounded-full transition-all duration-700"
-              style={{ width: `${Math.max(0, Math.min(100, soc))}%`, backgroundColor: batColor, boxShadow: isLight ? 'none' : `0 0 4px ${batColor}` }} />
           </div>
-          <span className="text-[12px] font-black tabular-nums flex-shrink-0" style={{ color: batColor }}>
-            {soc}<span className="text-[9px] font-bold opacity-50">%</span>
-          </span>
         </div>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
-              stroke={solarActive ? (isLight ? '#16a34a' : '#22c55e') : (isLight ? '#94a3b8' : '#6b7280')} strokeWidth="2">
-              <circle cx="12" cy="12" r="5" />
-              <line x1="12" y1="2" x2="12" y2="4" /><line x1="12" y1="20" x2="12" y2="22" />
-              <line x1="2" y1="12" x2="4" y2="12" /><line x1="20" y1="12" x2="22" y2="12" />
-              <line x1="4.93" y1="4.93" x2="6.34" y2="6.34" /><line x1="17.66" y1="17.66" x2="19.07" y2="19.07" />
-            </svg>
-            <span className="text-[11px] font-mono font-bold" style={{ color: solarActive ? (isLight ? '#16a34a' : '#22c55e') : (isLight ? '#94a3b8' : '#6b7280') }}>
-              {solarW.toFixed(2)}W
-            </span>
+
+        <div className="grid gap-3 pt-3 sm:grid-cols-[0.78fr_1fr]">
+          <div>
+            <div className="text-4xl font-black leading-none tabular-nums" style={{ color: ledgerBattery.color }}>{soc}%</div>
+            <div className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-[#7b6a52]">{ledgerBattery.label}</div>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#15120c]/10">
+              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.max(0, Math.min(100, soc))}%`, background: ledgerBattery.color }} />
+            </div>
           </div>
-          <span className="text-[9px] font-mono uppercase tracking-widest" style={{
-            color: charging ? (isLight ? '#16a34a' : '#22c55ecc')
-              : discharging ? (isLight ? '#d97706' : '#f59e0bcc')
-              : (isLight ? '#64748b' : '#93c5fd80'),
-          }}>
-            {charging ? '↑ chg' : discharging ? '↓ bat' : noData ? '—' : 'stby'}
-          </span>
+
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-lg bg-[#15120c]/5 px-2.5 py-2">
+                <div className="text-[9px] font-black uppercase tracking-[0.18em] text-[#7b6a52]">Solar</div>
+                <div className="mt-1 text-sm font-black tabular-nums">{formatWatts(solarW)}</div>
+              </div>
+              <div className="rounded-lg bg-[#15120c]/5 px-2.5 py-2">
+                <div className="text-[9px] font-black uppercase tracking-[0.18em] text-[#7b6a52]">Load</div>
+                <div className="mt-1 text-sm font-black tabular-nums">{formatWatts(dcLoadW)}</div>
+              </div>
+            </div>
+            <div className="rounded-lg bg-[#15120c]/5 px-2.5 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#7b6a52]">Coverage</span>
+                <span className="text-xs font-black tabular-nums">
+                  {noData ? 'Pending' : loadRatio >= 1 ? `${loadRatio.toFixed(1)}x load` : (charging ? 'Charging' : discharging ? 'Battery draw' : 'Load draw')}
+                </span>
+              </div>
+              <LedgerSparkline values={data?.sparkline ?? []} color="#b45309" />
+            </div>
+          </div>
         </div>
-        <div className="mt-1 text-[9px] font-mono text-[#93c5fd]/50 truncate">{data?.location ?? device.siteId}</div>
       </button>
       {modemAccessUrl && (
         <a
@@ -250,7 +303,7 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
           target="_blank"
           rel="noopener noreferrer"
           onClick={(event) => event.stopPropagation()}
-          className="mt-1.5 flex items-center justify-center rounded-lg border border-[#1e3a5f] bg-[#08111f] px-3 py-2 text-[9px] font-mono font-bold uppercase tracking-[0.28em] text-[#22c55e]/80 hover:text-white hover:border-[#22c55e]/40 transition-colors"
+          className="mt-1.5 flex items-center justify-center rounded-lg border border-[#1e3a5f] bg-[#08111f] px-3 py-2 text-[9px] font-mono font-bold uppercase tracking-[0.28em] text-[#22c55e]/80 transition-colors hover:border-[#22c55e]/40 hover:text-white"
         >
           Modem Login
         </a>

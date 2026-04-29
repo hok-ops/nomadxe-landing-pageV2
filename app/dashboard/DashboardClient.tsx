@@ -8,6 +8,7 @@ import FleetFilter, { type FleetFilters, EMPTY_FILTERS, deviceMatchesFilters, ha
 import FleetSummary from '@/components/dashboard/FleetSummary';
 import ReadingKey from '@/components/dashboard/ReadingKey';
 import ThemeToggle from '@/components/ThemeToggle';
+import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/components/ToastProvider';
 
 export interface Device {
@@ -23,12 +24,136 @@ interface Props {
   isAdmin: boolean;
 }
 
+type BriefingDeviceState = {
+  device: Device;
+  data: VRMData | null;
+  state: 'live' | 'watch' | 'dark';
+  reason: string;
+};
+
+function getDeviceState(device: Device, data: VRMData | null, nowS: number): BriefingDeviceState {
+  if (!data || data.lastSeen === 0) {
+    return { device, data, state: 'dark', reason: 'No telemetry yet' };
+  }
+
+  const staleSeconds = Math.max(0, nowS - data.lastSeen);
+  const staleMinutes = Math.floor(staleSeconds / 60);
+  if (staleSeconds > 15 * 60) {
+    return { device, data, state: 'watch', reason: `${staleMinutes}m stale` };
+  }
+  if (data.battery.soc < 45) {
+    return { device, data, state: 'watch', reason: `${data.battery.soc}% battery` };
+  }
+
+  return {
+    device,
+    data,
+    state: 'live',
+    reason: data.solar.power > data.dcLoad ? 'Power positive' : 'Stable telemetry',
+  };
+}
+
+function buildBriefing(devices: Device[], dataMap: Record<string, VRMData | null>, nowS: number) {
+  const states = devices.map((device) => getDeviceState(device, dataMap[device.siteId] ?? null, nowS));
+  const watch = states.filter((item) => item.state === 'watch');
+  const dark = states.filter((item) => item.state === 'dark');
+  const live = states.filter((item) => item.state === 'live');
+  const charging = states.filter((item) => (
+    item.data &&
+    item.state !== 'dark' &&
+    (item.data.battery.state === 1 || item.data.solar.power > item.data.dcLoad)
+  ));
+  const clean = live.filter((item) => item.data && item.data.battery.soc >= 60);
+  const priority = watch[0] ?? dark[0] ?? live[0] ?? null;
+  const opening = watch.length > 0
+    ? `${live.length} units are clean. ${watch.length} need review.`
+    : dark.length > 0
+      ? `${live.length} units are live. ${dark.length} waiting for first data.`
+      : `${live.length} units are clean. No recovery work queued.`;
+
+  return { states, live, watch, dark, charging, clean, priority, opening };
+}
+
+function BriefingMetric({
+  label,
+  value,
+  tone,
+  isLight,
+}: {
+  label: string;
+  value: string;
+  tone: string;
+  isLight: boolean;
+}) {
+  return (
+    <div className={`rounded-xl border px-4 py-3 ${isLight ? 'border-slate-200 bg-white/75' : 'border-white/10 bg-black/20'}`}>
+      <div className={`text-[9px] font-mono font-black uppercase tracking-[0.28em] ${isLight ? 'text-slate-500' : 'text-[#93c5fd]/45'}`}>
+        {label}
+      </div>
+      <div className="mt-2 text-2xl font-black tabular-nums" style={{ color: tone }}>{value}</div>
+    </div>
+  );
+}
+
+function ShiftBriefingPanel({
+  briefing,
+  isLight,
+}: {
+  briefing: ReturnType<typeof buildBriefing>;
+  isLight: boolean;
+}) {
+  const priorityName = briefing.priority ? (briefing.priority.device.displayName ?? briefing.priority.device.name) : 'No devices';
+  const priorityReason = briefing.priority?.reason ?? 'Waiting for assignments';
+
+  return (
+    <section className={`mb-6 overflow-hidden rounded-2xl border p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)] ${
+      isLight
+        ? 'border-slate-200 bg-[linear-gradient(135deg,#ffffff,#f8fafc)] text-slate-950'
+        : 'border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.15),transparent_34%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(5,8,18,0.98))] text-white'
+    }`}>
+      <div className="grid gap-5 xl:grid-cols-[1fr_0.72fr]">
+        <div>
+          <div className={`text-[10px] font-black uppercase tracking-[0.42em] ${isLight ? 'text-amber-700' : 'text-amber-200'}`}>
+            Shift Briefing
+          </div>
+          <h2 className="mt-3 max-w-3xl text-3xl font-black leading-tight md:text-4xl" style={{ fontFamily: 'var(--font-playfair)' }}>
+            {briefing.opening}
+          </h2>
+          <p className={`mt-3 max-w-2xl text-sm leading-6 ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>
+            Start with the action queue, then use filters and search below to narrow the fleet. Tiles now use the Power Ledger layout for faster battery, solar, load, and location review.
+          </p>
+          <div className="mt-5 grid gap-3 sm:grid-cols-4">
+            <BriefingMetric label="Clean" value={`${briefing.clean.length}`} tone="#22c55e" isLight={isLight} />
+            <BriefingMetric label="Watch" value={`${briefing.watch.length}`} tone="#f59e0b" isLight={isLight} />
+            <BriefingMetric label="Charging" value={`${briefing.charging.length}`} tone="#38bdf8" isLight={isLight} />
+            <BriefingMetric label="Dark" value={`${briefing.dark.length}`} tone="#94a3b8" isLight={isLight} />
+          </div>
+        </div>
+        <div className={`rounded-xl border p-4 ${isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-black/25'}`}>
+          <div className={`text-[10px] font-black uppercase tracking-[0.28em] ${isLight ? 'text-slate-500' : 'text-[#93c5fd]/45'}`}>
+            First Look
+          </div>
+          <div className="mt-3 text-2xl font-black">{priorityName}</div>
+          <div className={`mt-2 text-sm ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>{priorityReason}</div>
+          <div className={`mt-4 rounded-lg border px-3 py-2 text-[10px] font-mono uppercase tracking-[0.22em] ${
+            isLight ? 'border-slate-200 bg-white text-slate-600' : 'border-white/10 bg-white/[0.04] text-slate-400'
+          }`}>
+            Filters, search, theme, key, admin, and home controls remain active.
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function DashboardClient({ devices, initialDataMap, isAdmin }: Props) {
   const [dataMap, setDataMap] = useState<Record<string, VRMData | null>>(initialDataMap);
   const [displayNames, setDisplayNames] = useState<Record<string, string | null>>(
     Object.fromEntries(devices.map(d => [d.siteId, d.displayName]))
   );
   const { showToast } = useToast();
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
 
   const handleDeviceData = useCallback((siteId: string, freshData: VRMData) => {
     setDataMap(prev => ({ ...prev, [siteId]: freshData }));
@@ -125,6 +250,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin }: Pr
   }, []);
 
   const nowS = Date.now() / 1000;
+  const briefing = buildBriefing(devices, dataMap, nowS);
   const onlineCount = devices.filter(d => {
     const data = dataMap[d.siteId];
     return data ? (nowS - data.lastSeen) < 15 * 60 : false;
@@ -229,6 +355,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin }: Pr
 
         {devices.length > 1 && !hasMany && (
           <div className="space-y-6 pb-10">
+            <ShiftBriefingPanel briefing={briefing} isLight={isLight} />
             <FleetSummary devices={devices} dataMap={dataMap} />
             {devices.map(d => (
               <NomadXECoreView key={d.siteId} device={d} initialData={dataMap[d.siteId] ?? null} displayName={displayNames[d.siteId] ?? null} onRename={handleRename} onData={handleDeviceData} />
@@ -238,6 +365,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin }: Pr
 
         {hasMany && (
           <>
+            <ShiftBriefingPanel briefing={briefing} isLight={isLight} />
             <FleetSummary devices={devices} dataMap={dataMap} />
             <div className="lg:hidden pb-10">
               {mobileView === 'detail' && (
@@ -258,7 +386,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin }: Pr
                       <button onClick={() => setFilters(EMPTY_FILTERS)} className="text-[10px] font-mono font-bold text-[#3b82f6] hover:text-white uppercase tracking-widest transition-colors">Clear filters</button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-3 items-start content-start">
+                    <div className="grid grid-cols-1 gap-3 items-start content-start">
                       {sortedDevices.map((d, i) => (
                         <FleetTile key={d.siteId} index={i} device={d} data={dataMap[d.siteId] ?? null} selected={selectedIds.includes(d.siteId)} onClick={() => toggleSite(d.siteId)} />
                       ))}
@@ -284,7 +412,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin }: Pr
             </div>
 
             <div className="hidden lg:flex gap-5 items-start">
-              <div className="flex-shrink-0 flex flex-col" style={{ width: hasSelection ? '300px' : '100%' }}>
+              <div className="flex-shrink-0 flex flex-col" style={{ width: hasSelection ? '390px' : '100%' }}>
                 <div className="flex items-center justify-between mb-4 flex-shrink-0">
                   <span className="text-[10px] font-bold text-[#93c5fd]/65 uppercase tracking-widest font-mono">Fleet &middot; {devices.length} units</span>
                   {hasSelection && (
@@ -302,8 +430,8 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin }: Pr
                   </div>
                 ) : (
                   <div
-                    className={`overflow-y-auto pr-1 ${hasSelection ? 'space-y-2.5' : 'grid grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 items-start content-start'}`}
-                    style={{ height: 'calc(100vh - 17rem)' }}
+                    className={`overflow-y-auto pr-1 ${hasSelection ? 'space-y-2.5' : 'grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-3 items-start content-start'}`}
+                    style={{ height: hasSelection ? 'calc(100vh - 20rem)' : 'auto', maxHeight: hasSelection ? undefined : 'none' }}
                   >
                     {sortedDevices.map((d, i) => (
                       <FleetTile key={d.siteId} index={i} device={d} data={dataMap[d.siteId] ?? null} selected={selectedIds.includes(d.siteId)} onClick={() => toggleSite(d.siteId)} />
@@ -312,7 +440,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin }: Pr
                 )}
               </div>
               {hasSelection && (
-                <div ref={detailPanelRef} className="flex-1 min-w-0 overflow-y-auto space-y-6 pr-1" style={{ height: 'calc(100vh - 14rem)' }}>
+                <div ref={detailPanelRef} className="flex-1 min-w-0 overflow-y-auto space-y-6 pr-1" style={{ height: 'calc(100vh - 20rem)' }}>
                   {selectedIds.map(siteId => {
                     const device = devices.find(d => d.siteId === siteId);
                     if (!device) return null;
