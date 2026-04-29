@@ -281,6 +281,34 @@ export default function HistoricalIntelligencePanel({ devices }: { devices: Dash
             </div>
           )}
 
+          {report?.summary.weatherOutlook && (
+            <div className={`rounded-lg border px-3 py-3 ${isLight ? 'border-blue-200 bg-blue-50/70' : 'border-[#2563eb]/35 bg-[#0b1323]/72'}`}>
+              <div className={`flex flex-wrap items-center justify-between gap-2 ${primaryText}`}>
+                <div>
+                  <div className={`text-[9px] font-black uppercase tracking-[0.22em] ${isLight ? 'text-blue-700' : 'text-[#93c5fd]/55'}`}>Weather-Aware Forecast</div>
+                  <div className="mt-1 text-sm font-black">{report.summary.weatherOutlook.label}</div>
+                </div>
+                <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] ${isLight ? 'border-slate-200 bg-white text-slate-600' : `${SEVERITY_STYLE[report.summary.weatherOutlook.severity].border} ${SEVERITY_STYLE[report.summary.weatherOutlook.severity].text}`}`}>
+                  {SEVERITY_STYLE[report.summary.weatherOutlook.severity].label}
+                </span>
+              </div>
+              <p className={`mt-2 text-[11px] leading-relaxed ${mutedText}`}>{report.summary.weatherOutlook.summary}</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {[
+                  ['Solar Window', report.summary.weatherOutlook.solarRadiationWhM2 == null ? 'unknown' : `${Math.round(report.summary.weatherOutlook.solarRadiationWhM2)} Wh/m2`],
+                  ['Cloud Cover', report.summary.weatherOutlook.avgCloudCoverPct == null ? 'unknown' : `${Math.round(report.summary.weatherOutlook.avgCloudCoverPct)}% avg`],
+                  ['Rain Risk', report.summary.weatherOutlook.precipitationProbabilityMaxPct == null ? 'unknown' : `${Math.round(report.summary.weatherOutlook.precipitationProbabilityMaxPct)}% peak`],
+                  ['Wind / Temp', `${report.summary.weatherOutlook.windMphMax == null ? 'unknown wind' : `${Math.round(report.summary.weatherOutlook.windMphMax)} mph`} / ${report.summary.weatherOutlook.temperatureRangeF}`],
+                ].map(([label, value]) => (
+                  <div key={label} className={`rounded-md border px-2.5 py-2 ${isLight ? 'border-slate-200 bg-white' : 'border-[#1e3a5f]/35 bg-[#080c14]/52'}`}>
+                    <div className={`text-[8px] font-black uppercase tracking-[0.18em] ${isLight ? 'text-slate-500' : 'text-[#93c5fd]/42'}`}>{label}</div>
+                    <div className={`mt-1 text-xs font-black ${primaryText}`}>{value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {reportMetrics.length > 0 && (
             <div className="grid gap-2 sm:grid-cols-2">
               {reportMetrics.slice(0, 6).map((metric) => {

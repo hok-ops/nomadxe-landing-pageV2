@@ -6,6 +6,7 @@ import type { DashboardDeviceRef } from '@/lib/leaseOperations';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 import { assertVrmSiteAccess } from '@/lib/vrmAccess';
 import { fetchVRMData, fetchVRMDetail } from '@/lib/vrm';
+import { fetchWeatherForecast } from '@/lib/weatherForecast';
 import { createAdminClient } from '@/utils/supabase/admin';
 
 export const dynamic = 'force-dynamic';
@@ -105,6 +106,11 @@ export async function POST(
   ]);
   const data = dataResult.status === 'fulfilled' ? dataResult.value : null;
   const details = detailResult.status === 'fulfilled' ? detailResult.value : null;
+  const lat = details?.gps?.latitude ?? data?.lat ?? null;
+  const lon = details?.gps?.longitude ?? data?.lon ?? null;
+  const weatherForecast = lat != null && lon != null
+    ? await fetchWeatherForecast(lat, lon)
+    : null;
   const asset = assessAssetIntelligence({ device, data, details });
   const operations = await fetchLeaseOperationsForDashboard({
     userId: access.userId,
@@ -118,6 +124,7 @@ export async function POST(
     details,
     asset,
     operations,
+    weatherForecast,
   });
 
   const payload = {

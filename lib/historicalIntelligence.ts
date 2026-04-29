@@ -1,6 +1,7 @@
 import type { AssetIntelligence, IntelligenceSeverity } from '@/lib/assetIntelligence';
 import type { DashboardDeviceRef, LeaseOperationsData, LeaseSummary } from '@/lib/leaseOperations';
 import type { VRMData, VRMDetailData, VRMSeries } from '@/lib/vrm';
+import { assessWeatherForecast, type WeatherForecastWindow } from '@/lib/weatherForecast';
 
 export type ReportSeverity = 'info' | 'watch' | 'action' | 'critical';
 export type RecommendationCategory =
@@ -72,6 +73,18 @@ export interface HistoricalReportSummary {
     label: string;
     partner: string | null;
     summary: string;
+  };
+  weatherOutlook?: {
+    severity: ReportSeverity;
+    label: string;
+    confidence: number;
+    summary: string;
+    solarRadiationWhM2: number | null;
+    avgCloudCoverPct: number | null;
+    precipitationProbabilityMaxPct: number | null;
+    windMphMax: number | null;
+    temperatureRangeF: string;
+    evidence: string[];
   };
   firmware: {
     severity: ReportSeverity;
@@ -303,6 +316,28 @@ function buildMonitoringSummary(lease: LeaseSummary | null) {
   return { severity, label, partner, summary };
 }
 
+function buildWeatherSummary(weatherForecast: WeatherForecastWindow | null | undefined) {
+  const assessed = assessWeatherForecast(weatherForecast ?? null);
+  if (!assessed) return null;
+  const forecast = assessed.forecast;
+  const temperatureRangeF = forecast.temperatureMinF == null || forecast.temperatureMaxF == null
+    ? 'unknown'
+    : `${Math.round(forecast.temperatureMinF)}-${Math.round(forecast.temperatureMaxF)} F`;
+
+  return {
+    severity: assessed.severity,
+    label: assessed.label,
+    confidence: assessed.confidence,
+    summary: assessed.summary,
+    solarRadiationWhM2: forecast.solarRadiationWhM2,
+    avgCloudCoverPct: forecast.avgCloudCoverPct,
+    precipitationProbabilityMaxPct: forecast.precipitationProbabilityMaxPct,
+    windMphMax: forecast.windMphMax,
+    temperatureRangeF,
+    evidence: assessed.evidence,
+  };
+}
+
 function buildFirmwareSummary(details: VRMDetailData | null | undefined) {
   if (!details) {
     return {
@@ -377,6 +412,12 @@ function buildReportMetrics(summary: HistoricalReportSummary, details: VRMDetail
       detail: summary.siteBoundary.summary,
       severity: summary.siteBoundary.severity,
     },
+    ...(summary.weatherOutlook ? [{
+      label: 'Weather Window',
+      value: summary.weatherOutlook.label,
+      detail: summary.weatherOutlook.summary,
+      severity: summary.weatherOutlook.severity,
+    }] : []),
   ];
 }
 
@@ -402,6 +443,7 @@ function buildNarrative({
   const customerSummary = [
     summary.powerAutonomy.summary,
     summary.visibilityRisk.summary,
+    summary.weatherOutlook?.summary,
     urgent.length > 0
       ? `${urgent.length} action-level item${urgent.length === 1 ? '' : 's'} should be reviewed.`
       : watch.length > 0
@@ -416,9 +458,10 @@ function buildNarrative({
   const keyFindings = [
     `Power: ${summary.powerAutonomy.summary}`,
     `Visibility: ${summary.visibilityRisk.summary}`,
+    ...(summary.weatherOutlook ? [`Weather: ${summary.weatherOutlook.summary}`] : []),
     `Alarms: ${summary.alarmCoverage.summary}`,
     `Monitoring: ${summary.monitoring.summary}`,
-  ];
+  ].slice(0, 5);
 
   return { headline, customerSummary, operatorSummary, keyFindings };
 }
@@ -530,6 +573,18 @@ function buildRecommendations({
     ));
   }
 
+  if (summary.weatherOutlook && SEVERITY_RANK[summary.weatherOutlook.severity] >= SEVERITY_RANK.watch) {
+    items.push(recommendation(
+      'power',
+      summary.weatherOutlook.severity,
+      'Plan around the weather window',
+      summary.weatherOutlook.summary,
+      'Compare the forecast against battery reserve and load before the overnight window; reduce nonessential load or schedule a power check if recovery margin is thin.',
+      summary.weatherOutlook.confidence,
+      summary.weatherOutlook.evidence
+    ));
+  }
+
   if (SEVERITY_RANK[summary.firmware.severity] >= SEVERITY_RANK.watch) {
     items.push(recommendation(
       'firmware',
@@ -564,6 +619,7 @@ export function buildHistoricalIntelligenceReport({
   details,
   asset,
   operations,
+  weatherForecast,
   now = new Date(),
 }: {
   device: DashboardDeviceRef;
@@ -571,6 +627,7 @@ export function buildHistoricalIntelligenceReport({
   details?: VRMDetailData | null;
   asset?: AssetIntelligence | null;
   operations: LeaseOperationsData;
+  weatherForecast?: WeatherForecastWindow | null;
   now?: Date;
 }): HistoricalIntelligenceReport {
   const lease = findPrimaryLease(device, operations);
@@ -582,6 +639,7 @@ export function buildHistoricalIntelligenceReport({
   const alarmCoverage = buildAlarmSummary(details);
   const siteBoundary = buildBoundarySummary(data, details);
   const monitoring = buildMonitoringSummary(lease);
+  const weatherOutlook = buildWeatherSummary(weatherForecast);
   const firmware = buildFirmwareSummary(details);
   const efficiency = buildEfficiencySummary(asset ?? null, details);
   const overallSeverity = maxSeverity([
@@ -590,6 +648,7 @@ export function buildHistoricalIntelligenceReport({
     alarmCoverage.severity,
     siteBoundary.severity,
     monitoring.severity,
+    weatherOutlook?.severity ?? 'info',
     firmware.severity,
     efficiency.severity,
   ]);
@@ -606,6 +665,7 @@ export function buildHistoricalIntelligenceReport({
     alarmCoverage,
     siteBoundary,
     monitoring,
+    ...(weatherOutlook ? { weatherOutlook } : {}),
     firmware,
     efficiency,
   };
@@ -636,6 +696,7 @@ export function buildHistoricalIntelligenceReport({
       sources: [
         data ? 'VRM diagnostics snapshot' : 'VRM diagnostics unavailable',
         details ? 'VRM 24h graph, alarm, GPS, firmware, and overall stats' : 'VRM detail history unavailable',
+        weatherForecast ? 'Open-Meteo GPS-based 24h weather and solar forecast' : 'Weather forecast unavailable',
         operations.dataSource === 'database' ? 'Linked lease operations records' : 'Telemetry-derived lease fallback',
       ],
       historyWindows: ['24h graph window', 'today/week/month/year overall stats', '7d CSV and 30d XLSX exports when available'],
