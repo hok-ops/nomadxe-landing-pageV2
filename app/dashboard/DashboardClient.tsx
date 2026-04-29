@@ -9,6 +9,7 @@ import FleetIntelligenceBriefing from '@/components/dashboard/FleetIntelligenceB
 import FleetMapView from '@/components/dashboard/FleetMapView';
 import LeaseCommandCenter from '@/components/dashboard/LeaseCommandCenter';
 import ReadingKey from '@/components/dashboard/ReadingKey';
+import { usePageActivity } from '@/components/dashboard/usePageActivity';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/components/ToastProvider';
@@ -334,6 +335,9 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin, leas
   const { showToast } = useToast();
   const { theme } = useTheme();
   const isLight = theme === 'light';
+  const pageActive = usePageActivity();
+  const pageActiveRef = useRef(pageActive);
+  useEffect(() => { pageActiveRef.current = pageActive; }, [pageActive]);
 
   const handleDeviceData = useCallback((siteId: string, freshData: VRMData) => {
     setDataMap(prev => ({ ...prev, [siteId]: freshData }));
@@ -370,6 +374,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin, leas
   const prevSelectedRef = useRef<string[]>(selectedIds);
 
   const pollDevice = useCallback(async (siteId: string) => {
+    if (!pageActiveRef.current) return;
     try {
       const res = await fetch(`/api/vrm/${siteId}`, { cache: 'no-store' });
       if (res.status === 401) {
@@ -408,6 +413,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin, leas
   useEffect(() => {
     const JITTER_MAX_MS = 4_000;
     const fanOut = () => {
+      if (!pageActiveRef.current) return;
       const selected = new Set(selectedIds);
       const pollTargets = selected.size > 0
         ? devicesRef.current.filter((device) => selected.has(device.siteId))
@@ -415,13 +421,15 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin, leas
 
       pollTargets.forEach((d, i) => {
         const delay = Math.min(i * 180, JITTER_MAX_MS) + Math.random() * 250;
-        setTimeout(() => pollDevice(d.siteId), delay);
+        setTimeout(() => {
+          if (pageActiveRef.current) pollDevice(d.siteId);
+        }, delay);
       });
     };
     fanOut(); // immediate on mount, then follow the adaptive cadence
     const id = setInterval(fanOut, fleetPollMs);
     return () => clearInterval(id);
-  }, [pollDevice, fleetPollMs, selectedIds]);
+  }, [pollDevice, fleetPollMs, selectedIds, pageActive]);
 
   useEffect(() => {
     const prev = prevSelectedRef.current;

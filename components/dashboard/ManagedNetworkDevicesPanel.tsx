@@ -8,6 +8,7 @@ import {
   type DiscoveredNetworkDevice,
   type ManagedNetworkDevice,
 } from '@/lib/networkDevices';
+import { usePageActivity } from './usePageActivity';
 
 const STALE_AFTER_MS = 10 * 60_000;
 
@@ -141,11 +142,13 @@ export default function ManagedNetworkDevicesPanel({
   const [cellularReport, setCellularReport] = useState<CellularSignalReport | null>(null);
   const [cellularMessage, setCellularMessage] = useState<string | null>(null);
   const [requestingCellular, setRequestingCellular] = useState(false);
+  const pageActive = usePageActivity();
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
+      if (!pageActive) return;
       try {
         const response = await fetch(`/api/devices/${siteId}/managed-network`, { cache: 'no-store' });
         if (!response.ok) {
@@ -181,7 +184,7 @@ export default function ManagedNetworkDevicesPanel({
       cancelled = true;
       clearInterval(id);
     };
-  }, [siteId, onInventoryChange]);
+  }, [siteId, onInventoryChange, pageActive]);
 
   const managedByKey = new Map(managedDevices.map((device) => [deviceKey(device), device]));
   const orderedObserved = [...discoveredDevices].sort(sortObservedDevices);

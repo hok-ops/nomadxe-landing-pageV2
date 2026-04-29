@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { fetchVRMData } from '@/lib/vrm';
 import { resolveAndPersistDeviceLocation } from '@/lib/deviceLocation';
 import { assertVrmSiteAccess } from '@/lib/vrmAccess';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 // Re-export VRMData type so DashboardClient can import from this route path
 export type { VRMData } from '@/lib/vrm';
@@ -16,6 +17,14 @@ export async function GET(
   const access = await assertVrmSiteAccess(siteId);
   if (!access.ok) {
     return NextResponse.json({ error: access.error }, { status: access.status });
+  }
+
+  const ip = getClientIp(request);
+  if (
+    !checkRateLimit(`vrm-snapshot:user:${access.userId}:${siteId}`, 24, 60_000) ||
+    !checkRateLimit(`vrm-snapshot:ip:${ip}:${siteId}`, 60, 60_000)
+  ) {
+    return NextResponse.json({ error: 'Telemetry refresh limit reached. Please wait before trying again.' }, { status: 429 });
   }
 
   try {

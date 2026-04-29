@@ -169,14 +169,17 @@ export async function POST(
   { params }: { params: Promise<{ siteId: string }> }
 ) {
   const { siteId } = await params;
-  const ip = getClientIp(request);
-  if (!checkRateLimit(`historical-report:${ip}:${siteId}`, 3, 60_000)) {
-    return NextResponse.json({ error: 'Too many report requests. Please wait before generating another report.' }, { status: 429 });
-  }
-
   const access = await assertVrmSiteAccess(siteId);
   if (!access.ok) {
     return NextResponse.json({ error: access.error }, { status: access.status });
+  }
+
+  const ip = getClientIp(request);
+  if (
+    !checkRateLimit(`historical-report:user:${access.userId}:${siteId}`, 3, 60_000) ||
+    !checkRateLimit(`historical-report:ip:${ip}:${siteId}`, 6, 60_000)
+  ) {
+    return NextResponse.json({ error: 'Too many report requests. Please wait before generating another report.' }, { status: 429 });
   }
 
   const { adminClient, device, error } = await loadDevice(siteId);

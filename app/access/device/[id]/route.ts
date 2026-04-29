@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'crypto';
 import { assertTeltonikaRmsDeviceAccess } from '@/lib/vrmAccess';
 import { createRemoteWebUiSession, getGatewayBearerToken, TeltonikaRmsError } from '@/lib/teltonikaRms';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 import { createAdminClient } from '@/utils/supabase/admin';
 
 export const dynamic = 'force-dynamic';
@@ -107,6 +108,22 @@ export async function POST(
     }
     actorUserId = access.userId;
     actorRole = access.role;
+
+    const ip = getClientIp(request);
+    if (
+      !checkRateLimit(`modem-session:user:${actorUserId}:${deviceId}`, 3, 5 * 60_000) ||
+      !checkRateLimit(`modem-session:ip:${ip}:${deviceId}`, 6, 5 * 60_000)
+    ) {
+      await recordAccessAudit({
+        deviceId,
+        userId: actorUserId,
+        role: actorRole,
+        status: 'denied',
+        reason: 'Remote modem session rate limit reached',
+        userAgent: request.headers.get('user-agent'),
+      });
+      return NextResponse.json({ ok: false, error: 'Too many modem session requests. Please wait before trying again.' }, { status: 429 });
+    }
   }
 
   try {
