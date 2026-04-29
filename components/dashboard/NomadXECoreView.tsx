@@ -185,8 +185,9 @@ function getMpptStyle(state: number) {
 }
 
 function getBatteryColor(soc: number, light = false) {
-  if (soc >= 75) return light ? '#16a34a' : '#22c55e';
-  if (soc >= 25) return light ? '#2563eb' : '#3b82f6';
+  if (soc >= 80) return light ? '#16a34a' : '#22c55e';
+  if (soc >= 60) return light ? '#d97706' : '#f59e0b';
+  if (soc >= 30) return light ? '#ea580c' : '#fb923c';
   return               light ? '#dc2626' : '#ef4444';
 }
 

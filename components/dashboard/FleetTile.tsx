@@ -6,15 +6,16 @@ import type { VRMData } from './NomadXECoreView';
 import { useTheme } from '@/components/ThemeProvider';
 
 function getBatteryColor(soc: number, light: boolean) {
-  if (soc >= 75) return light ? '#16a34a' : '#22c55e';
-  if (soc >= 25) return light ? '#2563eb' : '#3b82f6';
+  if (soc >= 80) return light ? '#16a34a' : '#22c55e';
+  if (soc >= 60) return light ? '#d97706' : '#f59e0b';
+  if (soc >= 30) return light ? '#ea580c' : '#fb923c';
   return light ? '#dc2626' : '#ef4444';
 }
 
 function getLedgerBatteryTone(soc: number) {
-  if (soc >= 75) return { color: '#22c55e', label: 'Strong battery' };
-  if (soc >= 45) return { color: '#2563eb', label: 'Stable battery' };
-  if (soc >= 25) return { color: '#f59e0b', label: 'Watch battery' };
+  if (soc >= 80) return { color: '#22c55e', label: 'Ready battery' };
+  if (soc >= 60) return { color: '#f59e0b', label: 'Battery alert' };
+  if (soc >= 30) return { color: '#fb923c', label: 'Low battery' };
   return { color: '#ef4444', label: 'Critical battery' };
 }
 
@@ -32,26 +33,83 @@ function formatSyncAge(lastSeen: number) {
   return `${Math.floor(staleS / 3600)}h ago`;
 }
 
-function LedgerSparkline({ values, color }: { values: number[]; color: string }) {
-  if (values.length < 2) {
-    return <div className="mt-2 h-7 rounded-md bg-[#15120c]/5" />;
+type TileWeather = {
+  code: number;
+  label: string;
+};
+
+const TILE_WEATHER_TTL_MS = 30 * 60_000;
+const tileWeatherCache = new Map<string, { data: TileWeather | null; fetchedAt: number }>();
+const tileWeatherInflight = new Map<string, Promise<TileWeather | null>>();
+
+function isCloudyWeatherCode(code: number) {
+  return code === 2 || code === 3 || (code >= 45 && code <= 99);
+}
+
+function weatherLabelForCode(code: number) {
+  if (code === 2) return 'Partly cloudy';
+  if (code === 3) return 'Cloudy';
+  if (code >= 45 && code <= 48) return 'Fog/clouds';
+  if (code >= 51 && code <= 67) return 'Wet/cloudy';
+  if (code >= 71 && code <= 86) return 'Snow/clouds';
+  if (code >= 95) return 'Storm/clouds';
+  return 'Cloud watch';
+}
+
+async function fetchTileWeather(lat: number, lon: number): Promise<TileWeather | null> {
+  const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+  const cached = tileWeatherCache.get(key);
+  if (cached && Date.now() - cached.fetchedAt < TILE_WEATHER_TTL_MS) return cached.data;
+
+  const inflight = tileWeatherInflight.get(key);
+  if (inflight) return inflight;
+
+  const request = fetch(
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=weather_code&daily=weather_code&timezone=auto&forecast_days=1`
+  )
+    .then(async (response) => {
+      if (!response.ok) return null;
+      const json = await response.json();
+      const dailyCode = Array.isArray(json?.daily?.weather_code) ? Number(json.daily.weather_code[0]) : NaN;
+      const currentCode = Number(json?.current?.weather_code);
+      const code = Number.isFinite(dailyCode) ? dailyCode : currentCode;
+      return Number.isFinite(code) ? { code, label: weatherLabelForCode(code) } : null;
+    })
+    .catch(() => null)
+    .then((data) => {
+      tileWeatherCache.set(key, { data, fetchedAt: Date.now() });
+      tileWeatherInflight.delete(key);
+      return data;
+    });
+
+  tileWeatherInflight.set(key, request);
+  return request;
+}
+
+function getBatteryFlowState(charging: boolean, discharging: boolean, noData: boolean) {
+  if (noData) {
+    return { symbol: '---', label: 'No Data', detail: 'Awaiting telemetry', color: '#64748b', active: false };
   }
+  if (charging) {
+    return { symbol: 'CHG', label: 'Charging', detail: 'Solar charging battery', color: '#22c55e', active: true };
+  }
+  if (discharging) {
+    return { symbol: 'BAT', label: 'Battery Draw', detail: 'Battery powering load', color: '#f59e0b', active: true };
+  }
+  return { symbol: 'STBY', label: 'Standby', detail: 'Battery at rest', color: '#93c5fd', active: false };
+}
 
-  const width = 160;
-  const height = 32;
-  const max = Math.max(...values, 1);
-  const min = Math.min(...values);
-  const range = Math.max(max - min, 1);
-  const points = values.map((value, index) => {
-    const x = (index / (values.length - 1)) * width;
-    const y = height - ((value - min) / range) * (height - 6) - 3;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(' ');
-
+function CloudWeatherCue({ label }: { label: string }) {
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="mt-2 h-7 w-full overflow-visible" preserveAspectRatio="none" aria-hidden="true">
-      <polyline points={points} fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <span
+      className="inline-flex flex-shrink-0 items-center gap-1 rounded-md border border-slate-400/30 bg-slate-200/70 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.15em] text-slate-700"
+      title="Cloudy weather can reduce solar harvest today."
+    >
+      <svg width="13" height="9" viewBox="0 0 26 18" fill="none" aria-hidden="true">
+        <path d="M7.5 16h11.2a5.1 5.1 0 0 0 .5-10.2A7.1 7.1 0 0 0 5.6 7.5 4.4 4.4 0 0 0 7.5 16Z" fill="currentColor" opacity="0.72" />
+      </svg>
+      {label}
+    </span>
   );
 }
 
@@ -169,6 +227,7 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
   const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({});
   const [entered, setEntered] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [tileWeather, setTileWeather] = useState<TileWeather | null>(null);
   const tileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setMounted(true); }, []);
@@ -194,11 +253,32 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
   const charging = (data?.battery.state ?? 0) === 1;
   const discharging = (data?.battery.state ?? 0) === 2;
   const dcLoadW = data?.dcLoad ?? 0;
-  const loadRatio = dcLoadW > 0 ? solarW / dcLoadW : 0;
+  const hasDirectLoadReading = data?.hasDcLoadReading !== false;
+  const noDirectLoadReading = Boolean(data) && !hasDirectLoadReading;
+  const batteryVoltage = data?.battery.voltage ?? 0;
+  const batteryFlow = getBatteryFlowState(charging, discharging, noData);
+  const batteryFlowWidth = noData ? 100 : Math.max(18, Math.min(100, Math.abs(data?.battery.current ?? 0) * 5 + 18));
   const location = data?.location ?? 'Location pending';
   const syncAge = formatSyncAge(lastSeenS);
-  const priorityLabel = noData ? 'No Data' : isOffline ? 'Review' : soc < 45 ? 'Watch' : 'Clean';
-  const priorityColor = noData ? '#64748b' : isOffline ? '#f43f5e' : soc < 45 ? '#f59e0b' : '#10b981';
+  const priorityLabel = noData ? 'No Data' : isOffline ? 'Offline' : soc < 80 ? 'Alert' : 'Ready';
+  const priorityColor = noData ? '#64748b' : isOffline ? '#f43f5e' : soc < 80 ? '#f59e0b' : '#10b981';
+  const cloudyWeather = tileWeather && isCloudyWeatherCode(tileWeather.code) ? tileWeather : null;
+
+  useEffect(() => {
+    let cancelled = false;
+    const lat = data?.lat;
+    const lon = data?.lon;
+    if (lat == null || lon == null) {
+      setTileWeather(null);
+      return () => { cancelled = true; };
+    }
+
+    fetchTileWeather(lat, lon).then((weather) => {
+      if (!cancelled) setTileWeather(weather);
+    });
+
+    return () => { cancelled = true; };
+  }, [data?.lat, data?.lon]);
 
   const handleMouseEnter = () => {
     if (tileRef.current) {
@@ -235,24 +315,30 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
         type="button"
         onClick={onClick}
         aria-pressed={selected}
-        className={`w-full rounded-xl border bg-[#f7f1e6] p-3.5 text-left text-[#15120c] shadow-[0_16px_34px_rgba(0,0,0,0.22)] transition-all duration-200 focus:outline-none hover:-translate-y-px hover:shadow-[0_22px_44px_rgba(0,0,0,0.28)] ${
+        className={`relative w-full overflow-hidden rounded-xl border bg-[#f7f1e6] p-3.5 text-left text-[#15120c] shadow-[0_16px_34px_rgba(0,0,0,0.22)] transition-all duration-200 focus:outline-none hover:-translate-y-px hover:shadow-[0_22px_44px_rgba(0,0,0,0.28)] ${
           selected
-            ? 'border-[#15120c] ring-2 ring-[#3b82f6]/55'
+            ? 'border-[#2563eb] ring-4 ring-[#2563eb]/35 shadow-[0_0_0_1px_rgba(37,99,235,0.75),0_24px_54px_rgba(37,99,235,0.24)]'
             : 'border-[#d8cdb9] hover:border-[#15120c]/35'
         }`}
       >
+        {selected && (
+          <span className="pointer-events-none absolute inset-x-3 top-0 h-1 rounded-b-full bg-[#2563eb] shadow-[0_0_18px_rgba(37,99,235,0.85)]" />
+        )}
         <div className="flex items-start justify-between gap-3 border-b border-[#15120c]/10 pb-3">
           <div className="min-w-0">
             <div className="text-[9px] font-black uppercase tracking-[0.26em] text-[#7b6a52]">{device.siteId}</div>
             <div className="mt-1 flex min-w-0 items-center gap-2">
               <span className="truncate text-[17px] font-black text-[#15120c]">{device.displayName ?? device.name}</span>
               {selected && (
-                <span className="rounded-md border border-[#15120c]/10 bg-white/50 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-[#2563eb]">
-                  Open
+                <span className="rounded-md border border-[#2563eb]/25 bg-[#2563eb] px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-white shadow-[0_0_12px_rgba(37,99,235,0.28)]">
+                  Reviewing
                 </span>
               )}
             </div>
-            <div className="mt-1 truncate text-[11px] font-bold text-[#7b6a52]">{location}</div>
+            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+              <span className="truncate text-[11px] font-bold text-[#7b6a52]">{location}</span>
+              {cloudyWeather && <CloudWeatherCue label={cloudyWeather.label} />}
+            </div>
             <div className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#7b6a52]/75">{syncAge}</div>
           </div>
           <div className="flex flex-shrink-0 flex-col items-end gap-1.5">
@@ -280,19 +366,47 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
                 <div className="text-[9px] font-black uppercase tracking-[0.18em] text-[#7b6a52]">Solar</div>
                 <div className="mt-1 text-sm font-black tabular-nums">{formatWatts(solarW)}</div>
               </div>
-              <div className="rounded-lg bg-[#15120c]/5 px-2.5 py-2">
+              <div className={`rounded-lg px-2.5 py-2 ${
+                noDirectLoadReading
+                  ? 'border border-[#f59e0b]/35 bg-[#f59e0b]/10'
+                  : 'bg-[#15120c]/5'
+              }`}>
                 <div className="text-[9px] font-black uppercase tracking-[0.18em] text-[#7b6a52]">Load</div>
-                <div className="mt-1 text-sm font-black tabular-nums">{formatWatts(dcLoadW)}</div>
+                <div className="mt-1 text-sm font-black tabular-nums">{noData ? 'Pending' : noDirectLoadReading ? 'No read' : formatWatts(dcLoadW)}</div>
+                {noDirectLoadReading && (
+                  <div className="mt-0.5 text-[8px] font-black uppercase tracking-[0.16em] text-[#b45309]">
+                    Est. {formatWatts(dcLoadW)}
+                  </div>
+                )}
               </div>
             </div>
             <div className="rounded-lg bg-[#15120c]/5 px-2.5 py-2">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#7b6a52]">Coverage</span>
+                <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#7b6a52]">Voltage</span>
                 <span className="text-xs font-black tabular-nums">
-                  {noData ? 'Pending' : loadRatio >= 1 ? `${loadRatio.toFixed(1)}x load` : (charging ? 'Charging' : discharging ? 'Battery draw' : 'Load draw')}
+                  {noData ? 'Pending' : `${batteryVoltage.toFixed(2)} V`}
                 </span>
               </div>
-              <LedgerSparkline values={data?.sparkline ?? []} color="#b45309" />
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#7b6a52]">Battery Status</span>
+                <span
+                  className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.18em]"
+                  style={{ color: batteryFlow.color }}
+                >
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${batteryFlow.active ? 'animate-pulse' : ''}`}
+                    style={{ background: batteryFlow.color, boxShadow: batteryFlow.active ? `0 0 12px ${batteryFlow.color}` : 'none' }}
+                  />
+                  {batteryFlow.symbol}
+                </span>
+              </div>
+              <div className="relative mt-2 h-1.5 overflow-hidden rounded-full bg-[#15120c]/10">
+                <div
+                  className={`h-full rounded-full transition-all duration-700 ${batteryFlow.active ? 'animate-pulse' : ''}`}
+                  style={{ width: `${batteryFlowWidth}%`, background: batteryFlow.color, opacity: batteryFlow.active ? 0.86 : 0.48 }}
+                />
+              </div>
+              <div className="mt-1 text-[9px] font-bold text-[#7b6a52]/70">{batteryFlow.detail}</div>
             </div>
           </div>
         </div>

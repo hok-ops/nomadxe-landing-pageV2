@@ -61,6 +61,7 @@ function buildPreviewData(): Record<string, VRMData> {
       battery: { soc: 39, voltage: 12.18, current: -7.9, power: -101.3, state: 2 },
       solar: { power: 0, voltage: 9.8, yieldToday: 1.12, mpptState: 0, mpptStateLabel: 'Off' },
       dcLoad: 118.2,
+      hasDcLoadReading: false,
       sparkline: [220, 190, 120, 68, 20, 0],
       batterySparkline: [54, 51, 48, 45, 42, 39],
       lat: 38.835,
@@ -160,14 +161,14 @@ function getStatus(data: VRMData) {
     dot: '#34d399',
     border: 'border-emerald-400/25',
     bg: 'bg-emerald-400/10',
-    priority: data.battery.soc < 45 ? 'Watch' : 'Clean',
+    priority: data.battery.soc < 80 ? 'Alert' : 'Ready',
   };
 }
 
 function getBatteryTone(soc: number) {
-  if (soc >= 75) return { color: '#4ade80', label: 'Strong' };
-  if (soc >= 45) return { color: '#38bdf8', label: 'Stable' };
-  if (soc >= 25) return { color: '#fbbf24', label: 'Watch' };
+  if (soc >= 80) return { color: '#4ade80', label: 'Ready' };
+  if (soc >= 60) return { color: '#fbbf24', label: 'Alert' };
+  if (soc >= 30) return { color: '#fb923c', label: 'Low' };
   return { color: '#fb7185', label: 'Critical' };
 }
 
@@ -183,26 +184,21 @@ function splitLocation(location: string | null) {
   return { city, region: region || 'GPS resolved' };
 }
 
-function MiniSparkline({ values, color }: { values: number[]; color: string }) {
-  if (values.length < 2) {
-    return <div className="h-8 rounded-md border border-white/10 bg-white/[0.03]" />;
-  }
+function getPreviewBatteryFlow(data: VRMData) {
+  if (data.lastSeen === 0) return { symbol: '---', label: 'No Data', detail: 'Awaiting telemetry', color: '#64748b', active: false };
+  if (data.battery.state === 1) return { symbol: 'CHG', label: 'Charging', detail: 'Solar charging battery', color: '#22c55e', active: true };
+  if (data.battery.state === 2) return { symbol: 'BAT', label: 'Battery Draw', detail: 'Battery powering load', color: '#f59e0b', active: true };
+  return { symbol: 'STBY', label: 'Standby', detail: 'Battery at rest', color: '#93c5fd', active: false };
+}
 
-  const width = 120;
-  const height = 34;
-  const max = Math.max(...values, 1);
-  const min = Math.min(...values);
-  const range = Math.max(max - min, 1);
-  const points = values.map((value, index) => {
-    const x = (index / (values.length - 1)) * width;
-    const y = height - ((value - min) / range) * (height - 6) - 3;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(' ');
-
+function PreviewCloudCue() {
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="h-8 w-full overflow-visible" preserveAspectRatio="none" aria-hidden="true">
-      <polyline points={points} fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <span className="inline-flex flex-shrink-0 items-center gap-1 rounded-md border border-slate-400/30 bg-slate-200/70 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.15em] text-slate-700">
+      <svg width="13" height="9" viewBox="0 0 26 18" fill="none" aria-hidden="true">
+        <path d="M7.5 16h11.2a5.1 5.1 0 0 0 .5-10.2A7.1 7.1 0 0 0 5.6 7.5 4.4 4.4 0 0 0 7.5 16Z" fill="currentColor" opacity="0.72" />
+      </svg>
+      Cloudy
+    </span>
   );
 }
 
@@ -312,20 +308,40 @@ function PowerLedgerTile({ device, data, selected = false, onClick }: TilePrevie
   const status = getStatus(data);
   const battery = getBatteryTone(data.battery.soc);
   const location = splitLocation(data.location);
-  const loadRatio = data.dcLoad > 0 ? data.solar.power / data.dcLoad : 0;
+  const flow = getPreviewBatteryFlow(data);
+  const noDirectLoadReading = data.hasDcLoadReading === false;
+  const cloudyPreview = device.siteId === 'NX-118' || device.siteId === 'NX-512';
+  const flowWidth = data.lastSeen === 0 ? 100 : Math.max(18, Math.min(100, Math.abs(data.battery.current) * 5 + 18));
 
   return (
     <button
       type="button"
       aria-pressed={selected}
       onClick={onClick}
-      className={`w-full rounded-lg border bg-[#f7f1e6] p-3.5 text-left text-[#15120c] shadow-[0_18px_35px_rgba(0,0,0,0.18)] transition-all hover:-translate-y-0.5 ${selected ? 'border-[#15120c] ring-2 ring-[#15120c]/20' : 'border-[#d8cdb9]'}`}
+      className={`relative w-full overflow-hidden rounded-lg border bg-[#f7f1e6] p-3.5 text-left text-[#15120c] shadow-[0_18px_35px_rgba(0,0,0,0.18)] transition-all hover:-translate-y-0.5 ${
+        selected
+          ? 'border-[#2563eb] ring-4 ring-[#2563eb]/35 shadow-[0_0_0_1px_rgba(37,99,235,0.75),0_24px_54px_rgba(37,99,235,0.24)]'
+          : 'border-[#d8cdb9]'
+      }`}
     >
+      {selected && (
+        <span className="pointer-events-none absolute inset-x-3 top-0 h-1 rounded-b-full bg-[#2563eb] shadow-[0_0_18px_rgba(37,99,235,0.85)]" />
+      )}
       <div className="flex items-start justify-between gap-3 border-b border-[#15120c]/10 pb-3">
         <div className="min-w-0">
           <div className="text-[10px] font-black uppercase tracking-[0.26em] text-[#7b6a52]">{device.siteId}</div>
-          <div className="mt-1 truncate text-lg font-black">{device.displayName ?? device.name}</div>
-          <div className="mt-1 truncate text-[11px] font-bold text-[#7b6a52]">{location.city}, {location.region}</div>
+          <div className="mt-1 flex min-w-0 items-center gap-2">
+            <span className="truncate text-lg font-black">{device.displayName ?? device.name}</span>
+            {selected && (
+              <span className="rounded-md border border-[#2563eb]/25 bg-[#2563eb] px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-white">
+                Reviewing
+              </span>
+            )}
+          </div>
+          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="truncate text-[11px] font-bold text-[#7b6a52]">{location.city}, {location.region}</span>
+            {cloudyPreview && <PreviewCloudCue />}
+          </div>
           <div className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#7b6a52]/70">{status.detail}</div>
         </div>
         <div className="rounded-lg border border-[#15120c]/10 bg-white/55 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: status.dot }}>
@@ -347,17 +363,34 @@ function PowerLedgerTile({ device, data, selected = false, onClick }: TilePrevie
               <div className="text-[9px] font-black uppercase tracking-[0.18em] text-[#7b6a52]">Solar</div>
               <div className="mt-1 text-sm font-black tabular-nums">{formatWatts(data.solar.power)}</div>
             </div>
-            <div className="rounded-lg bg-[#15120c]/5 px-2.5 py-2">
+            <div className={`rounded-lg px-2.5 py-2 ${
+              noDirectLoadReading ? 'border border-[#f59e0b]/35 bg-[#f59e0b]/10' : 'bg-[#15120c]/5'
+            }`}>
               <div className="text-[9px] font-black uppercase tracking-[0.18em] text-[#7b6a52]">Load</div>
-              <div className="mt-1 text-sm font-black tabular-nums">{formatWatts(data.dcLoad)}</div>
+              <div className="mt-1 text-sm font-black tabular-nums">{noDirectLoadReading ? 'No read' : formatWatts(data.dcLoad)}</div>
+              {noDirectLoadReading && (
+                <div className="mt-0.5 text-[8px] font-black uppercase tracking-[0.16em] text-[#b45309]">
+                  Est. {formatWatts(data.dcLoad)}
+                </div>
+              )}
             </div>
           </div>
           <div className="rounded-lg bg-[#15120c]/5 px-2.5 py-2">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#7b6a52]">Coverage</span>
-              <span className="text-xs font-black tabular-nums">{loadRatio >= 1 ? `${loadRatio.toFixed(1)}x load` : 'Load draw'}</span>
+              <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#7b6a52]">Voltage</span>
+              <span className="text-xs font-black tabular-nums">{data.lastSeen === 0 ? 'Pending' : `${data.battery.voltage.toFixed(2)} V`}</span>
             </div>
-            <MiniSparkline values={data.sparkline} color="#b45309" />
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#7b6a52]">Battery Status</span>
+              <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.18em]" style={{ color: flow.color }}>
+                <span className={`h-1.5 w-1.5 rounded-full ${flow.active ? 'animate-pulse' : ''}`} style={{ background: flow.color, boxShadow: flow.active ? `0 0 12px ${flow.color}` : 'none' }} />
+                {flow.symbol}
+              </span>
+            </div>
+            <div className="relative mt-2 h-1.5 overflow-hidden rounded-full bg-[#15120c]/10">
+              <div className={`h-full rounded-full transition-all duration-700 ${flow.active ? 'animate-pulse' : ''}`} style={{ width: `${flowWidth}%`, background: flow.color, opacity: flow.active ? 0.86 : 0.48 }} />
+            </div>
+            <div className="mt-1 text-[9px] font-bold text-[#7b6a52]/70">{flow.detail}</div>
           </div>
         </div>
       </div>
@@ -497,9 +530,6 @@ function DashboardControlPreview() {
           <Search className="h-3.5 w-3.5 flex-shrink-0 text-slate-500" />
           <span className="truncate text-[11px] font-semibold text-slate-500">Search by name, site ID, city, state, zip, status...</span>
         </div>
-      </div>
-      <div className="mt-3 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
-        Preserved dashboard utilities: filter panel, search, theme, reading key, admin-only entry, and home navigation.
       </div>
     </div>
   );
@@ -660,7 +690,7 @@ function SignalDeckPreview({
             <div className="mb-3 flex items-center justify-between gap-3">
               <div className="text-[11px] font-bold uppercase tracking-[0.42em] text-[#67e8f9]">Fleet Pulse</div>
               <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-emerald-300">
-                4 Live / 1 Review / 1 Dark
+                4 Live / 1 Review / 1 Offline
               </div>
             </div>
             <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
@@ -767,7 +797,7 @@ function TerritoryBoardPreview({
             </div>
             <div className="absolute left-[12%] bottom-[9%] rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3">
               <div className="text-[9px] uppercase tracking-[0.35em] text-slate-400">West Slope</div>
-              <div className="mt-1 text-sm font-black text-white">1 dark site</div>
+              <div className="mt-1 text-sm font-black text-white">1 offline site</div>
             </div>
           </div>
         </div>
@@ -823,17 +853,17 @@ function ShiftBriefingPreview({
             Feels like the morning handoff deck for a field ops team.
           </h3>
           <p className="mt-4 text-sm leading-6 text-slate-300">
-            Instead of starting in a neutral grid, the landing page opens with a briefing: where you should look first, what changed since the last check-in, and which trailers are quietly stable.
+            Instead of starting in a neutral grid, the landing page opens with a briefing: where you should look first, what changed since the last check-in, and which trailers are safely above the 80% battery threshold.
           </p>
 
           <div className="mt-6 space-y-3">
             <div className="rounded-[24px] border border-white/10 bg-white/5 px-4 py-3">
               <div className="text-[9px] uppercase tracking-[0.35em] text-slate-400">Opening Line</div>
-              <div className="mt-2 text-lg font-black text-white">Four units are clean. One trailer needs recovery planning.</div>
+              <div className="mt-2 text-lg font-black text-white">Battery alerts and offline units move to the top of the handoff.</div>
             </div>
             <div className="rounded-[24px] border border-white/10 bg-white/5 px-4 py-3">
               <div className="text-[9px] uppercase tracking-[0.35em] text-slate-400">Operator Note</div>
-              <div className="mt-2 text-sm leading-6 text-slate-300">Style 02 Power Ledger tiles are selected for this concept so operators can compare battery, solar, load, and coverage like a clean field report.</div>
+              <div className="mt-2 text-sm leading-6 text-slate-300">Style 02 Power Ledger tiles are selected for this concept so operators can compare battery, solar, load, voltage, and review status without hiding low-reserve trailers.</div>
             </div>
           </div>
         </div>
@@ -842,7 +872,7 @@ function ShiftBriefingPreview({
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="text-[10px] uppercase tracking-[0.35em] text-slate-400">Briefing Lanes</div>
-              <div className="mt-2 text-2xl font-black text-white">Watch now, charging now, dark now.</div>
+              <div className="mt-2 text-2xl font-black text-white">Battery alerts, charging now, offline now.</div>
             </div>
             <div className="rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-amber-100">
               Style 02 selected
@@ -852,7 +882,7 @@ function ShiftBriefingPreview({
           <div className="space-y-4">
             <Lane label="Watch Now" tone="border-red-400/20 bg-red-400/10 text-red-100" devices={devices.slice(1, 3)} dataMap={dataMap} selectedId={selectedId} onSelect={onSelect} />
             <Lane label="Charging Strong" tone="border-emerald-400/20 bg-emerald-400/10 text-emerald-100" devices={[devices[0], devices[3], devices[5]]} dataMap={dataMap} selectedId={selectedId} onSelect={onSelect} />
-            <Lane label="Dark / No Data" tone="border-slate-300/20 bg-white/5 text-slate-100" devices={[devices[4]]} dataMap={dataMap} selectedId={selectedId} onSelect={onSelect} />
+            <Lane label="Offline / No Data" tone="border-slate-300/20 bg-white/5 text-slate-100" devices={[devices[4]]} dataMap={dataMap} selectedId={selectedId} onSelect={onSelect} />
           </div>
         </div>
       </div>

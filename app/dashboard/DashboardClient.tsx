@@ -24,86 +24,184 @@ interface Props {
   isAdmin: boolean;
 }
 
+type BriefingQueueKey = 'battery' | 'offline' | 'charging' | 'ready';
+
 type BriefingDeviceState = {
   device: Device;
   data: VRMData | null;
-  state: 'live' | 'watch' | 'dark';
+  state: 'ready' | 'battery' | 'offline';
   reason: string;
+  batterySoc: number | null;
+  staleMinutes: number | null;
 };
+
+const BATTERY_ALERT_SOC = 80;
+
+const BRIEFING_QUEUE_CONFIG: Record<BriefingQueueKey, {
+  label: string;
+  helper: string;
+  tone: string;
+  empty: string;
+}> = {
+  battery: {
+    label: 'Battery Attention',
+    helper: 'Live units below 80%',
+    tone: '#f59e0b',
+    empty: 'No live units are below the 80% battery threshold.',
+  },
+  offline: {
+    label: 'Offline',
+    helper: 'Stale or missing telemetry',
+    tone: '#fb7185',
+    empty: 'No offline or no-telemetry units right now.',
+  },
+  charging: {
+    label: 'Charging',
+    helper: 'Solar is covering load',
+    tone: '#38bdf8',
+    empty: 'No units are actively charging right now.',
+  },
+  ready: {
+    label: 'Ready',
+    helper: 'Live and at least 80%',
+    tone: '#22c55e',
+    empty: 'No units meet the ready threshold yet.',
+  },
+};
+
+function formatSoc(value: number | null) {
+  if (value === null) return 'No SOC';
+  return `${Number.isInteger(value) ? value : value.toFixed(1)}%`;
+}
+
+function isChargingData(data: VRMData) {
+  return data.battery.state === 1 || data.solar.power > data.dcLoad;
+}
 
 function getDeviceState(device: Device, data: VRMData | null, nowS: number): BriefingDeviceState {
   if (!data || data.lastSeen === 0) {
-    return { device, data, state: 'dark', reason: 'No telemetry yet' };
+    return { device, data, state: 'offline', reason: 'No telemetry yet', batterySoc: null, staleMinutes: null };
   }
 
   const staleSeconds = Math.max(0, nowS - data.lastSeen);
   const staleMinutes = Math.floor(staleSeconds / 60);
   if (staleSeconds > 15 * 60) {
-    return { device, data, state: 'watch', reason: `${staleMinutes}m stale` };
+    return { device, data, state: 'offline', reason: `${staleMinutes}m stale`, batterySoc: data.battery.soc, staleMinutes };
   }
-  if (data.battery.soc < 45) {
-    return { device, data, state: 'watch', reason: `${data.battery.soc}% battery` };
+  if (data.battery.soc < BATTERY_ALERT_SOC) {
+    return {
+      device,
+      data,
+      state: 'battery',
+      reason: `Battery below 80%: ${formatSoc(data.battery.soc)}`,
+      batterySoc: data.battery.soc,
+      staleMinutes,
+    };
   }
 
   return {
     device,
     data,
-    state: 'live',
-    reason: data.solar.power > data.dcLoad ? 'Power positive' : 'Stable telemetry',
+    state: 'ready',
+    reason: `${formatSoc(data.battery.soc)} battery`,
+    batterySoc: data.battery.soc,
+    staleMinutes,
   };
 }
 
 function buildBriefing(devices: Device[], dataMap: Record<string, VRMData | null>, nowS: number) {
   const states = devices.map((device) => getDeviceState(device, dataMap[device.siteId] ?? null, nowS));
-  const watch = states.filter((item) => item.state === 'watch');
-  const dark = states.filter((item) => item.state === 'dark');
-  const live = states.filter((item) => item.state === 'live');
-  const charging = states.filter((item) => (
-    item.data &&
-    item.state !== 'dark' &&
-    (item.data.battery.state === 1 || item.data.solar.power > item.data.dcLoad)
-  ));
-  const clean = live.filter((item) => item.data && item.data.battery.soc >= 60);
-  const priority = watch[0] ?? dark[0] ?? live[0] ?? null;
-  const opening = watch.length > 0
-    ? `${live.length} units are clean. ${watch.length} need review.`
-    : dark.length > 0
-      ? `${live.length} units are live. ${dark.length} waiting for first data.`
-      : `${live.length} units are clean. No recovery work queued.`;
+  const battery = states
+    .filter((item) => item.state === 'battery')
+    .sort((a, b) => (a.batterySoc ?? 999) - (b.batterySoc ?? 999));
+  const offline = states
+    .filter((item) => item.state === 'offline')
+    .sort((a, b) => (b.staleMinutes ?? 9999) - (a.staleMinutes ?? 9999));
+  const charging = states
+    .filter((item) => item.data && item.state !== 'offline' && isChargingData(item.data))
+    .sort((a, b) => (a.batterySoc ?? 999) - (b.batterySoc ?? 999));
+  const ready = states
+    .filter((item) => item.state === 'ready')
+    .sort((a, b) => (a.device.displayName ?? a.device.name).localeCompare(b.device.displayName ?? b.device.name));
+  const queues = { battery, offline, charging, ready };
+  const priority = battery[0] ?? offline[0] ?? charging[0] ?? ready[0] ?? null;
+  const alertParts = [
+    battery.length > 0 ? `${battery.length} battery ${battery.length === 1 ? 'alert' : 'alerts'}` : null,
+    offline.length > 0 ? `${offline.length} offline` : null,
+  ].filter(Boolean);
+  const opening = alertParts.length > 0
+    ? `${alertParts.join(' and ')}. ${ready.length} ready.`
+    : `${ready.length} units ready. No battery or offline alerts.`;
 
-  return { states, live, watch, dark, charging, clean, priority, opening };
+  return { states, queues, battery, offline, charging, ready, priority, opening };
+}
+
+function getDefaultBriefingQueue(briefing: ReturnType<typeof buildBriefing>): BriefingQueueKey {
+  if (briefing.battery.length > 0) return 'battery';
+  if (briefing.offline.length > 0) return 'offline';
+  if (briefing.charging.length > 0) return 'charging';
+  return 'ready';
 }
 
 function BriefingMetric({
   label,
-  value,
+  count,
   tone,
+  helper,
+  active,
   isLight,
+  onClick,
 }: {
   label: string;
-  value: string;
+  count: number;
   tone: string;
+  helper: string;
+  active: boolean;
   isLight: boolean;
+  onClick: () => void;
 }) {
   return (
-    <div className={`rounded-xl border px-4 py-3 ${isLight ? 'border-slate-200 bg-white/75' : 'border-white/10 bg-black/20'}`}>
-      <div className={`text-[9px] font-mono font-black uppercase tracking-[0.28em] ${isLight ? 'text-slate-500' : 'text-[#93c5fd]/45'}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={active}
+      className={`rounded-xl border px-4 py-3 text-left transition-all hover:-translate-y-px ${
+        active
+          ? isLight
+            ? 'border-slate-900 bg-slate-950 text-white shadow-[0_18px_40px_rgba(15,23,42,0.22)]'
+            : 'border-white/25 bg-white/[0.08] text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08)]'
+          : isLight
+            ? 'border-slate-200 bg-white/75 text-slate-950 hover:border-slate-400'
+            : 'border-white/10 bg-black/20 text-white hover:border-white/20'
+      }`}
+    >
+      <div className={`text-[9px] font-mono font-black uppercase tracking-[0.28em] ${
+        active ? 'text-white/60' : isLight ? 'text-slate-500' : 'text-[#93c5fd]/45'
+      }`}>
         {label}
       </div>
-      <div className="mt-2 text-2xl font-black tabular-nums" style={{ color: tone }}>{value}</div>
-    </div>
+      <div className="mt-2 text-2xl font-black tabular-nums" style={{ color: active ? '#ffffff' : tone }}>{count}</div>
+      <div className={`mt-1 text-[10px] font-bold ${active ? 'text-white/55' : isLight ? 'text-slate-500' : 'text-slate-500'}`}>
+        {helper}
+      </div>
+    </button>
   );
 }
 
 function ShiftBriefingPanel({
   briefing,
   isLight,
+  onOpenDevice,
 }: {
   briefing: ReturnType<typeof buildBriefing>;
   isLight: boolean;
+  onOpenDevice: (siteId: string) => void;
 }) {
-  const priorityName = briefing.priority ? (briefing.priority.device.displayName ?? briefing.priority.device.name) : 'No devices';
-  const priorityReason = briefing.priority?.reason ?? 'Waiting for assignments';
+  const [activeQueue, setActiveQueue] = useState<BriefingQueueKey>(() => getDefaultBriefingQueue(briefing));
+  const activeConfig = BRIEFING_QUEUE_CONFIG[activeQueue];
+  const activeItems = briefing.queues[activeQueue];
+  const priorityName = briefing.priority ? (briefing.priority.device.displayName ?? briefing.priority.device.name) : 'No devices assigned';
+  const priorityReason = briefing.priority?.reason ?? 'Waiting for telemetry';
 
   return (
     <section className={`mb-6 overflow-hidden rounded-2xl border p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)] ${
@@ -120,25 +218,77 @@ function ShiftBriefingPanel({
             {briefing.opening}
           </h2>
           <p className={`mt-3 max-w-2xl text-sm leading-6 ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>
-            Start with the action queue, then use filters and search below to narrow the fleet. Tiles now use the Power Ledger layout for faster battery, solar, load, and location review.
+            Ready means the unit is live and at or above 80% battery. Open an action queue below to jump straight to the trailer that needs attention.
           </p>
           <div className="mt-5 grid gap-3 sm:grid-cols-4">
-            <BriefingMetric label="Clean" value={`${briefing.clean.length}`} tone="#22c55e" isLight={isLight} />
-            <BriefingMetric label="Watch" value={`${briefing.watch.length}`} tone="#f59e0b" isLight={isLight} />
-            <BriefingMetric label="Charging" value={`${briefing.charging.length}`} tone="#38bdf8" isLight={isLight} />
-            <BriefingMetric label="Dark" value={`${briefing.dark.length}`} tone="#94a3b8" isLight={isLight} />
+            {(['battery', 'offline', 'charging', 'ready'] as BriefingQueueKey[]).map((key) => {
+              const config = BRIEFING_QUEUE_CONFIG[key];
+              return (
+                <BriefingMetric
+                  key={key}
+                  label={config.label}
+                  count={briefing.queues[key].length}
+                  tone={config.tone}
+                  helper={config.helper}
+                  active={activeQueue === key}
+                  isLight={isLight}
+                  onClick={() => setActiveQueue(key)}
+                />
+              );
+            })}
           </div>
         </div>
         <div className={`rounded-xl border p-4 ${isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-black/25'}`}>
           <div className={`text-[10px] font-black uppercase tracking-[0.28em] ${isLight ? 'text-slate-500' : 'text-[#93c5fd]/45'}`}>
-            First Look
+            Next Priority
           </div>
           <div className="mt-3 text-2xl font-black">{priorityName}</div>
           <div className={`mt-2 text-sm ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>{priorityReason}</div>
-          <div className={`mt-4 rounded-lg border px-3 py-2 text-[10px] font-mono uppercase tracking-[0.22em] ${
-            isLight ? 'border-slate-200 bg-white text-slate-600' : 'border-white/10 bg-white/[0.04] text-slate-400'
+          <div className={`mt-4 overflow-hidden rounded-lg border ${
+            isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-white/[0.04]'
           }`}>
-            Filters, search, theme, key, admin, and home controls remain active.
+            <div className={`flex items-center justify-between gap-3 border-b px-3 py-2 ${
+              isLight ? 'border-slate-200' : 'border-white/10'
+            }`}>
+              <span className="text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: activeConfig.tone }}>
+                {activeConfig.label}
+              </span>
+              <span className={`text-[10px] font-mono ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                {activeItems.length} unit{activeItems.length === 1 ? '' : 's'}
+              </span>
+            </div>
+            <div className="max-h-64 overflow-y-auto p-2">
+              {activeItems.length === 0 ? (
+                <div className={`px-3 py-4 text-sm ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                  {activeConfig.empty}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {activeItems.map((item) => (
+                    <button
+                      key={`${activeQueue}-${item.device.siteId}`}
+                      type="button"
+                      onClick={() => onOpenDevice(item.device.siteId)}
+                      className={`w-full rounded-md border px-3 py-2 text-left transition-colors ${
+                        isLight
+                          ? 'border-slate-200 bg-slate-50 hover:border-slate-400 hover:bg-white'
+                          : 'border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.07]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="truncate text-sm font-black">{item.device.displayName ?? item.device.name}</span>
+                        <span className="text-[10px] font-mono font-black tabular-nums" style={{ color: activeConfig.tone }}>
+                          {formatSoc(item.batterySoc)}
+                        </span>
+                      </div>
+                      <div className={`mt-1 text-xs ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                        {item.device.siteId} - {item.reason}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -239,6 +389,14 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin }: Pr
       setMobileView(next.length > 0 ? 'detail' : 'fleet');
       return next;
     });
+  };
+
+  const openSite = (siteId: string) => {
+    setSelectedIds(prev => prev.includes(siteId) ? prev : [...prev, siteId]);
+    setMobileView('detail');
+    setTimeout(() => {
+      document.querySelector(`[data-site-id="${siteId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
   };
 
   const closeAll = () => { setSelectedIds([]); setMobileView('fleet'); };
@@ -355,17 +513,19 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin }: Pr
 
         {devices.length > 1 && !hasMany && (
           <div className="space-y-6 pb-10">
-            <ShiftBriefingPanel briefing={briefing} isLight={isLight} />
+            <ShiftBriefingPanel briefing={briefing} isLight={isLight} onOpenDevice={openSite} />
             <FleetSummary devices={devices} dataMap={dataMap} />
             {devices.map(d => (
-              <NomadXECoreView key={d.siteId} device={d} initialData={dataMap[d.siteId] ?? null} displayName={displayNames[d.siteId] ?? null} onRename={handleRename} onData={handleDeviceData} />
+              <div key={d.siteId} data-site-id={d.siteId}>
+                <NomadXECoreView device={d} initialData={dataMap[d.siteId] ?? null} displayName={displayNames[d.siteId] ?? null} onRename={handleRename} onData={handleDeviceData} />
+              </div>
             ))}
           </div>
         )}
 
         {hasMany && (
           <>
-            <ShiftBriefingPanel briefing={briefing} isLight={isLight} />
+            <ShiftBriefingPanel briefing={briefing} isLight={isLight} onOpenDevice={openSite} />
             <FleetSummary devices={devices} dataMap={dataMap} />
             <div className="lg:hidden pb-10">
               {mobileView === 'detail' && (
@@ -400,7 +560,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin }: Pr
                     const device = devices.find(d => d.siteId === siteId);
                     if (!device) return null;
                     return (
-                      <div key={siteId} className="relative">
+                      <div key={siteId} data-site-id={siteId} className="relative">
                         <button onClick={() => toggleSite(siteId)} className="absolute top-3 right-3 z-10 w-6 h-6 rounded-md bg-[#080c14]/80 border border-[#1e3a5f] text-[#93c5fd]/40 hover:text-white hover:border-[#3b82f6]/50 text-xs flex items-center justify-center transition-all" title="Close">&#x2715;</button>
                         <NomadXECoreView device={device} initialData={dataMap[siteId] ?? null} displayName={displayNames[siteId] ?? null} onRename={handleRename} onData={handleDeviceData} />
                       </div>

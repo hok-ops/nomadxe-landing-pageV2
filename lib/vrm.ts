@@ -51,6 +51,7 @@ export interface VRMData {
     mpptStateLabel: string;
   };
   dcLoad: number;
+  hasDcLoadReading?: boolean;
   sparkline: number[];
   batterySparkline?: number[];
   /** GPS coordinates from the VRM GPS widget — null when unavailable */
@@ -568,7 +569,8 @@ export async function fetchVRMData(siteId: string): Promise<VRMData> {
   const records: unknown[] = (diagJson as any)?.records ?? [];
   const solarW = pick(records, A.SOLAR_W);
   const batteryW = pick(records, A.BATTERY_W);
-  const dcLoad = hasAttr(records, A.DC_SYSTEM)
+  const hasDcLoadReading = hasAttr(records, A.DC_SYSTEM);
+  const dcLoad = hasDcLoadReading
     ? pick(records, A.DC_SYSTEM)
     : deriveDCLoad(solarW, batteryW);
   const mpptStateRaw = pick(records, A.MPPT_STATE);
@@ -598,6 +600,7 @@ export async function fetchVRMData(siteId: string): Promise<VRMData> {
       mpptStateLabel: MPPT_LABELS[mpptStateRaw] ?? 'Off',
     },
     dcLoad,
+    hasDcLoadReading,
     sparkline,
     batterySparkline: extractSparkline(statsJson, A.BATTERY_SOC),
     lat: gps?.latitude ?? null,
