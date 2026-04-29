@@ -443,11 +443,11 @@ function buildRecommendations({
   items.push(recommendation(
     'efficiency',
     summary.efficiency.severity,
-    'Use adaptive telemetry cadence',
+    'Use adaptive monitoring pace',
     summary.efficiency.summary,
-    'Use incident cadence only while risk is active, then return to normal polling to preserve API budget and dashboard speed.',
+    'Use the faster refresh rate only while risk is active, then return to normal monitoring to preserve API budget and dashboard speed.',
     asset ? 88 : 62,
-    asset?.telemetryPlan.rules ?? ['Use normal cadence until richer signal history is available']
+    asset?.telemetryPlan.rules ?? ['Use normal monitoring until richer signal history is available']
   ));
 
   return items.sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity] || b.confidence - a.confidence);

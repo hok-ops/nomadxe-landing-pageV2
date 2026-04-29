@@ -226,8 +226,9 @@ function ShiftBriefingPanel({
   const [activeQueue, setActiveQueue] = useState<BriefingQueueKey>(() => getDefaultBriefingQueue(briefing));
   const activeConfig = BRIEFING_QUEUE_CONFIG[activeQueue];
   const activeItems = briefing.queues[activeQueue];
-  const priorityName = briefing.priority ? (briefing.priority.device.displayName ?? briefing.priority.device.name) : 'No devices assigned';
-  const priorityReason = briefing.priority?.reason ?? 'Waiting for telemetry';
+  const queueLead = activeItems[0] ?? briefing.priority;
+  const queueLeadName = queueLead ? (queueLead.device.displayName ?? queueLead.device.name) : 'No units in this queue';
+  const queueLeadReason = queueLead?.reason ?? activeConfig.empty;
 
   return (
     <section className={`mb-6 overflow-hidden rounded-2xl border p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)] ${
@@ -244,7 +245,7 @@ function ShiftBriefingPanel({
             {briefing.opening}
           </h2>
           <p className={`mt-3 max-w-2xl text-sm leading-6 ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>
-            Healthy means the unit is live, at or above 80% battery, and not missing a DC load signal. Open an action queue below to jump straight to the trailer that needs attention.
+            Pick a queue to filter the list on the right, then open the trailer that needs attention. Healthy means live, at least 80% battery, and a usable DC load signal.
           </p>
           <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             {(['battery', 'load', 'offline', 'charging', 'healthy'] as BriefingQueueKey[]).map((key) => {
@@ -266,10 +267,12 @@ function ShiftBriefingPanel({
         </div>
         <div className={`rounded-xl border p-4 ${isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-black/25'}`}>
           <div className={`text-[10px] font-black uppercase tracking-[0.28em] ${isLight ? 'text-slate-500' : 'text-[#93c5fd]/45'}`}>
-            Next Priority
+            Selected Queue
           </div>
-          <div className="mt-3 text-2xl font-black">{priorityName}</div>
-          <div className={`mt-2 text-sm ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>{priorityReason}</div>
+          <div className="mt-3 text-2xl font-black">{activeConfig.label}</div>
+          <div className={`mt-2 text-sm ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>
+            First unit: <span className="font-black">{queueLeadName}</span>. {queueLeadReason}
+          </div>
           <div className={`mt-4 overflow-hidden rounded-lg border ${
             isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-white/[0.04]'
           }`}>

@@ -161,6 +161,19 @@ a {
   background-color: rgba(248,250,252,0.94) !important;
 }
 
+/* Dashboard intelligence surfaces that use dark-mode gradient/arbitrary panels */
+[data-theme="light"] .nx-page [class*="bg-[linear-gradient"] {
+  background-image: none !important;
+  background-color: #ffffff !important;
+}
+[data-theme="light"] .nx-page [class*="bg-[#0b1323]"],
+[data-theme="light"] .nx-page [class*="bg-[#0c1425]"] {
+  background-color: #f8fafc !important;
+}
+[data-theme="light"] .nx-page [class*="bg-[#080c14]/"] {
+  background-color: rgba(248,250,252,0.92) !important;
+}
+
 /* Icon chip in empty state */
 [data-theme="light"] .nx-page .bg-\[\#1e3a5f\]\/30 {
   background-color: rgba(226,232,240,0.6) !important;
@@ -214,6 +227,8 @@ a {
 [data-theme="light"] .nx-page .text-\[\#93c5fd\]\/75  { color: #334155 !important; } /* slate-700 */
 [data-theme="light"] .nx-page .text-\[\#93c5fd\]\/80  { color: #1e293b !important; } /* slate-800  11.0:1 ✓ */
 [data-theme="light"] .nx-page .text-\[\#93c5fd\]      { color: #334155 !important; } /* slate-700 */
+[data-theme="light"] .nx-page [class*="text-white/"]  { color: #334155 !important; }
+[data-theme="light"] .nx-page [class*="text-[#bfdbfe]/"] { color: #475569 !important; }
 
 /* Role / device badge text in roster */
 [data-theme="light"] .nx-page .border-\[\#1e40af\]\/20 { border-color: rgba(37,99,235,0.2) !important; }

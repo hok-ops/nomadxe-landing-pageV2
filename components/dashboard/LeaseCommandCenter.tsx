@@ -185,6 +185,15 @@ export default function LeaseCommandCenter({
     : 'text-[#93c5fd]/58';
   const primaryText = isLight ? 'text-slate-950' : 'text-white';
   const bodyText = isLight ? 'text-slate-700' : 'text-[#bfdbfe]/72';
+  const ticketStatusLabel: Record<string, string> = {
+    received: 'Received',
+    triage: 'In review',
+    scheduled: 'Scheduled',
+    en_route: 'On the way',
+    blocked: 'Blocked',
+    completed: 'Completed',
+    cancelled: 'Cancelled',
+  };
 
   async function submitTicket() {
     const trimmed = description.trim();
@@ -207,7 +216,7 @@ export default function LeaseCommandCenter({
         return;
       }
       setDescription('');
-      setMessage('Service ticket created. NomadXE operations has the request.');
+      setMessage('Ticket created. It is now in the NomadXE operations queue and logged in the activity record.');
       onTicketCreated();
     } catch {
       setMessage('Network error. The service ticket was not created.');
@@ -302,9 +311,9 @@ export default function LeaseCommandCenter({
         <div className="space-y-4">
           <div className="grid gap-2.5 sm:grid-cols-4">
             <Metric label="Live Assets" value={`${liveCount}/${devices.length}`} detail="VRM telemetry inside the 15m live window" icon={RadioTower} tone={liveCount === devices.length ? 'normal' : 'watch'} />
-            <Metric label="Open Service" value={String(openTickets.length)} detail="Customer-visible tickets not completed" icon={Wrench} tone={openTickets.length > 0 ? 'watch' : 'normal'} />
-            <Metric label="Proof Events" value={String(proofCount)} detail="Recent operational evidence entries" icon={ClipboardCheck} tone="normal" />
-            <Metric label="Access Audits" value={String(auditCount)} detail="Remote access events in the audit trail" icon={LockKeyhole} tone="normal" />
+            <Metric label="Open Tickets" value={String(openTickets.length)} detail="Requests waiting on operations" icon={Wrench} tone={openTickets.length > 0 ? 'watch' : 'normal'} />
+            <Metric label="Activity Log" value={String(proofCount)} detail="Telemetry, ticket, service, and report evidence" icon={ClipboardCheck} tone="normal" />
+            <Metric label="Access Log" value={String(auditCount)} detail="Remote access requests and approvals" icon={LockKeyhole} tone="normal" />
           </div>
 
           <div className="grid gap-3 lg:grid-cols-2">
@@ -351,15 +360,41 @@ export default function LeaseCommandCenter({
             <div className={panelClass}>
               <div className={`flex items-center gap-2.5 text-[10px] font-black uppercase tracking-[0.24em] ${primaryText}`}>
                 <FileClock className="h-4 w-4 text-[#60a5fa]" />
-                Proof Of Service
+                Activity & Proof Log
               </div>
+              {openTickets.length > 0 && (
+                <div className={`mt-3 rounded-xl border px-3 py-3 ${isLight ? 'border-amber-200 bg-amber-50' : 'border-amber-500/20 bg-amber-500/10'}`}>
+                  <div className={`text-[9px] font-black uppercase tracking-[0.22em] ${isLight ? 'text-amber-700' : 'text-amber-300'}`}>Open Tickets</div>
+                  <div className="mt-2 space-y-2">
+                    {openTickets.slice(0, 3).map((ticket) => (
+                      <div key={ticket.id} className={`rounded-lg border px-3 py-2 ${isLight ? 'border-amber-200 bg-white' : 'border-amber-500/18 bg-[#080c14]/52'}`}>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className={`truncate text-sm font-black ${primaryText}`}>{ticket.title}</span>
+                          <span className={`text-[9px] font-mono font-black uppercase tracking-[0.16em] ${ticket.priority === 'urgent' ? 'text-rose-300' : isLight ? 'text-slate-500' : 'text-[#93c5fd]/54'}`}>
+                            {ticketStatusLabel[ticket.status] ?? ticket.status}
+                          </span>
+                        </div>
+                        <div className={`mt-1 text-[11px] leading-relaxed ${mutedText}`}>
+                          {(ticket.siteId ?? 'Assigned unit')} - {ticket.description}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="mt-3 space-y-2.5">
                 {visibleProofEvents.map((event) => {
                   const style = SEVERITY_STYLE[event.severity];
+                  const isTicketEvent = event.eventType === 'service' || Boolean((event.evidence as any)?.ticketId);
                   return (
                     <div key={event.id} className={`rounded-xl border ${style.border} ${style.bg} px-3 py-2.5`}>
                       <div className="flex items-center justify-between gap-3">
-                        <div className={`min-w-0 truncate text-sm font-bold ${primaryText}`}>{event.title}</div>
+                        <div className="min-w-0">
+                          <div className={`truncate text-sm font-bold ${primaryText}`}>{event.title}</div>
+                          <div className={`mt-0.5 text-[9px] font-mono font-black uppercase tracking-[0.16em] ${isTicketEvent ? 'text-amber-300' : isLight ? 'text-slate-500' : 'text-[#93c5fd]/45'}`}>
+                            {isTicketEvent ? 'Ticket Evidence' : event.eventType.replaceAll('_', ' ')}
+                          </div>
+                        </div>
                         <div className={`text-[9px] font-mono ${isLight ? 'text-slate-500' : 'text-[#bfdbfe]/54'}`}>{formatDate(event.occurredAt)}</div>
                       </div>
                       <div className={`mt-1 text-[11px] leading-relaxed ${isLight ? 'text-slate-700' : 'text-[#bfdbfe]/66'}`}>{event.summary}</div>
@@ -368,7 +403,7 @@ export default function LeaseCommandCenter({
                 })}
                 {operations.proofEvents.length === 0 && (
                   <div className={`${subPanelClass} text-[11px] leading-relaxed ${mutedText}`}>
-                    Proof events will appear after telemetry, service, monitoring, or access events are recorded.
+                    Activity records will appear after telemetry checks, tickets, reports, monitoring events, or access requests are recorded.
                   </div>
                 )}
               </div>
@@ -389,7 +424,7 @@ export default function LeaseCommandCenter({
           <div className={panelClass}>
             <div className={`flex items-center gap-2.5 text-[10px] font-black uppercase tracking-[0.24em] ${primaryText}`}>
               <Wrench className="h-4 w-4 text-amber-300" />
-              Request Service
+              Create Support Ticket
             </div>
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
               <select aria-label="Service request trailer" value={siteId} onChange={(event) => setSiteId(event.target.value)} className={`rounded-lg border px-3 py-2 text-xs font-bold outline-none focus:border-[#60a5fa] ${isLight ? 'border-slate-200 bg-white text-slate-950' : 'border-[#1e3a5f]/55 bg-[#080c14] text-white'}`}>
@@ -414,7 +449,7 @@ export default function LeaseCommandCenter({
             />
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
               <div className={`text-[10px] leading-relaxed ${isLight ? 'text-slate-500' : 'text-[#93c5fd]/48'}`}>
-                Tickets are validated server-side against your assigned trailer before creation.
+                A ticket goes to the NomadXE operations queue and is also written to the activity log.
               </div>
               <button
                 type="button"

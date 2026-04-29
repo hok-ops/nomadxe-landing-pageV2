@@ -1,6 +1,7 @@
 'use client';
 
 import { Activity, Brain, RadioTower, ShieldCheck } from 'lucide-react';
+import { useTheme } from '@/components/ThemeProvider';
 import type { VRMData } from '@/lib/vrm';
 import {
   assessAssetIntelligence,
@@ -23,48 +24,66 @@ export default function FleetIntelligenceBriefing({
   devices: IntelligenceDevice[];
   dataMap: Record<string, VRMData | null>;
 }) {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
   const assets = devices.map((device) => assessAssetIntelligence({ device, data: dataMap[device.siteId] ?? null }));
   const intelligence = assessFleetIntelligence(assets);
   const style = STYLES[intelligence.severity];
   const issueCount = intelligence.counts.watch + intelligence.counts.action + intelligence.counts.critical;
+  const shellClass = isLight
+    ? 'mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-[0_16px_44px_rgba(15,23,42,0.08)]'
+    : 'mb-6 overflow-hidden rounded-2xl border border-[#1e3a5f]/50 bg-[linear-gradient(180deg,rgba(8,12,20,0.78),rgba(10,16,30,0.92))]';
+  const dividerClass = isLight ? 'border-slate-200' : 'border-[#1e3a5f]/42';
+  const metricClass = isLight
+    ? 'rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5'
+    : 'rounded-xl border border-[#1e3a5f]/55 bg-[#080c14]/82 px-3 py-2.5';
+  const countClass = isLight
+    ? 'rounded-xl border bg-white px-3 py-2.5 text-center shadow-[0_6px_18px_rgba(15,23,42,0.04)]'
+    : 'rounded-xl border bg-[#080c14]/70 px-3 py-2.5 text-center';
+  const mutedText = isLight ? 'text-slate-600' : 'text-[#bfdbfe]/70';
+  const labelText = isLight ? 'text-slate-500' : 'text-[#93c5fd]/42';
+  const primaryText = isLight ? 'text-slate-950' : 'text-white';
+  const focusPanelClass = isLight
+    ? 'rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 xl:col-span-2'
+    : 'rounded-xl border border-[#1e3a5f]/40 bg-[#0b1323]/60 px-3 py-3 xl:col-span-2';
 
   return (
-    <section className="mb-6 overflow-hidden rounded-2xl border border-[#1e3a5f]/50 bg-[linear-gradient(180deg,rgba(8,12,20,0.78),rgba(10,16,30,0.92))]">
-      <div className="flex flex-col gap-4 border-b border-[#1e3a5f]/42 px-4 py-4 sm:px-5 xl:flex-row xl:items-start xl:justify-between">
+    <section className={shellClass}>
+      <div className={`flex flex-col gap-4 border-b px-4 py-4 sm:px-5 xl:flex-row xl:items-start xl:justify-between ${dividerClass}`}>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">
             <span className={`h-2 w-2 rounded-full ${style.dot}`} />
-            <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-white">Fleet Intelligence Briefing</h2>
+            <h2 className={`text-[11px] font-black uppercase tracking-[0.3em] ${primaryText}`}>Fleet Intelligence Briefing</h2>
             <span className={`rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.18em] ${style.badge}`}>
               {style.label}
             </span>
           </div>
-          <p className="mt-2 max-w-3xl text-[12px] leading-relaxed text-[#bfdbfe]/70">
+          <p className={`mt-2 max-w-3xl text-[12px] leading-relaxed ${mutedText}`}>
             {intelligence.headline}. {intelligence.briefing}
           </p>
         </div>
 
         <div className="grid min-w-[280px] grid-cols-3 gap-2">
-          <div className="rounded-xl border border-[#1e3a5f]/55 bg-[#080c14]/82 px-3 py-2.5">
-            <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.22em] text-[#93c5fd]/42">
+          <div className={metricClass}>
+            <div className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.22em] ${labelText}`}>
               <ShieldCheck className="h-3 w-3" />
               Trust
             </div>
-            <div className="mt-1 text-lg font-black tabular-nums text-white">{intelligence.fleetScore}%</div>
+            <div className={`mt-1 text-lg font-black tabular-nums ${primaryText}`}>{intelligence.fleetScore}%</div>
           </div>
-          <div className="rounded-xl border border-[#1e3a5f]/55 bg-[#080c14]/82 px-3 py-2.5">
-            <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.22em] text-[#93c5fd]/42">
+          <div className={metricClass}>
+            <div className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.22em] ${labelText}`}>
               <Activity className="h-3 w-3" />
               Watch
             </div>
             <div className={`mt-1 text-lg font-black tabular-nums ${issueCount > 0 ? 'text-amber-300' : 'text-emerald-300'}`}>{issueCount}</div>
           </div>
-          <div className="rounded-xl border border-[#1e3a5f]/55 bg-[#080c14]/82 px-3 py-2.5">
-            <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.22em] text-[#93c5fd]/42">
+          <div className={metricClass}>
+            <div className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.22em] ${labelText}`}>
               <RadioTower className="h-3 w-3" />
-              Cadence
+              Refresh Rate
             </div>
-            <div className="mt-1 text-lg font-black tabular-nums text-[#93c5fd]">{Math.round(intelligence.telemetryPlan.pollIntervalMs / 1000)}s</div>
+            <div className={`mt-1 text-lg font-black tabular-nums ${isLight ? 'text-blue-700' : 'text-[#93c5fd]'}`}>{Math.round(intelligence.telemetryPlan.pollIntervalMs / 1000)}s</div>
           </div>
         </div>
       </div>
@@ -72,9 +91,9 @@ export default function FleetIntelligenceBriefing({
       <div className="grid gap-4 px-4 py-4 sm:px-5 xl:grid-cols-[1fr_1.1fr]">
         <div className="grid grid-cols-4 gap-2">
           {(['normal', 'watch', 'action', 'critical'] as IntelligenceSeverity[]).map((severity) => (
-            <div key={severity} className={`rounded-xl border ${STYLES[severity].border} bg-[#080c14]/70 px-3 py-2.5 text-center`}>
+            <div key={severity} className={`${countClass} ${STYLES[severity].border}`}>
               <div className={`text-lg font-black tabular-nums ${STYLES[severity].text}`}>{intelligence.counts[severity]}</div>
-              <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#93c5fd]/42">{STYLES[severity].label}</div>
+              <div className={`text-[9px] font-bold uppercase tracking-[0.2em] ${labelText}`}>{STYLES[severity].label}</div>
             </div>
           ))}
         </div>
@@ -83,11 +102,11 @@ export default function FleetIntelligenceBriefing({
           {intelligence.priorityAssets.slice(0, 4).map((asset) => {
             const assetStyle = STYLES[asset.severity];
             return (
-              <div key={asset.siteId} className={`rounded-xl border ${assetStyle.border} bg-[#080c14]/70 px-3 py-3`}>
+              <div key={asset.siteId} className={`rounded-xl border ${assetStyle.border} ${isLight ? 'bg-white shadow-[0_6px_18px_rgba(15,23,42,0.04)]' : 'bg-[#080c14]/70'} px-3 py-3`}>
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-bold text-white">{asset.displayName}</div>
-                    <div className="mt-1 text-[10px] text-[#93c5fd]/50">{asset.power.reserveLabel} &middot; trust {asset.trustScore}%</div>
+                    <div className={`truncate text-sm font-bold ${primaryText}`}>{asset.displayName}</div>
+                    <div className={`mt-1 text-[10px] ${isLight ? 'text-slate-500' : 'text-[#93c5fd]/50'}`}>{asset.power.reserveLabel} &middot; trust {asset.trustScore}%</div>
                   </div>
                   <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.18em] ${assetStyle.badge}`}>
                     {assetStyle.label}
@@ -99,14 +118,14 @@ export default function FleetIntelligenceBriefing({
         </div>
 
         {intelligence.nextActions.length > 0 && (
-          <div className="rounded-xl border border-[#1e3a5f]/40 bg-[#0b1323]/60 px-3 py-3 xl:col-span-2">
-            <div className="flex items-center gap-2.5 text-[10px] font-black uppercase tracking-[0.24em] text-white">
+          <div className={focusPanelClass}>
+            <div className={`flex items-center gap-2.5 text-[10px] font-black uppercase tracking-[0.24em] ${primaryText}`}>
               <Brain className="h-4 w-4 text-[#60a5fa]" />
               Recommended Focus
             </div>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               {intelligence.nextActions.slice(0, 4).map((action) => (
-                <div key={action} className="text-[11px] leading-relaxed text-[#bfdbfe]/66">
+                <div key={action} className={`text-[11px] leading-relaxed ${isLight ? 'text-slate-700' : 'text-[#bfdbfe]/66'}`}>
                   {action}
                 </div>
               ))}

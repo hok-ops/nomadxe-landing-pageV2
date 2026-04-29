@@ -3,6 +3,7 @@ import { createAdminClient } from '@/utils/supabase/admin';
 import { redirect } from 'next/navigation';
 import { AdminLeftPanel } from './AdminLeftPanel';
 import { ManagedNetworkPanel } from './ManagedNetworkPanel';
+import { OperationsIntelligencePanel } from './OperationsIntelligencePanel';
 import { RosterTable } from './RosterTable';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -92,6 +93,33 @@ export default async function AdminDashboard({
   const { data: assignments } = await adminClient
     .from('device_assignments')
     .select(`id, user_id, device_id, vrm_devices(name, vrm_site_id)`);
+  const [
+    serviceTicketsResult,
+    historicalReportsResult,
+    recommendationsResult,
+    firmwareAdvisoriesResult,
+  ] = await Promise.all([
+    adminClient
+      .from('service_tickets')
+      .select('id, title, status, priority, type, description, created_at, vrm_devices(name, vrm_site_id)')
+      .order('created_at', { ascending: false })
+      .limit(12),
+    adminClient
+      .from('daily_intelligence_reports')
+      .select('id, report_date, status, summary, created_at, updated_at, vrm_devices(name, vrm_site_id)')
+      .order('report_date', { ascending: false })
+      .limit(12),
+    adminClient
+      .from('intelligence_recommendations')
+      .select('id, category, severity, status, title, summary, action, created_at, vrm_devices(name, vrm_site_id)')
+      .order('created_at', { ascending: false })
+      .limit(12),
+    adminClient
+      .from('firmware_config_advisories')
+      .select('id, severity, status, title, summary, product_name, firmware_version, created_at, vrm_devices(name, vrm_site_id)')
+      .order('created_at', { ascending: false })
+      .limit(12),
+  ]);
 
   const totalUsers = authUsers.length;
   const totalDevices = devices?.length || 0;
@@ -256,6 +284,13 @@ export default async function AdminDashboard({
             discoveredDevices={discoveredDeviceList}
           />
         </section>
+
+        <OperationsIntelligencePanel
+          tickets={(serviceTicketsResult.data ?? []) as any[]}
+          reports={(historicalReportsResult.data ?? []) as any[]}
+          recommendations={(recommendationsResult.data ?? []) as any[]}
+          firmwareAdvisories={(firmwareAdvisoriesResult.data ?? []) as any[]}
+        />
 
         <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(20rem,24rem)_minmax(0,1fr)]">
 

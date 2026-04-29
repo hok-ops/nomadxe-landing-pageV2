@@ -5,70 +5,6 @@
 -- validates ownership and creates a customer service ticket.
 -- ############################################################################
 
-CREATE OR REPLACE FUNCTION public.is_admin()
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public, pg_catalog
-AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.profiles p
-    WHERE p.id = auth.uid()
-      AND p.role = 'admin'
-      AND COALESCE(p.is_active, true) = true
-      AND COALESCE(p.status, 'active') = 'active'
-  );
-$$;
-
-REVOKE EXECUTE ON FUNCTION public.is_admin() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
-
-CREATE OR REPLACE FUNCTION public.user_can_access_vrm_device(target_device_id INTEGER)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public, pg_catalog
-AS $$
-  SELECT public.is_admin()
-    OR EXISTS (
-      SELECT 1
-      FROM public.device_assignments da
-      WHERE da.device_id = target_device_id
-        AND da.user_id = auth.uid()
-    );
-$$;
-
-CREATE OR REPLACE FUNCTION public.user_can_access_lease(target_lease_id UUID)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public, pg_catalog
-AS $$
-  SELECT public.is_admin()
-    OR EXISTS (
-      SELECT 1
-      FROM public.customer_leases cl
-      WHERE cl.id = target_lease_id
-        AND cl.customer_id = auth.uid()
-    )
-    OR EXISTS (
-      SELECT 1
-      FROM public.lease_assets la
-      JOIN public.device_assignments da ON da.device_id = la.vrm_device_id
-      WHERE la.lease_id = target_lease_id
-        AND da.user_id = auth.uid()
-    );
-$$;
-
-REVOKE EXECUTE ON FUNCTION public.user_can_access_vrm_device(INTEGER) FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION public.user_can_access_lease(UUID) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.user_can_access_vrm_device(INTEGER) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.user_can_access_lease(UUID) TO authenticated;
-
 CREATE TABLE IF NOT EXISTS public.customer_leases (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   customer_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
@@ -142,6 +78,70 @@ CREATE TABLE IF NOT EXISTS public.remote_access_audit_events (
   user_agent_hash TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now())
 );
+
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.id = auth.uid()
+      AND p.role = 'admin'
+      AND COALESCE(p.is_active, true) = true
+      AND COALESCE(p.status, 'active') = 'active'
+  );
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.is_admin() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.user_can_access_vrm_device(target_device_id INTEGER)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $$
+  SELECT public.is_admin()
+    OR EXISTS (
+      SELECT 1
+      FROM public.device_assignments da
+      WHERE da.device_id = target_device_id
+        AND da.user_id = auth.uid()
+    );
+$$;
+
+CREATE OR REPLACE FUNCTION public.user_can_access_lease(target_lease_id UUID)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $$
+  SELECT public.is_admin()
+    OR EXISTS (
+      SELECT 1
+      FROM public.customer_leases cl
+      WHERE cl.id = target_lease_id
+        AND cl.customer_id = auth.uid()
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM public.lease_assets la
+      JOIN public.device_assignments da ON da.device_id = la.vrm_device_id
+      WHERE la.lease_id = target_lease_id
+        AND da.user_id = auth.uid()
+    );
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.user_can_access_vrm_device(INTEGER) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.user_can_access_lease(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.user_can_access_vrm_device(INTEGER) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.user_can_access_lease(UUID) TO authenticated;
 
 CREATE INDEX IF NOT EXISTS idx_customer_leases_customer_status
   ON public.customer_leases (customer_id, status);

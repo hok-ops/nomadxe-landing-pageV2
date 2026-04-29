@@ -345,7 +345,7 @@ function buildTelemetryPlan(power: PowerRiskForecast, anomalies: RootCauseSignal
     pollIntervalMs: 5 * 60_000,
     captureWindowMinutes: 15,
     reason: 'All primary signals are inside expected operating ranges.',
-    rules: ['Keep current 5-minute VRM cadence', 'Use event-triggered escalation when risk changes', 'Avoid redundant high-frequency calls'],
+      rules: ['Keep the normal 5-minute VRM refresh rate', 'Use event-triggered escalation when risk changes', 'Avoid redundant high-frequency calls'],
   };
 }
 

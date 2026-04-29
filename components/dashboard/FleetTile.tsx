@@ -254,6 +254,27 @@ export default function FleetTile({ device, data, selected, hoverEnabled = true,
   const noData = lastSeenS === 0;
   const soc = data?.battery.soc ?? 0;
   const ledgerBattery = getLedgerBatteryTone(soc);
+  const tileShellClass = isLight
+    ? `relative w-full overflow-hidden rounded-xl border bg-white p-3.5 text-left text-slate-950 shadow-[0_12px_30px_rgba(15,23,42,0.08)] transition-all duration-200 focus:outline-none ${
+        effectiveHoverEnabled ? 'hover:-translate-y-px hover:border-blue-300 hover:shadow-[0_18px_42px_rgba(15,23,42,0.12)]' : ''
+      } ${
+        selected
+          ? 'border-blue-500 ring-4 ring-blue-500/18 shadow-[0_0_0_1px_rgba(37,99,235,0.38),0_18px_44px_rgba(37,99,235,0.14)]'
+          : 'border-slate-200'
+      }`
+    : `relative w-full overflow-hidden rounded-xl border bg-[#f7f1e6] p-3.5 text-left text-[#15120c] shadow-[0_16px_34px_rgba(0,0,0,0.22)] transition-all duration-200 focus:outline-none ${
+        effectiveHoverEnabled ? 'hover:-translate-y-px hover:shadow-[0_22px_44px_rgba(0,0,0,0.28)]' : ''
+      } ${
+        selected
+          ? 'border-[#2563eb] ring-4 ring-[#2563eb]/35 shadow-[0_0_0_1px_rgba(37,99,235,0.75),0_24px_54px_rgba(37,99,235,0.24)]'
+          : `border-[#d8cdb9] ${effectiveHoverEnabled ? 'hover:border-[#15120c]/35' : ''}`
+      }`;
+  const dividerClass = isLight ? 'border-slate-200' : 'border-[#15120c]/10';
+  const tileMuted = isLight ? 'text-slate-500' : 'text-[#7b6a52]';
+  const tileSubtle = isLight ? 'text-slate-500/85' : 'text-[#7b6a52]/75';
+  const tilePrimary = isLight ? 'text-slate-950' : 'text-[#15120c]';
+  const tileMetricClass = isLight ? 'rounded-lg bg-slate-50 px-2.5 py-2' : 'rounded-lg bg-[#15120c]/5 px-2.5 py-2';
+  const tileBarBg = isLight ? 'bg-slate-200' : 'bg-[#15120c]/10';
   const solarW = data?.solar.power ?? 0;
   const mpptLabel = data?.solar.mpptStateLabel ?? 'Off';
   const mpptColor = MPPT_LABEL_COLOR[mpptLabel] ?? '#4b5563';
@@ -324,22 +345,16 @@ export default function FleetTile({ device, data, selected, hoverEnabled = true,
         type="button"
         onClick={onClick}
         aria-pressed={selected}
-        className={`relative w-full overflow-hidden rounded-xl border bg-[#f7f1e6] p-3.5 text-left text-[#15120c] shadow-[0_16px_34px_rgba(0,0,0,0.22)] transition-all duration-200 focus:outline-none ${
-          effectiveHoverEnabled ? 'hover:-translate-y-px hover:shadow-[0_22px_44px_rgba(0,0,0,0.28)]' : ''
-        } ${
-          selected
-            ? 'border-[#2563eb] ring-4 ring-[#2563eb]/35 shadow-[0_0_0_1px_rgba(37,99,235,0.75),0_24px_54px_rgba(37,99,235,0.24)]'
-            : `border-[#d8cdb9] ${effectiveHoverEnabled ? 'hover:border-[#15120c]/35' : ''}`
-        }`}
+        className={tileShellClass}
       >
         {selected && (
           <span className="pointer-events-none absolute inset-x-3 top-0 h-1 rounded-b-full bg-[#2563eb] shadow-[0_0_18px_rgba(37,99,235,0.85)]" />
         )}
-        <div className="flex items-start justify-between gap-3 border-b border-[#15120c]/10 pb-3">
+        <div className={`flex items-start justify-between gap-3 border-b pb-3 ${dividerClass}`}>
           <div className="min-w-0">
-            <div className="text-[9px] font-black uppercase tracking-[0.26em] text-[#7b6a52]">{device.siteId}</div>
+            <div className={`text-[9px] font-black uppercase tracking-[0.26em] ${tileMuted}`}>{device.siteId}</div>
             <div className="mt-1 flex min-w-0 items-center gap-2">
-              <span className="truncate text-[17px] font-black text-[#15120c]">{device.displayName ?? device.name}</span>
+              <span className={`truncate text-[17px] font-black ${tilePrimary}`}>{device.displayName ?? device.name}</span>
               {selected && (
                 <span className="rounded-md border border-[#2563eb]/25 bg-[#2563eb] px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-white shadow-[0_0_12px_rgba(37,99,235,0.28)]">
                   Reviewing
@@ -347,16 +362,16 @@ export default function FleetTile({ device, data, selected, hoverEnabled = true,
               )}
             </div>
             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
-              <span className="truncate text-[11px] font-bold text-[#7b6a52]">{location}</span>
+              <span className={`truncate text-[11px] font-bold ${tileMuted}`}>{location}</span>
               {cloudyWeather && <CloudWeatherCue label={cloudyWeather.label} />}
             </div>
-            <div className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#7b6a52]/75">{syncAge}</div>
+            <div className={`mt-1 text-[10px] font-black uppercase tracking-[0.18em] ${tileSubtle}`}>{syncAge}</div>
           </div>
           <div className="flex flex-shrink-0 flex-col items-end gap-1.5">
-            <span className="rounded-lg border border-[#15120c]/10 bg-white/55 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: priorityColor }}>
+            <span className={`rounded-lg border px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.2em] ${isLight ? 'border-slate-200 bg-slate-50' : 'border-[#15120c]/10 bg-white/55'}`} style={{ color: priorityColor }}>
               {priorityLabel}
             </span>
-            <span className="rounded-md border border-[#15120c]/10 bg-[#15120c]/5 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em]" style={{ color: mpptColor }}>
+            <span className={`rounded-md border px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] ${isLight ? 'border-slate-200 bg-slate-50' : 'border-[#15120c]/10 bg-[#15120c]/5'}`} style={{ color: mpptColor }}>
               {mpptLabel}
             </span>
           </div>
@@ -365,24 +380,24 @@ export default function FleetTile({ device, data, selected, hoverEnabled = true,
         <div className="grid gap-3 pt-3 sm:grid-cols-[0.78fr_1fr]">
           <div>
             <div className="text-4xl font-black leading-none tabular-nums" style={{ color: ledgerBattery.color }}>{soc}%</div>
-            <div className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-[#7b6a52]">{ledgerBattery.label}</div>
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#15120c]/10">
+            <div className={`mt-1 text-[10px] font-black uppercase tracking-[0.22em] ${tileMuted}`}>{ledgerBattery.label}</div>
+            <div className={`mt-3 h-1.5 overflow-hidden rounded-full ${tileBarBg}`}>
               <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.max(0, Math.min(100, soc))}%`, background: ledgerBattery.color }} />
             </div>
           </div>
 
           <div className="space-y-2">
             <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-lg bg-[#15120c]/5 px-2.5 py-2">
-                <div className="text-[9px] font-black uppercase tracking-[0.18em] text-[#7b6a52]">Solar</div>
+              <div className={tileMetricClass}>
+                <div className={`text-[9px] font-black uppercase tracking-[0.18em] ${tileMuted}`}>Solar</div>
                 <div className="mt-1 text-sm font-black tabular-nums">{formatWatts(solarW)}</div>
               </div>
               <div className={`rounded-lg px-2.5 py-2 ${
                 loadSignalMissing
                   ? 'border border-[#f59e0b]/35 bg-[#f59e0b]/10'
-                  : 'bg-[#15120c]/5'
+                  : isLight ? 'bg-slate-50' : 'bg-[#15120c]/5'
               }`}>
-                <div className="text-[9px] font-black uppercase tracking-[0.18em] text-[#7b6a52]">Load</div>
+                <div className={`text-[9px] font-black uppercase tracking-[0.18em] ${tileMuted}`}>Load</div>
                 <div className="mt-1 text-sm font-black tabular-nums">{noData ? 'Pending' : loadSignalMissing ? 'No read' : formatWatts(dcLoadW)}</div>
                 {loadSignalMissing && (
                   <div className="mt-0.5 text-[8px] font-black uppercase tracking-[0.16em] text-[#b45309]">
@@ -391,15 +406,15 @@ export default function FleetTile({ device, data, selected, hoverEnabled = true,
                 )}
               </div>
             </div>
-            <div className="rounded-lg bg-[#15120c]/5 px-2.5 py-2">
+            <div className={tileMetricClass}>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#7b6a52]">Voltage</span>
+                <span className={`text-[9px] font-black uppercase tracking-[0.18em] ${tileMuted}`}>Voltage</span>
                 <span className="text-xs font-black tabular-nums">
                   {noData ? 'Pending' : `${batteryVoltage.toFixed(2)} V`}
                 </span>
               </div>
               <div className="mt-2 flex items-center justify-between gap-2">
-                <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#7b6a52]">Battery Status</span>
+                <span className={`text-[9px] font-black uppercase tracking-[0.18em] ${tileMuted}`}>Battery Status</span>
                 <span
                   className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.18em]"
                   style={{ color: batteryFlow.color }}
@@ -411,13 +426,13 @@ export default function FleetTile({ device, data, selected, hoverEnabled = true,
                   {batteryFlow.symbol}
                 </span>
               </div>
-              <div className="relative mt-2 h-1.5 overflow-hidden rounded-full bg-[#15120c]/10">
+              <div className={`relative mt-2 h-1.5 overflow-hidden rounded-full ${tileBarBg}`}>
                 <div
                   className={`h-full rounded-full transition-all duration-700 ${batteryFlow.active ? 'animate-pulse' : ''}`}
                   style={{ width: `${batteryFlowWidth}%`, background: batteryFlow.color, opacity: batteryFlow.active ? 0.86 : 0.48 }}
                 />
               </div>
-              <div className="mt-1 text-[9px] font-bold text-[#7b6a52]/70">{batteryFlow.detail}</div>
+              <div className={`mt-1 text-[9px] font-bold ${tileSubtle}`}>{batteryFlow.detail}</div>
             </div>
           </div>
         </div>
@@ -432,7 +447,7 @@ export default function FleetTile({ device, data, selected, hoverEnabled = true,
           <button
             type="submit"
             onClick={(event) => event.stopPropagation()}
-            className="mt-1.5 flex w-full items-center justify-center rounded-lg border border-[#1e3a5f] bg-[#08111f] px-3 py-2 text-[9px] font-mono font-bold uppercase tracking-[0.28em] text-[#22c55e]/80 hover:text-white hover:border-[#22c55e]/40 transition-colors"
+            className={`mt-1.5 flex w-full items-center justify-center rounded-lg border px-3 py-2 text-[9px] font-mono font-bold uppercase tracking-[0.28em] transition-colors ${isLight ? 'border-slate-200 bg-white text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50' : 'border-[#1e3a5f] bg-[#08111f] text-[#22c55e]/80 hover:text-white hover:border-[#22c55e]/40'}`}
           >
             Modem Login
           </button>
