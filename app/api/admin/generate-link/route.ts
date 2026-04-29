@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
   }
 
   const invitedUserId = data.user?.id;
-  console.log('[generate-link] generateLink OK:', { invitedUserId, email, type });
+  console.log('[generate-link] generateLink OK:', { invitedUserId, type });
 
   // Create the auth_tokens row using atomic RPC
   if (invitedUserId && (type === 'invite' || type === 'recovery')) {

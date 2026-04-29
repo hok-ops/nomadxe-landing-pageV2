@@ -13,9 +13,9 @@ export default function ActivateAccountPage() {
   const [sessionError, setSessionError] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const supabase = createClient();
 
   useEffect(() => {
+    const supabase = createClient();
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) setSessionError(true);
       setChecking(false);

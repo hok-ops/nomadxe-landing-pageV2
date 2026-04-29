@@ -5,7 +5,6 @@ import Link from 'next/link';
 import NomadXECoreView, { type VRMData } from '@/components/dashboard/NomadXECoreView';
 import FleetTile from '@/components/dashboard/FleetTile';
 import FleetFilter, { type FleetFilters, EMPTY_FILTERS, deviceMatchesFilters, hasActiveFilters } from '@/components/dashboard/FleetFilter';
-import FleetSummary from '@/components/dashboard/FleetSummary';
 import ReadingKey from '@/components/dashboard/ReadingKey';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useTheme } from '@/components/ThemeProvider';
@@ -24,12 +23,12 @@ interface Props {
   isAdmin: boolean;
 }
 
-type BriefingQueueKey = 'battery' | 'offline' | 'charging' | 'ready';
+type BriefingQueueKey = 'battery' | 'offline' | 'charging' | 'healthy';
 
 type BriefingDeviceState = {
   device: Device;
   data: VRMData | null;
-  state: 'ready' | 'battery' | 'offline';
+  state: 'healthy' | 'battery' | 'offline';
   reason: string;
   batterySoc: number | null;
   staleMinutes: number | null;
@@ -61,11 +60,11 @@ const BRIEFING_QUEUE_CONFIG: Record<BriefingQueueKey, {
     tone: '#38bdf8',
     empty: 'No units are actively charging right now.',
   },
-  ready: {
-    label: 'Ready',
+  healthy: {
+    label: 'Healthy',
     helper: 'Live and at least 80%',
     tone: '#22c55e',
-    empty: 'No units meet the ready threshold yet.',
+    empty: 'No units meet the healthy threshold yet.',
   },
 };
 
@@ -102,7 +101,7 @@ function getDeviceState(device: Device, data: VRMData | null, nowS: number): Bri
   return {
     device,
     data,
-    state: 'ready',
+    state: 'healthy',
     reason: `${formatSoc(data.battery.soc)} battery`,
     batterySoc: data.battery.soc,
     staleMinutes,
@@ -120,27 +119,27 @@ function buildBriefing(devices: Device[], dataMap: Record<string, VRMData | null
   const charging = states
     .filter((item) => item.data && item.state !== 'offline' && isChargingData(item.data))
     .sort((a, b) => (a.batterySoc ?? 999) - (b.batterySoc ?? 999));
-  const ready = states
-    .filter((item) => item.state === 'ready')
+  const healthy = states
+    .filter((item) => item.state === 'healthy')
     .sort((a, b) => (a.device.displayName ?? a.device.name).localeCompare(b.device.displayName ?? b.device.name));
-  const queues = { battery, offline, charging, ready };
-  const priority = battery[0] ?? offline[0] ?? charging[0] ?? ready[0] ?? null;
+  const queues = { battery, offline, charging, healthy };
+  const priority = battery[0] ?? offline[0] ?? charging[0] ?? healthy[0] ?? null;
   const alertParts = [
     battery.length > 0 ? `${battery.length} battery ${battery.length === 1 ? 'alert' : 'alerts'}` : null,
     offline.length > 0 ? `${offline.length} offline` : null,
   ].filter(Boolean);
   const opening = alertParts.length > 0
-    ? `${alertParts.join(' and ')}. ${ready.length} ready.`
-    : `${ready.length} units ready. No battery or offline alerts.`;
+    ? `${alertParts.join(' and ')}. ${healthy.length} healthy.`
+    : `${healthy.length} units healthy. No battery or offline alerts.`;
 
-  return { states, queues, battery, offline, charging, ready, priority, opening };
+  return { states, queues, battery, offline, charging, healthy, priority, opening };
 }
 
 function getDefaultBriefingQueue(briefing: ReturnType<typeof buildBriefing>): BriefingQueueKey {
   if (briefing.battery.length > 0) return 'battery';
   if (briefing.offline.length > 0) return 'offline';
   if (briefing.charging.length > 0) return 'charging';
-  return 'ready';
+  return 'healthy';
 }
 
 function BriefingMetric({
@@ -218,10 +217,10 @@ function ShiftBriefingPanel({
             {briefing.opening}
           </h2>
           <p className={`mt-3 max-w-2xl text-sm leading-6 ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>
-            Ready means the unit is live and at or above 80% battery. Open an action queue below to jump straight to the trailer that needs attention.
+            Healthy means the unit is live and at or above 80% battery. Open an action queue below to jump straight to the trailer that needs attention.
           </p>
           <div className="mt-5 grid gap-3 sm:grid-cols-4">
-            {(['battery', 'offline', 'charging', 'ready'] as BriefingQueueKey[]).map((key) => {
+            {(['battery', 'offline', 'charging', 'healthy'] as BriefingQueueKey[]).map((key) => {
               const config = BRIEFING_QUEUE_CONFIG[key];
               return (
                 <BriefingMetric
@@ -514,7 +513,6 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin }: Pr
         {devices.length > 1 && !hasMany && (
           <div className="space-y-6 pb-10">
             <ShiftBriefingPanel briefing={briefing} isLight={isLight} onOpenDevice={openSite} />
-            <FleetSummary devices={devices} dataMap={dataMap} />
             {devices.map(d => (
               <div key={d.siteId} data-site-id={d.siteId}>
                 <NomadXECoreView device={d} initialData={dataMap[d.siteId] ?? null} displayName={displayNames[d.siteId] ?? null} onRename={handleRename} onData={handleDeviceData} />
@@ -526,7 +524,6 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin }: Pr
         {hasMany && (
           <>
             <ShiftBriefingPanel briefing={briefing} isLight={isLight} onOpenDevice={openSite} />
-            <FleetSummary devices={devices} dataMap={dataMap} />
             <div className="lg:hidden pb-10">
               {mobileView === 'detail' && (
                 <div className="flex items-center justify-between mb-4">

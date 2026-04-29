@@ -161,12 +161,12 @@ function getStatus(data: VRMData) {
     dot: '#34d399',
     border: 'border-emerald-400/25',
     bg: 'bg-emerald-400/10',
-    priority: data.battery.soc < 80 ? 'Alert' : 'Ready',
+    priority: data.battery.soc < 80 ? 'Alert' : 'Healthy',
   };
 }
 
 function getBatteryTone(soc: number) {
-  if (soc >= 80) return { color: '#4ade80', label: 'Ready' };
+  if (soc >= 80) return { color: '#4ade80', label: 'Healthy' };
   if (soc >= 60) return { color: '#fbbf24', label: 'Alert' };
   if (soc >= 30) return { color: '#fb923c', label: 'Low' };
   return { color: '#fb7185', label: 'Critical' };

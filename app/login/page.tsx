@@ -39,8 +39,6 @@ export default async function LoginPage({
       .eq('id', user.id)
       .single();
 
-    console.log(`[AUTH] ${user.email} signed in — role: ${profile?.role || 'user'}`);
-
     return redirect(profile?.role === 'admin' ? '/admin' : '/dashboard');
   };
 

@@ -13,7 +13,7 @@ function getBatteryColor(soc: number, light: boolean) {
 }
 
 function getLedgerBatteryTone(soc: number) {
-  if (soc >= 80) return { color: '#22c55e', label: 'Ready battery' };
+  if (soc >= 80) return { color: '#22c55e', label: 'Healthy battery' };
   if (soc >= 60) return { color: '#f59e0b', label: 'Battery alert' };
   if (soc >= 30) return { color: '#fb923c', label: 'Low battery' };
   return { color: '#ef4444', label: 'Critical battery' };
@@ -260,7 +260,7 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
   const batteryFlowWidth = noData ? 100 : Math.max(18, Math.min(100, Math.abs(data?.battery.current ?? 0) * 5 + 18));
   const location = data?.location ?? 'Location pending';
   const syncAge = formatSyncAge(lastSeenS);
-  const priorityLabel = noData ? 'No Data' : isOffline ? 'Offline' : soc < 80 ? 'Alert' : 'Ready';
+  const priorityLabel = noData ? 'No Data' : isOffline ? 'Offline' : soc < 80 ? 'Alert' : 'Healthy';
   const priorityColor = noData ? '#64748b' : isOffline ? '#f43f5e' : soc < 80 ? '#f59e0b' : '#10b981';
   const cloudyWeather = tileWeather && isCloudyWeatherCode(tileWeather.code) ? tileWeather : null;
 

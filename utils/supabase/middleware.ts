@@ -5,7 +5,7 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isDashboardConceptLab = pathname === '/dashboard/concepts'
 
-  if (isDashboardConceptLab) {
+  if (isDashboardConceptLab && process.env.VERCEL !== '1') {
     return NextResponse.next({
       request: {
         headers: request.headers,
@@ -49,6 +49,7 @@ export async function updateSession(request: NextRequest) {
 
   const isDashboard = pathname.startsWith('/dashboard')
   const isAdmin     = pathname.startsWith('/admin')
+  const requiresAdmin = isAdmin || isDashboardConceptLab
   // /access/* proxies modem WebUI sessions — enforce auth at the middleware layer
   // in addition to the handler-level check, so a handler error returns 302 not 500.
   const isAccess    = pathname.startsWith('/access')
@@ -74,7 +75,7 @@ export async function updateSession(request: NextRequest) {
 
   // For /admin routes: verify admin role using service-role client.
   // Empty cookie handlers: uses service_role key only, bypasses user RLS context.
-  if (isAdmin && user) {
+  if (requiresAdmin && user) {
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
     if (!serviceKey) {
