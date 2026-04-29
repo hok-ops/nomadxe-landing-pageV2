@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { BarChart3, FileClock, RefreshCw, ShieldAlert } from 'lucide-react';
+import { BarChart3, Download, FileClock, RefreshCw, ShieldAlert } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 import type { HistoricalIntelligenceReport, HistoricalRecommendation, ReportSeverity } from '@/lib/historicalIntelligence';
 import type { DashboardDeviceRef } from '@/lib/leaseOperations';
@@ -67,6 +67,50 @@ function RecommendationRow({
   );
 }
 
+function downloadReportFile(report: HistoricalIntelligenceReport) {
+  const lines = [
+    `NomadXE Historical Intelligence Report`,
+    `Trailer: ${report.deviceName}`,
+    `Report date: ${report.reportDate}`,
+    `Generated: ${report.generatedAt}`,
+    `Status: ${report.status}`,
+    '',
+    'Curated Brief',
+    report.summary.narrative?.headline ?? `${report.deviceName} historical report`,
+    report.summary.narrative?.customerSummary ?? '',
+    report.summary.narrative?.operatorSummary ?? '',
+    '',
+    'Key Findings',
+    ...(report.summary.narrative?.keyFindings ?? []).map((item) => `- ${item}`),
+    '',
+    'Metrics',
+    ...(report.summary.metrics ?? []).map((item) => `- ${item.label}: ${item.value} | ${item.detail}`),
+    '',
+    'Recommendations',
+    ...report.recommendations.map((item) => [
+      `- [${SEVERITY_STYLE[item.severity].label}] ${CATEGORY_LABEL[item.category]} - ${item.title}`,
+      `  Summary: ${item.summary}`,
+      `  Action: ${item.action}`,
+      `  Evidence: ${item.evidence.join('; ') || 'No evidence listed'}`,
+    ].join('\n')),
+    '',
+    'Evidence Sources',
+    ...report.evidence.sources.map((item) => `- ${item}`),
+    '',
+    'History Windows',
+    ...report.evidence.historyWindows.map((item) => `- ${item}`),
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `nomadxe-historical-report-${report.siteId}-${report.reportDate}.txt`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export default function HistoricalIntelligencePanel({ devices }: { devices: DashboardDeviceRef[] }) {
   const { theme } = useTheme();
   const isLight = theme === 'light';
@@ -105,6 +149,8 @@ export default function HistoricalIntelligencePanel({ devices }: { devices: Dash
     () => (report?.recommendations ?? []).slice(0, 4),
     [report]
   );
+  const reportMetrics = report?.summary.metrics ?? [];
+  const narrative = report?.summary.narrative;
 
   async function generateReport() {
     if (!siteId) return;
@@ -145,7 +191,7 @@ export default function HistoricalIntelligencePanel({ devices }: { devices: Dash
             Historical Intelligence
           </div>
           <p className={`mt-2 max-w-2xl text-[11px] leading-relaxed ${mutedText}`}>
-            Daily report generated from VRM history, alarms, GPS, firmware inventory, lease visibility, and operations evidence.
+            Generate a curated trailer health brief from VRM history, alarms, GPS, firmware inventory, lease visibility, and operations evidence.
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row lg:min-w-[360px]">
@@ -166,12 +212,22 @@ export default function HistoricalIntelligencePanel({ devices }: { devices: Dash
             className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${isLight ? 'border-blue-200 bg-blue-600 text-white hover:bg-blue-700' : 'border-[#2563eb]/45 bg-[#1e40af]/28 text-[#bfdbfe] hover:border-[#60a5fa]/70 hover:text-white'}`}
           >
             <RefreshCw className={`h-3.5 w-3.5 ${generating ? 'animate-spin' : ''}`} />
-            {generating ? 'Generating' : 'Generate'}
+            {generating ? 'Generating' : 'Generate Brief'}
           </button>
+          {report && (
+            <button
+              type="button"
+              onClick={() => downloadReportFile(report)}
+              className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-colors ${isLight ? 'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:text-blue-700' : 'border-[#1e3a5f]/55 bg-[#080c14]/76 text-[#93c5fd]/70 hover:border-[#60a5fa]/55 hover:text-white'}`}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Download
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 lg:grid-cols-[0.85fr_1.15fr]">
+      <div className="mt-4 grid gap-3 lg:grid-cols-[0.9fr_1.1fr]">
         <div className={subPanelClass}>
           {report ? (
             <>
@@ -195,13 +251,16 @@ export default function HistoricalIntelligencePanel({ devices }: { devices: Dash
                 </div>
               </div>
               <div className={`mt-3 text-[11px] leading-relaxed ${mutedText}`}>
-                {report.summary.powerAutonomy.summary} {report.summary.visibilityRisk.summary}
+                {narrative?.customerSummary ?? `${report.summary.powerAutonomy.summary} ${report.summary.visibilityRisk.summary}`}
               </div>
               {report.evidence.exportLinks && (
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-3">
+                  <div className={`mb-1 text-[9px] font-black uppercase tracking-[0.18em] ${isLight ? 'text-slate-500' : 'text-[#93c5fd]/42'}`}>Raw VRM Downloads</div>
+                  <div className="flex flex-wrap gap-2">
                   <a href={report.evidence.exportLinks.csv7d} className="text-[10px] font-black uppercase tracking-[0.16em] text-[#60a5fa] hover:text-white">CSV 7d</a>
                   <a href={report.evidence.exportLinks.xlsx30d} className="text-[10px] font-black uppercase tracking-[0.16em] text-[#60a5fa] hover:text-white">XLSX 30d</a>
                   <a href={report.evidence.exportLinks.gpsKml7d} className="text-[10px] font-black uppercase tracking-[0.16em] text-[#60a5fa] hover:text-white">GPS KML</a>
+                  </div>
                 </div>
               )}
             </>
@@ -213,22 +272,47 @@ export default function HistoricalIntelligencePanel({ devices }: { devices: Dash
           {message && <div className={`mt-3 rounded-lg border px-3 py-2 text-[11px] ${isLight ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-[#1e3a5f]/38 bg-[#080c14]/58 text-[#bfdbfe]/70'}`}>{message}</div>}
         </div>
 
-        <div className="space-y-2">
-          {topRecommendations.length > 0 ? (
-            topRecommendations.map((item) => (
-              <RecommendationRow key={item.id} item={item} isLight={isLight} />
-            ))
-          ) : (
+        <div className="space-y-3">
+          {report && (
             <div className={subPanelClass}>
-              <div className={`flex items-center gap-2 text-sm font-black ${primaryText}`}>
-                <ShieldAlert className="h-4 w-4 text-[#60a5fa]" />
-                Waiting for report recommendations
-              </div>
-              <p className={`mt-2 text-[11px] leading-relaxed ${mutedText}`}>
-                The report engine will prioritize autonomy, visibility, alarms, monitoring coverage, firmware inventory, site-boundary confidence, and polling efficiency.
-              </p>
+              <div className={`text-[9px] font-black uppercase tracking-[0.22em] ${isLight ? 'text-slate-500' : 'text-[#93c5fd]/42'}`}>Curated Brief</div>
+              <div className={`mt-1 text-sm font-black leading-snug ${primaryText}`}>{narrative?.headline ?? `${report.deviceName} historical report`}</div>
+              <p className={`mt-2 text-[11px] leading-relaxed ${mutedText}`}>{narrative?.operatorSummary ?? 'Generate a fresh report to build operator guidance.'}</p>
             </div>
           )}
+
+          {reportMetrics.length > 0 && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {reportMetrics.slice(0, 6).map((metric) => {
+                const style = SEVERITY_STYLE[metric.severity];
+                return (
+                  <div key={metric.label} className={`rounded-lg border px-3 py-2.5 ${isLight ? 'border-slate-200 bg-white' : `${style.border} bg-[#080c14]/50`}`}>
+                    <div className={`text-[9px] font-black uppercase tracking-[0.2em] ${isLight ? 'text-slate-500' : 'text-[#93c5fd]/42'}`}>{metric.label}</div>
+                    <div className={`mt-1 text-lg font-black tabular-nums ${isLight ? 'text-slate-950' : 'text-white'}`}>{metric.value}</div>
+                    <div className={`mt-1 text-[10px] leading-relaxed ${isLight ? 'text-slate-600' : 'text-[#bfdbfe]/58'}`}>{metric.detail}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="space-y-2">
+            {topRecommendations.length > 0 ? (
+              topRecommendations.map((item) => (
+                <RecommendationRow key={item.id} item={item} isLight={isLight} />
+              ))
+            ) : (
+              <div className={subPanelClass}>
+                <div className={`flex items-center gap-2 text-sm font-black ${primaryText}`}>
+                  <ShieldAlert className="h-4 w-4 text-[#60a5fa]" />
+                  Waiting for report recommendations
+                </div>
+                <p className={`mt-2 text-[11px] leading-relaxed ${mutedText}`}>
+                  The report engine will prioritize autonomy, visibility, alarms, monitoring coverage, firmware inventory, site-boundary confidence, and monitoring pace.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

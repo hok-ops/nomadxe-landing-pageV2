@@ -27,6 +27,18 @@ export interface HistoricalRecommendation {
 export interface HistoricalReportSummary {
   overallSeverity: ReportSeverity;
   readinessScore: number;
+  narrative?: {
+    headline: string;
+    customerSummary: string;
+    operatorSummary: string;
+    keyFindings: string[];
+  };
+  metrics?: Array<{
+    label: string;
+    value: string;
+    detail: string;
+    severity: ReportSeverity;
+  }>;
   powerAutonomy: {
     severity: ReportSeverity;
     reserveLabel: string;
@@ -119,6 +131,11 @@ function maxSeverity(values: ReportSeverity[]) {
 function formatPct(value: number | null) {
   if (value == null || !Number.isFinite(value)) return 'unknown';
   return `${Math.round(value)}%`;
+}
+
+function formatKwh(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return 'unknown';
+  return `${value.toFixed(value < 10 ? 2 : 1)} kWh`;
 }
 
 function formatMinutes(value: number | null) {
@@ -312,10 +329,98 @@ function buildEfficiencySummary(asset: AssetIntelligence | null, details: VRMDet
   const mode = asset?.telemetryPlan.mode ?? 'normal';
   const severity = asset ? asReportSeverity(asset.severity) : 'watch';
   const summary = averageLoad == null
-    ? `Recommended polling mode is ${mode}; DC load history is not available for efficiency scoring.`
-    : `Recommended polling mode is ${mode}; average 24h DC load is ${Math.round(averageLoad)} W.`;
+    ? `Recommended monitoring pace is ${mode}; DC load history is not available for load-profile review.`
+    : `Recommended monitoring pace is ${mode}; average 24h DC load is ${Math.round(averageLoad)} W.`;
 
   return { severity, mode, summary };
+}
+
+function buildReportMetrics(summary: HistoricalReportSummary, details: VRMDetailData | null | undefined): NonNullable<HistoricalReportSummary['metrics']> {
+  return [
+    {
+      label: 'Battery Now',
+      value: formatPct(summary.powerAutonomy.socNow),
+      detail: summary.powerAutonomy.socTrendPctPerHour == null
+        ? 'No reliable SOC trend was available.'
+        : `${summary.powerAutonomy.socTrendPctPerHour > 0 ? '+' : ''}${summary.powerAutonomy.socTrendPctPerHour.toFixed(1)}% per hour trend.`,
+      severity: summary.powerAutonomy.severity,
+    },
+    {
+      label: 'Solar Today',
+      value: formatKwh(details?.overall.today.solarYieldKwh),
+      detail: `Load coverage: ${formatPct(summary.powerAutonomy.solarCoveragePct)} from available VRM history.`,
+      severity: summary.powerAutonomy.solarCoveragePct != null && summary.powerAutonomy.solarCoveragePct < 60 ? 'watch' : 'info',
+    },
+    {
+      label: 'Last Check-in',
+      value: formatMinutes(summary.visibilityRisk.lastSeenMinutes),
+      detail: summary.visibilityRisk.routerLinked ? 'Remote access path is linked.' : 'Remote access path is not linked.',
+      severity: summary.visibilityRisk.severity,
+    },
+    {
+      label: 'VRM Alarms',
+      value: summary.alarmCoverage.configuredCount == null ? 'unknown' : String(summary.alarmCoverage.configuredCount),
+      detail: summary.alarmCoverage.recipients == null
+        ? 'Alarm recipient detail unavailable.'
+        : `${summary.alarmCoverage.recipients} notification recipient(s) configured.`,
+      severity: summary.alarmCoverage.severity,
+    },
+    {
+      label: 'System Inventory',
+      value: summary.firmware.deviceCount == null ? 'unknown' : String(summary.firmware.deviceCount),
+      detail: `${summary.firmware.unknownVersions} device(s) have unknown firmware versions.`,
+      severity: summary.firmware.severity,
+    },
+    {
+      label: 'GPS Evidence',
+      value: summary.siteBoundary.hasGps ? summary.siteBoundary.label : 'Missing',
+      detail: summary.siteBoundary.summary,
+      severity: summary.siteBoundary.severity,
+    },
+  ];
+}
+
+function buildNarrative({
+  deviceName,
+  summary,
+  recommendations,
+}: {
+  deviceName: string;
+  summary: HistoricalReportSummary;
+  recommendations: HistoricalRecommendation[];
+}) {
+  const urgent = recommendations.filter((item) => SEVERITY_RANK[item.severity] >= SEVERITY_RANK.action);
+  const watch = recommendations.filter((item) => item.severity === 'watch');
+  const headline = summary.overallSeverity === 'critical'
+    ? `${deviceName} needs immediate review before this report is considered clear.`
+    : summary.overallSeverity === 'action'
+      ? `${deviceName} has action items that should be handled this shift.`
+      : summary.overallSeverity === 'watch'
+        ? `${deviceName} is operating with watch items.`
+        : `${deviceName} is operating inside expected historical bands.`;
+
+  const customerSummary = [
+    summary.powerAutonomy.summary,
+    summary.visibilityRisk.summary,
+    urgent.length > 0
+      ? `${urgent.length} action-level item${urgent.length === 1 ? '' : 's'} should be reviewed.`
+      : watch.length > 0
+        ? `${watch.length} watch item${watch.length === 1 ? '' : 's'} should remain visible.`
+        : 'No immediate customer-facing service issue was found in this report.',
+  ].join(' ');
+
+  const operatorSummary = recommendations.length > 0
+    ? `Primary operator focus: ${recommendations[0].action}`
+    : 'Operator focus: keep normal monitoring and regenerate the report after the next service or telemetry event.';
+
+  const keyFindings = [
+    `Power: ${summary.powerAutonomy.summary}`,
+    `Visibility: ${summary.visibilityRisk.summary}`,
+    `Alarms: ${summary.alarmCoverage.summary}`,
+    `Monitoring: ${summary.monitoring.summary}`,
+  ];
+
+  return { headline, customerSummary, operatorSummary, keyFindings };
 }
 
 function recommendation(
@@ -443,9 +548,9 @@ function buildRecommendations({
   items.push(recommendation(
     'efficiency',
     summary.efficiency.severity,
-    'Use adaptive monitoring pace',
+    'Use the appropriate monitoring pace',
     summary.efficiency.summary,
-    'Use the faster refresh rate only while risk is active, then return to normal monitoring to preserve API budget and dashboard speed.',
+    'Use faster refresh while a risk is active, then return to normal monitoring so the dashboard stays responsive and focused.',
     asset ? 88 : 62,
     asset?.telemetryPlan.rules ?? ['Use normal monitoring until richer signal history is available']
   ));
@@ -493,7 +598,7 @@ export function buildHistoricalIntelligenceReport({
     0,
     100
   );
-  const summary: HistoricalReportSummary = {
+  const summaryBase: HistoricalReportSummary = {
     overallSeverity,
     readinessScore,
     powerAutonomy,
@@ -504,7 +609,16 @@ export function buildHistoricalIntelligenceReport({
     firmware,
     efficiency,
   };
-  const recommendations = buildRecommendations({ summary, asset: asset ?? null, details });
+  const recommendations = buildRecommendations({ summary: summaryBase, asset: asset ?? null, details });
+  const summary: HistoricalReportSummary = {
+    ...summaryBase,
+    metrics: buildReportMetrics(summaryBase, details),
+    narrative: buildNarrative({
+      deviceName: device.displayName ?? device.name,
+      summary: summaryBase,
+      recommendations,
+    }),
+  };
   const partial = !details || !data;
 
   return {
