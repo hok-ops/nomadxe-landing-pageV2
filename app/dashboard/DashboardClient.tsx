@@ -6,6 +6,7 @@ import NomadXECoreView, { type VRMData } from '@/components/dashboard/NomadXECor
 import FleetTile from '@/components/dashboard/FleetTile';
 import FleetFilter, { type FleetFilters, EMPTY_FILTERS, deviceMatchesFilters, hasActiveFilters } from '@/components/dashboard/FleetFilter';
 import FleetIntelligenceBriefing from '@/components/dashboard/FleetIntelligenceBriefing';
+import FleetMapView from '@/components/dashboard/FleetMapView';
 import LeaseCommandCenter from '@/components/dashboard/LeaseCommandCenter';
 import ReadingKey from '@/components/dashboard/ReadingKey';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -578,6 +579,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin, leas
               onTicketCreated={handleTicketCreated}
             />
             <FleetIntelligenceBriefing devices={intelligenceDevices} dataMap={dataMap} onOpenDevice={openSite} />
+            <FleetMapView devices={intelligenceDevices} dataMap={dataMap} selectedId={selectedIds[0] ?? null} onSelect={openSite} />
             {devices.map(d => (
               <div key={d.siteId} data-site-id={d.siteId}>
                 <NomadXECoreView device={d} initialData={dataMap[d.siteId] ?? null} displayName={displayNames[d.siteId] ?? null} onRename={handleRename} onData={handleDeviceData} />
@@ -597,6 +599,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin, leas
               onTicketCreated={handleTicketCreated}
             />
             <FleetIntelligenceBriefing devices={intelligenceDevices} dataMap={dataMap} onOpenDevice={openSite} />
+            <FleetMapView devices={sortedDevices.map((device) => ({ ...device, displayName: displayNames[device.siteId] ?? device.displayName }))} dataMap={dataMap} selectedId={selectedIds[0] ?? null} onSelect={openSite} />
             <div className="lg:hidden pb-10">
               {mobileView === 'detail' && (
                 <div className="flex items-center justify-between mb-4">
