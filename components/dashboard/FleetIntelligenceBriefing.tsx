@@ -50,8 +50,8 @@ export default function FleetIntelligenceBriefing({
   const labelText = isLight ? 'text-slate-500' : 'text-[#93c5fd]/42';
   const primaryText = isLight ? 'text-slate-950' : 'text-white';
   const focusPanelClass = isLight
-    ? 'rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 xl:col-span-2'
-    : 'rounded-xl border border-[#1e3a5f]/40 bg-[#0b1323]/60 px-3 py-3 xl:col-span-2';
+    ? 'rounded-xl border border-slate-200 bg-slate-50 px-3 py-3'
+    : 'rounded-xl border border-[#1e3a5f]/40 bg-[#0b1323]/60 px-3 py-3';
   const assetReason = (asset: (typeof assets)[number]) => {
     const anomaly = asset.anomalies[0];
     if (anomaly) return `${anomaly.title} - ${anomaly.evidence[0] ?? `freshness ${asset.dataFreshnessScore}%`}`;
@@ -99,8 +99,8 @@ export default function FleetIntelligenceBriefing({
         </div>
       </div>
 
-      <div className="grid gap-4 px-4 py-4 sm:px-5 xl:grid-cols-[1fr_1.1fr]">
-        <div className="grid grid-cols-4 gap-2">
+      <div className="space-y-4 px-4 py-4 sm:px-5">
+        <div className="grid auto-rows-min grid-cols-2 gap-2 sm:grid-cols-4">
           {(['normal', 'watch', 'action', 'critical'] as IntelligenceSeverity[]).map((severity) => (
             <div key={severity} className={`${countClass} ${STYLES[severity].border}`}>
               <div className={`text-lg font-black tabular-nums ${STYLES[severity].text}`}>{intelligence.counts[severity]}</div>
@@ -109,39 +109,43 @@ export default function FleetIntelligenceBriefing({
           ))}
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2">
-          <div className={`sm:col-span-2 text-[10px] font-bold uppercase tracking-[0.22em] ${labelText}`}>
+        <div>
+          <div className={`text-[10px] font-bold uppercase tracking-[0.22em] ${labelText}`}>
             {priorityLabel}
             <span className={`ml-2 normal-case tracking-normal font-medium ${mutedText}`}>{priorityHelp}</span>
           </div>
           {issueCount === 0 && (
-            <div className={`sm:col-span-2 rounded-xl border px-3 py-3 text-[12px] leading-relaxed ${isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-500/20 bg-emerald-500/8 text-emerald-100/70'}`}>
+            <div className={`mt-2 rounded-xl border px-3 py-3 text-[12px] leading-relaxed ${isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-500/20 bg-emerald-500/8 text-emerald-100/70'}`}>
               All assigned units are inside expected reporting and power bands. Normal units are intentionally not listed here so this section stays exception-driven.
             </div>
           )}
-          {intelligence.priorityAssets.map((asset) => {
-            const assetStyle = STYLES[asset.severity];
-            const clickable = typeof onOpenDevice === 'function';
-            const CardTag = clickable ? 'button' : 'div';
-            return (
-              <CardTag
-                key={asset.siteId}
-                type={clickable ? 'button' : undefined}
-                onClick={clickable ? () => onOpenDevice(asset.siteId) : undefined}
-                className={`rounded-xl border text-left ${assetStyle.border} ${isLight ? 'bg-white shadow-[0_6px_18px_rgba(15,23,42,0.04)]' : 'bg-[#080c14]/70'} px-3 py-3 ${clickable ? 'transition-colors hover:border-[#3b82f6]/65 hover:bg-[#1e40af]/10' : ''}`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className={`truncate text-sm font-bold ${primaryText}`}>{asset.displayName}</div>
-                    <div className={`mt-1 text-[10px] ${isLight ? 'text-slate-500' : 'text-[#93c5fd]/50'}`}>{assetReason(asset)}</div>
-                  </div>
-                  <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.18em] ${assetStyle.badge}`}>
-                    {assetStyle.label}
-                  </span>
-                </div>
-              </CardTag>
-            );
-          })}
+          {issueCount > 0 && (
+            <div className="-mx-1 mt-2 flex snap-x gap-2 overflow-x-auto px-1 pb-1">
+              {intelligence.priorityAssets.map((asset) => {
+                const assetStyle = STYLES[asset.severity];
+                const clickable = typeof onOpenDevice === 'function';
+                const CardTag = clickable ? 'button' : 'div';
+                return (
+                  <CardTag
+                    key={asset.siteId}
+                    type={clickable ? 'button' : undefined}
+                    onClick={clickable ? () => onOpenDevice(asset.siteId) : undefined}
+                    className={`min-w-[270px] max-w-[340px] snap-start rounded-xl border text-left ${assetStyle.border} ${isLight ? 'bg-white shadow-[0_6px_18px_rgba(15,23,42,0.04)]' : 'bg-[#080c14]/70'} px-3 py-3 ${clickable ? 'transition-colors hover:border-[#3b82f6]/65 hover:bg-[#1e40af]/10' : ''}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className={`text-sm font-bold leading-snug ${primaryText}`}>{asset.displayName}</div>
+                        <div className={`mt-1 text-[10px] leading-relaxed ${isLight ? 'text-slate-500' : 'text-[#93c5fd]/50'}`}>{assetReason(asset)}</div>
+                      </div>
+                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.18em] ${assetStyle.badge}`}>
+                        {assetStyle.label}
+                      </span>
+                    </div>
+                  </CardTag>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {intelligence.nextActions.length > 0 && (

@@ -46,7 +46,7 @@ function RecommendationRow({
           <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] ${isLight ? 'border-slate-200 bg-slate-50 text-slate-600' : `${style.border} ${style.text}`}`}>
             {CATEGORY_LABEL[item.category]}
           </span>
-          <span className={`truncate text-sm font-black ${isLight ? 'text-slate-950' : 'text-white'}`}>{item.title}</span>
+          <span className={`text-sm font-black leading-snug ${isLight ? 'text-slate-950' : 'text-white'}`}>{item.title}</span>
         </div>
         <span className={`text-[9px] font-mono font-black uppercase tracking-[0.16em] ${isLight ? 'text-slate-500' : style.text}`}>
           {SEVERITY_STYLE[item.severity].label} - {item.confidence}%
@@ -194,12 +194,12 @@ export default function HistoricalIntelligencePanel({ devices }: { devices: Dash
             Generate a curated trailer health brief from VRM history, alarms, GPS, firmware inventory, lease visibility, and operations evidence.
           </p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row lg:min-w-[360px]">
+        <div className="grid w-full gap-2 sm:grid-cols-[minmax(180px,1fr)_auto_auto] lg:max-w-[640px]">
           <select
             aria-label="Historical report trailer"
             value={siteId}
             onChange={(event) => setSiteId(event.target.value)}
-            className={`min-w-0 flex-1 rounded-lg border px-3 py-2 text-xs font-bold outline-none focus:border-[#60a5fa] ${isLight ? 'border-slate-200 bg-white text-slate-950' : 'border-[#1e3a5f]/55 bg-[#080c14] text-white'}`}
+            className={`min-w-0 rounded-lg border px-3 py-2 text-xs font-bold outline-none focus:border-[#60a5fa] ${isLight ? 'border-slate-200 bg-white text-slate-950' : 'border-[#1e3a5f]/55 bg-[#080c14] text-white'}`}
           >
             {devices.map((device) => (
               <option key={device.siteId} value={device.siteId}>{device.displayName ?? device.name}</option>
@@ -209,7 +209,7 @@ export default function HistoricalIntelligencePanel({ devices }: { devices: Dash
             type="button"
             onClick={generateReport}
             disabled={generating || !siteId}
-            className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${isLight ? 'border-blue-200 bg-blue-600 text-white hover:bg-blue-700' : 'border-[#2563eb]/45 bg-[#1e40af]/28 text-[#bfdbfe] hover:border-[#60a5fa]/70 hover:text-white'}`}
+            className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${isLight ? 'border-blue-200 bg-blue-600 text-white hover:bg-blue-700' : 'border-[#2563eb]/45 bg-[#1e40af]/28 text-[#bfdbfe] hover:border-[#60a5fa]/70 hover:text-white'}`}
           >
             <RefreshCw className={`h-3.5 w-3.5 ${generating ? 'animate-spin' : ''}`} />
             {generating ? 'Generating' : 'Generate Brief'}
@@ -218,7 +218,7 @@ export default function HistoricalIntelligencePanel({ devices }: { devices: Dash
             <button
               type="button"
               onClick={() => downloadReportFile(report)}
-              className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-colors ${isLight ? 'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:text-blue-700' : 'border-[#1e3a5f]/55 bg-[#080c14]/76 text-[#93c5fd]/70 hover:border-[#60a5fa]/55 hover:text-white'}`}
+              className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-colors ${isLight ? 'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:text-blue-700' : 'border-[#1e3a5f]/55 bg-[#080c14]/76 text-[#93c5fd]/70 hover:border-[#60a5fa]/55 hover:text-white'}`}
             >
               <Download className="h-3.5 w-3.5" />
               Download
@@ -227,7 +227,7 @@ export default function HistoricalIntelligencePanel({ devices }: { devices: Dash
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 lg:grid-cols-[0.9fr_1.1fr]">
+      <div className="mt-4 grid gap-3 xl:grid-cols-[0.7fr_1.3fr]">
         <div className={subPanelClass}>
           {report ? (
             <>

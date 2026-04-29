@@ -55,6 +55,13 @@ export interface HistoricalReportSummary {
     routerLinked: boolean;
     summary: string;
   };
+  networkHealth: {
+    severity: ReportSeverity;
+    label: string;
+    managedCount: number;
+    observedCount: number;
+    summary: string;
+  };
   alarmCoverage: {
     severity: ReportSeverity;
     configuredCount: number | null;
@@ -261,6 +268,28 @@ function buildVisibilitySummary(device: DashboardDeviceRef, data: VRMData | null
   return { severity, label, lastSeenMinutes: roundNullable(lastSeenMinutes, 0), routerLinked, summary };
 }
 
+function buildNetworkSummary(asset: AssetIntelligence | null) {
+  const lan = asset?.readiness.components.find((component) => component.id === 'lan');
+  const detail = lan?.detail ?? 'No Teltonika/Cerbo LAN inventory has been reported yet.';
+  const managedMatch = detail.match(/(\d+)\s+managed/);
+  const observedMatch = detail.match(/(\d+)\s+LAN host/);
+  const managedCount = managedMatch ? Number(managedMatch[1]) : 0;
+  const observedCount = observedMatch ? Number(observedMatch[1]) : 0;
+  const severity = lan ? asReportSeverity(lan.status) : 'watch';
+  const label = severity === 'info'
+    ? 'Network covered'
+    : severity === 'action'
+      ? 'Network action'
+      : severity === 'critical'
+        ? 'Network critical'
+        : 'Network watch';
+  const summary = lan
+    ? `Teltonika/Cerbo network report: ${detail}.`
+    : 'Teltonika/Cerbo network reports are not available for this trailer yet.';
+
+  return { severity, label, managedCount, observedCount, summary };
+}
+
 function buildAlarmSummary(details: VRMDetailData | null | undefined) {
   if (!details) {
     return {
@@ -393,6 +422,12 @@ function buildReportMetrics(summary: HistoricalReportSummary, details: VRMDetail
       severity: summary.visibilityRisk.severity,
     },
     {
+      label: 'Network Report',
+      value: summary.networkHealth.label,
+      detail: summary.networkHealth.summary,
+      severity: summary.networkHealth.severity,
+    },
+    {
       label: 'VRM Alarms',
       value: summary.alarmCoverage.configuredCount == null ? 'unknown' : String(summary.alarmCoverage.configuredCount),
       detail: summary.alarmCoverage.recipients == null
@@ -443,6 +478,7 @@ function buildNarrative({
   const customerSummary = [
     summary.powerAutonomy.summary,
     summary.visibilityRisk.summary,
+    summary.networkHealth.summary,
     summary.weatherOutlook?.summary,
     urgent.length > 0
       ? `${urgent.length} action-level item${urgent.length === 1 ? '' : 's'} should be reviewed.`
@@ -458,6 +494,7 @@ function buildNarrative({
   const keyFindings = [
     `Power: ${summary.powerAutonomy.summary}`,
     `Visibility: ${summary.visibilityRisk.summary}`,
+    `Network: ${summary.networkHealth.summary}`,
     ...(summary.weatherOutlook ? [`Weather: ${summary.weatherOutlook.summary}`] : []),
     `Alarms: ${summary.alarmCoverage.summary}`,
     `Monitoring: ${summary.monitoring.summary}`,
@@ -636,6 +673,7 @@ export function buildHistoricalIntelligenceReport({
   const sourceWindowStart = new Date(nowMs - 24 * 60 * 60_000);
   const powerAutonomy = buildPowerSummary(data, details, asset ?? null);
   const visibilityRisk = buildVisibilitySummary(device, data, nowMs);
+  const networkHealth = buildNetworkSummary(asset ?? null);
   const alarmCoverage = buildAlarmSummary(details);
   const siteBoundary = buildBoundarySummary(data, details);
   const monitoring = buildMonitoringSummary(lease);
@@ -645,6 +683,7 @@ export function buildHistoricalIntelligenceReport({
   const overallSeverity = maxSeverity([
     powerAutonomy.severity,
     visibilityRisk.severity,
+    networkHealth.severity,
     alarmCoverage.severity,
     siteBoundary.severity,
     monitoring.severity,
@@ -662,6 +701,7 @@ export function buildHistoricalIntelligenceReport({
     readinessScore,
     powerAutonomy,
     visibilityRisk,
+    networkHealth,
     alarmCoverage,
     siteBoundary,
     monitoring,
@@ -696,6 +736,7 @@ export function buildHistoricalIntelligenceReport({
       sources: [
         data ? 'VRM diagnostics snapshot' : 'VRM diagnostics unavailable',
         details ? 'VRM 24h graph, alarm, GPS, firmware, and overall stats' : 'VRM detail history unavailable',
+        asset ? 'Teltonika/Cerbo LAN inventory and managed target status' : 'Teltonika/Cerbo network report unavailable',
         weatherForecast ? 'Open-Meteo GPS-based 24h weather and solar forecast' : 'Weather forecast unavailable',
         operations.dataSource === 'database' ? 'Linked lease operations records' : 'Telemetry-derived lease fallback',
       ],

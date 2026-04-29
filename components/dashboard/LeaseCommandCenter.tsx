@@ -307,9 +307,9 @@ export default function LeaseCommandCenter({
         </div>
       )}
 
-      {showDetails && <div className="grid gap-4 px-4 py-4 sm:px-5 xl:grid-cols-[1.05fr_0.95fr]">
+      {showDetails && <div className="grid gap-4 px-4 py-4 sm:px-5 2xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.45fr)]">
         <div className="space-y-4">
-          <div className="grid gap-2.5 sm:grid-cols-4">
+          <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
             <Metric label="Live Assets" value={`${liveCount}/${devices.length}`} detail="VRM telemetry inside the 15m live window" icon={RadioTower} tone={liveCount === devices.length ? 'normal' : 'watch'} />
             <Metric label="Open Tickets" value={String(openTickets.length)} detail="Requests waiting on operations" icon={Wrench} tone={openTickets.length > 0 ? 'watch' : 'normal'} />
             <Metric label="Activity Log" value={String(proofCount)} detail="Telemetry, ticket, service, and report evidence" icon={ClipboardCheck} tone="normal" />
@@ -369,7 +369,7 @@ export default function LeaseCommandCenter({
                     {openTickets.slice(0, 3).map((ticket) => (
                       <div key={ticket.id} className={`rounded-lg border px-3 py-2 ${isLight ? 'border-amber-200 bg-white' : 'border-amber-500/18 bg-[#080c14]/52'}`}>
                         <div className="flex items-center justify-between gap-3">
-                          <span className={`truncate text-sm font-black ${primaryText}`}>{ticket.title}</span>
+                          <span className={`text-sm font-black leading-snug ${primaryText}`}>{ticket.title}</span>
                           <span className={`text-[9px] font-mono font-black uppercase tracking-[0.16em] ${ticket.priority === 'urgent' ? 'text-rose-300' : isLight ? 'text-slate-500' : 'text-[#93c5fd]/54'}`}>
                             {ticketStatusLabel[ticket.status] ?? ticket.status}
                           </span>
@@ -390,7 +390,7 @@ export default function LeaseCommandCenter({
                     <div key={event.id} className={`rounded-xl border ${style.border} ${style.bg} px-3 py-2.5`}>
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <div className={`truncate text-sm font-bold ${primaryText}`}>{event.title}</div>
+                          <div className={`text-sm font-bold leading-snug ${primaryText}`}>{event.title}</div>
                           <div className={`mt-0.5 text-[9px] font-mono font-black uppercase tracking-[0.16em] ${isTicketEvent ? 'text-amber-300' : isLight ? 'text-slate-500' : 'text-[#93c5fd]/45'}`}>
                             {isTicketEvent ? 'Ticket Evidence' : event.eventType.replaceAll('_', ' ')}
                           </div>

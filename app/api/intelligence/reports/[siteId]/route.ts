@@ -35,6 +35,59 @@ async function loadDevice(siteId: string) {
   return { adminClient, device: ref, error: null };
 }
 
+async function loadNetworkInventory(adminClient: ReturnType<typeof createAdminClient>, vrmDeviceId: number) {
+  const [managedResult, discoveredResult] = await Promise.all([
+    adminClient
+      .from('managed_network_devices')
+      .select('id, vrm_device_id, name, ip_address, alert_on_offline, is_active, last_status, last_reported_at, last_change_at, last_latency_ms, last_detail')
+      .eq('vrm_device_id', vrmDeviceId)
+      .eq('is_active', true),
+    adminClient
+      .from('discovered_network_devices')
+      .select('id, vrm_device_id, ip_address, mac_address, hostname, last_status, first_seen_at, last_seen_at, last_latency_ms, last_detail, is_ignored')
+      .eq('vrm_device_id', vrmDeviceId)
+      .eq('is_ignored', false),
+  ]);
+
+  if (managedResult.error) {
+    console.warn('[historical-report] managed network lookup failed:', managedResult.error.message);
+  }
+  if (discoveredResult.error) {
+    console.warn('[historical-report] discovered network lookup failed:', discoveredResult.error.message);
+  }
+
+  const managedDevices = (managedResult.data ?? []).map((device: any) => ({
+    id: Number(device.id),
+    vrmDeviceId: Number(device.vrm_device_id),
+    name: String(device.name ?? device.ip_address),
+    ipAddress: String(device.ip_address),
+    alertOnOffline: Boolean(device.alert_on_offline),
+    isActive: Boolean(device.is_active),
+    lastStatus: device.last_status ?? 'unknown',
+    lastReportedAt: device.last_reported_at ?? null,
+    lastChangeAt: device.last_change_at ?? null,
+    lastLatencyMs: typeof device.last_latency_ms === 'number' ? device.last_latency_ms : null,
+    lastDetail: device.last_detail ?? null,
+  }));
+  const managedKeys = new Set(managedDevices.map((device) => `${device.vrmDeviceId}:${device.ipAddress}`));
+  const discoveredDevices = (discoveredResult.data ?? []).map((device: any) => ({
+    id: Number(device.id),
+    vrmDeviceId: Number(device.vrm_device_id),
+    ipAddress: String(device.ip_address),
+    macAddress: device.mac_address ?? null,
+    hostname: device.hostname ?? null,
+    lastStatus: device.last_status ?? 'unknown',
+    firstSeenAt: String(device.first_seen_at),
+    lastSeenAt: String(device.last_seen_at),
+    lastLatencyMs: typeof device.last_latency_ms === 'number' ? device.last_latency_ms : null,
+    lastDetail: device.last_detail ?? null,
+    isIgnored: Boolean(device.is_ignored),
+    isManaged: managedKeys.has(`${Number(device.vrm_device_id)}:${String(device.ip_address)}`),
+  }));
+
+  return { managedDevices, discoveredDevices };
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ siteId: string }> }
@@ -111,7 +164,14 @@ export async function POST(
   const weatherForecast = lat != null && lon != null
     ? await fetchWeatherForecast(lat, lon)
     : null;
-  const asset = assessAssetIntelligence({ device, data, details });
+  const networkInventory = await loadNetworkInventory(adminClient, device.dbId);
+  const asset = assessAssetIntelligence({
+    device,
+    data,
+    details,
+    managedDevices: networkInventory.managedDevices,
+    discoveredDevices: networkInventory.discoveredDevices,
+  });
   const operations = await fetchLeaseOperationsForDashboard({
     userId: access.userId,
     devices: [device],
