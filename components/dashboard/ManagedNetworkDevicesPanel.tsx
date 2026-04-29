@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   cellularSignalTone,
   getManagedDeviceSummary,
@@ -142,7 +142,16 @@ export default function ManagedNetworkDevicesPanel({
   const [cellularReport, setCellularReport] = useState<CellularSignalReport | null>(null);
   const [cellularMessage, setCellularMessage] = useState<string | null>(null);
   const [requestingCellular, setRequestingCellular] = useState(false);
+  const [cellularRequestWatchUntil, setCellularRequestWatchUntil] = useState<number | null>(null);
   const pageActive = usePageActivity();
+
+  const loadCellularReport = useCallback(async () => {
+    const cellularResponse = await fetch(`/api/devices/${siteId}/cellular-report`, { cache: 'no-store' });
+    if (!cellularResponse.ok) return false;
+    const cellularPayload = await cellularResponse.json();
+    setCellularReport(cellularPayload.report ?? null);
+    return Boolean(cellularPayload.report);
+  }, [siteId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -166,11 +175,7 @@ export default function ManagedNetworkDevicesPanel({
           managedDevices: nextManagedDevices,
           discoveredDevices: nextDiscoveredDevices,
         });
-        const cellularResponse = await fetch(`/api/devices/${siteId}/cellular-report`, { cache: 'no-store' });
-        if (cellularResponse.ok) {
-          const cellularPayload = await cellularResponse.json();
-          if (!cancelled) setCellularReport(cellularPayload.report ?? null);
-        }
+        if (!cancelled) await loadCellularReport();
       } catch {
         if (!cancelled) setLoadError('Network error while loading LAN inventory.');
       } finally {
@@ -184,7 +189,30 @@ export default function ManagedNetworkDevicesPanel({
       cancelled = true;
       clearInterval(id);
     };
-  }, [siteId, onInventoryChange, pageActive]);
+  }, [siteId, onInventoryChange, pageActive, loadCellularReport]);
+
+  useEffect(() => {
+    if (!cellularRequestWatchUntil || !pageActive) return;
+    let cancelled = false;
+
+    const id = setInterval(async () => {
+      if (Date.now() > cellularRequestWatchUntil) {
+        setCellularRequestWatchUntil(null);
+        return;
+      }
+
+      const found = await loadCellularReport().catch(() => false);
+      if (!cancelled && found) {
+        setCellularMessage('Router signal metrics received and updated.');
+        setCellularRequestWatchUntil(null);
+      }
+    }, 10_000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [cellularRequestWatchUntil, loadCellularReport, pageActive]);
 
   const managedByKey = new Map(managedDevices.map((device) => [deviceKey(device), device]));
   const orderedObserved = [...discoveredDevices].sort(sortObservedDevices);
@@ -214,7 +242,14 @@ export default function ManagedNetworkDevicesPanel({
         setCellularMessage(payload?.error ?? 'Could not request the cellular signal reading.');
         return;
       }
-      setCellularMessage('Cellular signal reading requested. The latest values will appear after the router/RMS reporter posts them.');
+      setCellularRequestWatchUntil(Date.now() + 90_000);
+      setCellularMessage(
+        payload?.warning ??
+        (payload?.automationQueued
+          ? 'Router signal reading requested. Waiting for SINR, RSRP, RSRQ, and RSSI to post back.'
+          : 'Router signal reading was logged. Automation is not configured yet, so metrics will appear after a collector posts them.')
+      );
+      void loadCellularReport();
     } catch {
       setCellularMessage('Network error while requesting the cellular signal reading.');
     } finally {

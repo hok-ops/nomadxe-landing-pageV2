@@ -60,7 +60,9 @@ export async function POST(request: Request) {
     }
 
     const body = (await request.json()) as CerboNetworkScanPayload;
-    if (!body?.vrmSiteId || !Array.isArray(body.devices)) {
+    const reports = Array.isArray(body.devices) ? body.devices : [];
+    const hasCellularReport = body.cellular && typeof body.cellular === 'object';
+    if (!body?.vrmSiteId || (!hasCellularReport && reports.length === 0)) {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
 
@@ -108,22 +110,25 @@ export async function POST(request: Request) {
       ])
     );
 
-    if (body.cellular && typeof body.cellular === 'object') {
+    let cellularInserted = false;
+
+    if (hasCellularReport) {
+      const cellular = body.cellular!;
       const observedCellular = {
         vrm_device_id: vrmDeviceRow.id,
         observed_at: observedAt,
-        source: ['cerbo', 'teltonika_rms', 'router_api', 'manual'].includes(String(body.cellular.source))
-          ? body.cellular.source
+        source: ['cerbo', 'teltonika_rms', 'router_api', 'manual'].includes(String(cellular.source))
+          ? cellular.source
           : 'cerbo',
-        operator: capText(body.cellular.operator, 120),
-        network_type: capText(body.cellular.networkType, 64),
-        band: capText(body.cellular.band, 64),
-        rssi_dbm: finiteNumber(body.cellular.rssiDbm),
-        rsrp_dbm: finiteNumber(body.cellular.rsrpDbm),
-        rsrq_db: finiteNumber(body.cellular.rsrqDb),
-        sinr_db: finiteNumber(body.cellular.sinrDb),
-        connection_state: capText(body.cellular.connectionState, 120),
-        detail: capText(body.cellular.detail, 500),
+        operator: capText(cellular.operator, 120),
+        network_type: capText(cellular.networkType, 64),
+        band: capText(cellular.band, 64),
+        rssi_dbm: finiteNumber(cellular.rssiDbm),
+        rsrp_dbm: finiteNumber(cellular.rsrpDbm),
+        rsrq_db: finiteNumber(cellular.rsrqDb),
+        sinr_db: finiteNumber(cellular.sinrDb),
+        connection_state: capText(cellular.connectionState, 120),
+        detail: capText(cellular.detail, 500),
       };
 
       const hasSignalValue = [
@@ -140,6 +145,8 @@ export async function POST(request: Request) {
 
         if (cellularError) {
           console.error('[cerbo-network-scan] cellular report insert error:', cellularError.message);
+        } else {
+          cellularInserted = true;
         }
       }
     }
@@ -221,7 +228,7 @@ export async function POST(request: Request) {
       return true;
     };
 
-    for (const report of body.devices) {
+    for (const report of reports) {
       const ipAddress = String(report.ipAddress ?? '').trim();
       const status = report.status;
       if (!ipAddress || !isReportedStatus(status)) {
@@ -319,6 +326,7 @@ export async function POST(request: Request) {
       updated,
       markedOffline,
       scanMode: isFullScan ? 'full' : 'targets',
+      cellularInserted,
       ignored,
     });
   } catch (error) {

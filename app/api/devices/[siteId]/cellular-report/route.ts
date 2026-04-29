@@ -5,6 +5,8 @@ import { createAdminClient } from '@/utils/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
+const WEBHOOK_TIMEOUT_MS = 10_000;
+
 function mapCellularReport(row: any) {
   if (!row) return null;
   return {
@@ -28,12 +30,86 @@ async function loadDevice(siteId: string) {
   const adminClient = createAdminClient();
   const { data: device, error } = await adminClient
     .from('vrm_devices')
-    .select('id, name, display_name')
+    .select('id, vrm_site_id, name, display_name, teltonika_rms_device_id, router_access_url')
     .eq('vrm_site_id', siteId)
     .maybeSingle();
 
   if (error || !device) return { adminClient, device: null, error: error?.message ?? 'Device not found' };
   return { adminClient, device, error: null };
+}
+
+function getRouterReportWebhookUrl() {
+  return process.env.MAKE_CELLULAR_REPORT_WEBHOOK_URL ?? process.env.MAKE_NETWORK_ALERT_WEBHOOK_URL ?? null;
+}
+
+async function dispatchRouterReportRequest({
+  request,
+  device,
+  ticketId,
+  userId,
+}: {
+  request: NextRequest;
+  device: any;
+  ticketId: string;
+  userId: string;
+}) {
+  const webhookUrl = getRouterReportWebhookUrl();
+  if (!webhookUrl) {
+    return { queued: false, warning: 'Router report request was logged, but MAKE_CELLULAR_REPORT_WEBHOOK_URL is not configured.' };
+  }
+
+  const siteUrl = (process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? request.nextUrl.origin).replace(/\/$/, '');
+  const payload = {
+    eventType: 'cellular_signal_report_requested',
+    requestedAt: new Date().toISOString(),
+    ticketId,
+    requestedByUserId: userId,
+    vrmSiteId: String(device.vrm_site_id),
+    vrmDeviceId: Number(device.id),
+    trailerName: device.display_name ?? device.name,
+    teltonikaRmsDeviceId: device.teltonika_rms_device_id ? String(device.teltonika_rms_device_id) : null,
+    routerAccessUrl: device.router_access_url ?? null,
+    callback: {
+      url: `${siteUrl}/api/cerbo/network-scan`,
+      method: 'POST',
+      authentication: 'Bearer token stored in collector as CERBO_INGEST_TOKEN',
+      minimumPayload: {
+        vrmSiteId: String(device.vrm_site_id),
+        observedAt: 'ISO timestamp',
+        cellular: {
+          source: 'teltonika_rms',
+          operator: 'carrier name',
+          networkType: 'LTE/5G',
+          band: 'cellular band',
+          rssiDbm: -65,
+          rsrpDbm: -95,
+          rsrqDb: -9,
+          sinrDb: 14,
+          connectionState: 'connected',
+          detail: 'short router/RMS note',
+        },
+      },
+    },
+  };
+
+  try {
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
+    });
+
+    if (!response.ok) {
+      console.error('[cellular-report] router report webhook failed:', response.status, await response.text());
+      return { queued: false, warning: 'Router report request was logged, but the automation webhook did not accept it.' };
+    }
+
+    return { queued: true, warning: null };
+  } catch (error) {
+    console.error('[cellular-report] router report webhook error:', error);
+    return { queued: false, warning: 'Router report request was logged, but automation dispatch failed.' };
+  }
 }
 
 export async function GET(
@@ -118,5 +194,17 @@ export async function POST(
     evidence: { ticketId: ticket.id, requestType: 'cellular_signal_report' },
   });
 
-  return NextResponse.json({ ok: true, ticketId: ticket.id });
+  const dispatch = await dispatchRouterReportRequest({
+    request,
+    device,
+    ticketId: String(ticket.id),
+    userId: access.userId,
+  });
+
+  return NextResponse.json({
+    ok: true,
+    ticketId: ticket.id,
+    automationQueued: dispatch.queued,
+    warning: dispatch.warning,
+  });
 }

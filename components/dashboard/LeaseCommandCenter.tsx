@@ -150,6 +150,7 @@ export default function LeaseCommandCenter({
   const [showDetails, setShowDetails] = useState(startsOpen);
   const [showKey, setShowKey] = useState(false);
   const [showAllProof, setShowAllProof] = useState(false);
+  const [activityTickerPaused, setActivityTickerPaused] = useState(false);
 
   const liveCount = activeTelemetryCount(dataMap);
   const proofCount = operations.proofEvents.length;
@@ -157,7 +158,45 @@ export default function LeaseCommandCenter({
   const topLease = operations.leases[0] ?? null;
   const sourceLabel = operations.dataSource === 'database' ? 'Lease records linked' : 'Telemetry-derived until lease records are linked';
   const leaseVisibility = packageVisibility(topLease?.packageType ?? 'power_base');
-  const visibleProofEvents = showAllProof ? operations.proofEvents.slice(0, 10) : operations.proofEvents.slice(0, 4);
+  const ticketStatusLabel: Record<string, string> = {
+    received: 'Received',
+    triage: 'In review',
+    scheduled: 'Scheduled',
+    en_route: 'On the way',
+    blocked: 'Blocked',
+    completed: 'Completed',
+    cancelled: 'Cancelled',
+  };
+  const activityItems = [
+    ...openTickets.map((ticket) => ({
+      id: `ticket-${ticket.id}`,
+      kind: 'ticket' as const,
+      severity: ticket.priority === 'urgent' ? 'critical' as const : 'action' as const,
+      title: ticket.title,
+      summary: `${ticket.siteId ?? 'Assigned unit'} - ${ticket.description}`,
+      meta: ticketStatusLabel[ticket.status] ?? ticket.status,
+      occurredAt: ticket.createdAt,
+    })),
+    ...operations.proofEvents.map((event) => {
+      const isTicketEvent = event.eventType === 'service' || Boolean((event.evidence as any)?.ticketId);
+      return {
+        id: `proof-${event.id}`,
+        kind: isTicketEvent ? 'ticket_evidence' as const : 'proof' as const,
+        severity: event.severity,
+        title: event.title,
+        summary: event.summary,
+        meta: isTicketEvent ? 'Ticket Evidence' : event.eventType.replaceAll('_', ' '),
+        occurredAt: event.occurredAt,
+      };
+    }),
+  ].sort((a, b) => {
+    const aTime = Date.parse(a.occurredAt ?? '');
+    const bTime = Date.parse(b.occurredAt ?? '');
+    return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+  });
+  const visibleActivityItems = showAllProof ? activityItems.slice(0, 12) : activityItems.slice(0, 6);
+  const shouldAnimateActivity = visibleActivityItems.length > 2;
+  const tickerActivityItems = shouldAnimateActivity ? [...visibleActivityItems, ...visibleActivityItems] : visibleActivityItems;
 
   const headline = useMemo(() => {
     if (fleetIntelligence.severity === 'critical') return 'Lease visibility needs immediate operations attention.';
@@ -185,15 +224,6 @@ export default function LeaseCommandCenter({
     : 'text-[#93c5fd]/58';
   const primaryText = isLight ? 'text-slate-950' : 'text-white';
   const bodyText = isLight ? 'text-slate-700' : 'text-[#bfdbfe]/72';
-  const ticketStatusLabel: Record<string, string> = {
-    received: 'Received',
-    triage: 'In review',
-    scheduled: 'Scheduled',
-    en_route: 'On the way',
-    blocked: 'Blocked',
-    completed: 'Completed',
-    cancelled: 'Cancelled',
-  };
 
   async function submitTicket() {
     const trimmed = description.trim();
@@ -358,62 +388,77 @@ export default function LeaseCommandCenter({
             </div>
 
             <div className={panelClass}>
-              <div className={`flex items-center gap-2.5 text-[10px] font-black uppercase tracking-[0.24em] ${primaryText}`}>
-                <FileClock className="h-4 w-4 text-[#60a5fa]" />
-                Activity & Proof Log
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className={`flex items-center gap-2.5 text-[10px] font-black uppercase tracking-[0.24em] ${primaryText}`}>
+                  <FileClock className="h-4 w-4 text-[#60a5fa]" />
+                  Activity & Proof Log
+                </div>
+                {visibleActivityItems.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setActivityTickerPaused((value) => !value)}
+                    className={`rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-[0.18em] transition-colors ${
+                      isLight
+                        ? 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700'
+                        : 'border-[#1e3a5f]/55 bg-[#080c14]/76 text-[#93c5fd]/70 hover:border-[#60a5fa]/55 hover:text-white'
+                    }`}
+                  >
+                    {activityTickerPaused ? 'Start Motion' : 'Stop Motion'}
+                  </button>
+                )}
               </div>
-              {openTickets.length > 0 && (
-                <div className={`mt-3 rounded-xl border px-3 py-3 ${isLight ? 'border-amber-200 bg-amber-50' : 'border-amber-500/20 bg-amber-500/10'}`}>
-                  <div className={`text-[9px] font-black uppercase tracking-[0.22em] ${isLight ? 'text-amber-700' : 'text-amber-300'}`}>Open Tickets</div>
-                  <div className="mt-2 space-y-2">
-                    {openTickets.slice(0, 3).map((ticket) => (
-                      <div key={ticket.id} className={`rounded-lg border px-3 py-2 ${isLight ? 'border-amber-200 bg-white' : 'border-amber-500/18 bg-[#080c14]/52'}`}>
-                        <div className="flex items-center justify-between gap-3">
-                          <span className={`text-sm font-black leading-snug ${primaryText}`}>{ticket.title}</span>
-                          <span className={`text-[9px] font-mono font-black uppercase tracking-[0.16em] ${ticket.priority === 'urgent' ? 'text-rose-300' : isLight ? 'text-slate-500' : 'text-[#93c5fd]/54'}`}>
-                            {ticketStatusLabel[ticket.status] ?? ticket.status}
-                          </span>
+              <p className={`mt-2 text-[11px] leading-relaxed ${mutedText}`}>
+                Tickets and proof events move as one timeline so current customer-visible work stays easy to scan.
+              </p>
+              {visibleActivityItems.length === 0 ? (
+                <div className={`${subPanelClass} mt-3 text-[11px] leading-relaxed ${mutedText}`}>
+                  Activity records will appear after telemetry checks, tickets, reports, monitoring events, or access requests are recorded.
+                </div>
+              ) : (
+                <div className="-mx-1 mt-3 overflow-hidden px-1 pb-1">
+                  <style>{`
+                    @keyframes nx-proof-ticker {
+                      from { transform: translateX(0); }
+                      to { transform: translateX(-50%); }
+                    }
+                  `}</style>
+                  <div
+                    className="flex w-max snap-x gap-2"
+                    style={{
+                      animation: shouldAnimateActivity ? `nx-proof-ticker ${Math.max(20, visibleActivityItems.length * 5)}s linear infinite` : undefined,
+                      animationPlayState: activityTickerPaused ? 'paused' : 'running',
+                    }}
+                  >
+                    {tickerActivityItems.map((item, index) => {
+                      const style = SEVERITY_STYLE[item.severity];
+                      return (
+                        <div
+                          key={`${item.id}-${index}`}
+                          className={`min-w-[270px] max-w-[360px] snap-start rounded-xl border ${style.border} ${isLight ? 'bg-white shadow-[0_6px_18px_rgba(15,23,42,0.04)]' : `${style.bg}`} px-3 py-2.5`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className={`text-sm font-bold leading-snug ${primaryText}`}>{item.title}</div>
+                              <div className={`mt-0.5 text-[9px] font-mono font-black uppercase tracking-[0.16em] ${item.kind !== 'proof' ? 'text-amber-300' : isLight ? 'text-slate-500' : 'text-[#93c5fd]/45'}`}>
+                                {item.meta}
+                              </div>
+                            </div>
+                            <div className={`shrink-0 text-[9px] font-mono ${isLight ? 'text-slate-500' : 'text-[#bfdbfe]/54'}`}>{formatDate(item.occurredAt)}</div>
+                          </div>
+                          <div className={`mt-1 text-[11px] leading-relaxed ${isLight ? 'text-slate-700' : 'text-[#bfdbfe]/66'}`}>{item.summary}</div>
                         </div>
-                        <div className={`mt-1 text-[11px] leading-relaxed ${mutedText}`}>
-                          {(ticket.siteId ?? 'Assigned unit')} - {ticket.description}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
-              <div className="mt-3 space-y-2.5">
-                {visibleProofEvents.map((event) => {
-                  const style = SEVERITY_STYLE[event.severity];
-                  const isTicketEvent = event.eventType === 'service' || Boolean((event.evidence as any)?.ticketId);
-                  return (
-                    <div key={event.id} className={`rounded-xl border ${style.border} ${style.bg} px-3 py-2.5`}>
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className={`text-sm font-bold leading-snug ${primaryText}`}>{event.title}</div>
-                          <div className={`mt-0.5 text-[9px] font-mono font-black uppercase tracking-[0.16em] ${isTicketEvent ? 'text-amber-300' : isLight ? 'text-slate-500' : 'text-[#93c5fd]/45'}`}>
-                            {isTicketEvent ? 'Ticket Evidence' : event.eventType.replaceAll('_', ' ')}
-                          </div>
-                        </div>
-                        <div className={`text-[9px] font-mono ${isLight ? 'text-slate-500' : 'text-[#bfdbfe]/54'}`}>{formatDate(event.occurredAt)}</div>
-                      </div>
-                      <div className={`mt-1 text-[11px] leading-relaxed ${isLight ? 'text-slate-700' : 'text-[#bfdbfe]/66'}`}>{event.summary}</div>
-                    </div>
-                  );
-                })}
-                {operations.proofEvents.length === 0 && (
-                  <div className={`${subPanelClass} text-[11px] leading-relaxed ${mutedText}`}>
-                    Activity records will appear after telemetry checks, tickets, reports, monitoring events, or access requests are recorded.
-                  </div>
-                )}
-              </div>
-              {operations.proofEvents.length > 4 && (
+              {activityItems.length > 6 && (
                 <button
                   type="button"
                   onClick={() => setShowAllProof((value) => !value)}
                   className={`mt-3 w-full rounded-lg border px-3 py-2 text-[10px] font-black uppercase tracking-[0.2em] transition-colors ${isLight ? 'border-slate-200 bg-white text-slate-600 hover:border-blue-400 hover:text-blue-700' : 'border-[#1e3a5f]/45 bg-[#080c14]/58 text-[#93c5fd]/64 hover:border-[#60a5fa]/55 hover:text-white'}`}
                 >
-                  {showAllProof ? 'Show latest 4' : `Show ${Math.min(operations.proofEvents.length, 10)} events`}
+                  {showAllProof ? 'Show latest 6' : `Show ${Math.min(activityItems.length, 12)} events`}
                 </button>
               )}
             </div>

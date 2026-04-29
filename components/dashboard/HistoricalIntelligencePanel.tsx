@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { BarChart3, Download, FileClock, RefreshCw, ShieldAlert } from 'lucide-react';
+import { BarChart3, Download, FileClock, RefreshCw, Search, ShieldAlert } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 import type { HistoricalIntelligenceReport, HistoricalRecommendation, ReportSeverity } from '@/lib/historicalIntelligence';
 import type { DashboardDeviceRef } from '@/lib/leaseOperations';
@@ -115,10 +115,32 @@ export default function HistoricalIntelligencePanel({ devices }: { devices: Dash
   const { theme } = useTheme();
   const isLight = theme === 'light';
   const [siteId, setSiteId] = useState(devices[0]?.siteId ?? '');
+  const [deviceSearch, setDeviceSearch] = useState(() => {
+    const first = devices[0];
+    return first ? `${first.displayName ?? first.name} ${first.siteId}` : '';
+  });
   const [report, setReport] = useState<HistoricalIntelligenceReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+
+  const selectedDevice = useMemo(
+    () => devices.find((device) => device.siteId === siteId) ?? null,
+    [devices, siteId]
+  );
+  const filteredDevices = useMemo(() => {
+    const query = deviceSearch.trim().toLowerCase();
+    const ranked = devices.filter((device) => {
+      const label = `${device.displayName ?? ''} ${device.name} ${device.siteId}`.toLowerCase();
+      return !query || label.includes(query);
+    });
+    return ranked.slice(0, 6);
+  }, [devices, deviceSearch]);
+
+  function selectReportDevice(device: DashboardDeviceRef) {
+    setSiteId(device.siteId);
+    setDeviceSearch(`${device.displayName ?? device.name} ${device.siteId}`);
+  }
 
   useEffect(() => {
     if (!siteId) return;
@@ -194,17 +216,26 @@ export default function HistoricalIntelligencePanel({ devices }: { devices: Dash
             Generate a curated trailer health brief from VRM history, alarms, GPS, firmware inventory, lease visibility, and operations evidence.
           </p>
         </div>
-        <div className="grid w-full gap-2 sm:grid-cols-[minmax(180px,1fr)_auto_auto] lg:max-w-[640px]">
-          <select
-            aria-label="Historical report trailer"
-            value={siteId}
-            onChange={(event) => setSiteId(event.target.value)}
-            className={`min-w-0 rounded-lg border px-3 py-2 text-xs font-bold outline-none focus:border-[#60a5fa] ${isLight ? 'border-slate-200 bg-white text-slate-950' : 'border-[#1e3a5f]/55 bg-[#080c14] text-white'}`}
-          >
-            {devices.map((device) => (
-              <option key={device.siteId} value={device.siteId}>{device.displayName ?? device.name}</option>
-            ))}
-          </select>
+        <div className="w-full space-y-2 lg:max-w-[720px]">
+          <div className="grid gap-2 sm:grid-cols-[minmax(260px,1fr)_auto_auto]">
+            <div className="relative min-w-0">
+              <Search className={`pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 ${isLight ? 'text-slate-400' : 'text-[#93c5fd]/42'}`} />
+              <input
+                aria-label="Search trailers for historical report"
+                value={deviceSearch}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setDeviceSearch(next);
+                  const exact = devices.find((device) => {
+                    const name = (device.displayName ?? device.name).toLowerCase();
+                    return device.siteId.toLowerCase() === next.trim().toLowerCase() || name === next.trim().toLowerCase();
+                  });
+                  setSiteId(exact?.siteId ?? '');
+                }}
+                placeholder="Search trailer name or site ID..."
+                className={`w-full rounded-lg border py-2 pl-9 pr-3 text-xs font-bold outline-none focus:border-[#60a5fa] ${isLight ? 'border-slate-200 bg-white text-slate-950 placeholder:text-slate-400' : 'border-[#1e3a5f]/55 bg-[#080c14] text-white placeholder:text-[#93c5fd]/30'}`}
+              />
+            </div>
           <button
             type="button"
             onClick={generateReport}
@@ -223,6 +254,40 @@ export default function HistoricalIntelligencePanel({ devices }: { devices: Dash
               <Download className="h-3.5 w-3.5" />
               Download
             </button>
+          )}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {filteredDevices.length > 0 ? filteredDevices.map((device) => {
+              const active = device.siteId === siteId;
+              return (
+                <button
+                  key={device.siteId}
+                  type="button"
+                  onClick={() => selectReportDevice(device)}
+                  aria-pressed={active}
+                  className={`rounded-full border px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] transition-colors ${
+                    active
+                      ? isLight
+                        ? 'border-blue-500 bg-blue-600 text-white'
+                        : 'border-[#60a5fa]/70 bg-[#1e40af]/44 text-white'
+                      : isLight
+                        ? 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700'
+                        : 'border-[#1e3a5f]/55 bg-[#080c14]/62 text-[#93c5fd]/64 hover:border-[#60a5fa]/55 hover:text-white'
+                  }`}
+                >
+                  {device.displayName ?? device.name} - {device.siteId}
+                </button>
+              );
+            }) : (
+              <span className={`rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] ${isLight ? 'border-slate-200 bg-white text-slate-500' : 'border-[#1e3a5f]/55 bg-[#080c14]/62 text-[#93c5fd]/50'}`}>
+                No matching trailer
+              </span>
+            )}
+          </div>
+          {selectedDevice && (
+            <div className={`text-[10px] leading-relaxed ${mutedText}`}>
+              Report target: <span className={`font-black ${primaryText}`}>{selectedDevice.displayName ?? selectedDevice.name}</span> / {selectedDevice.siteId}
+            </div>
           )}
         </div>
       </div>

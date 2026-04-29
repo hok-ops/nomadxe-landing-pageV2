@@ -15,6 +15,7 @@ const OPTIONAL_WEBHOOKS = [
   'MAKE_DEACTIVATE_WEBHOOK_URL',   // Dedicated webhook for deactivation form
   'MAKE_RELOCATE_WEBHOOK_URL',     // Dedicated webhook for relocation form
   'MAKE_NETWORK_ALERT_WEBHOOK_URL',// Dedicated webhook for Cerbo-managed LAN offline/recovery alerts
+  'MAKE_CELLULAR_REPORT_WEBHOOK_URL',// Dedicated webhook for requested router/cellular signal readings
 ];
 
 const OPTIONAL_FEATURE_ENVS = [

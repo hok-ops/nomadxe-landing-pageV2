@@ -126,11 +126,20 @@ export default function FleetIntelligenceBriefing({
             </div>
           )}
           {issueCount > 0 && (
-            <div
-              className="-mx-1 mt-2 overflow-hidden px-1 pb-1"
-              onClick={() => setTickerPaused((value) => !value)}
-              title={tickerPaused ? 'Click to resume queue motion' : 'Click empty queue space to pause motion'}
-            >
+            <div className="-mx-1 mt-2 overflow-hidden px-1 pb-1">
+              <div className="mb-2 flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => setTickerPaused((value) => !value)}
+                  className={`rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-[0.18em] transition-colors ${
+                    isLight
+                      ? 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700'
+                      : 'border-[#1e3a5f]/55 bg-[#080c14]/76 text-[#93c5fd]/70 hover:border-[#60a5fa]/55 hover:text-white'
+                  }`}
+                >
+                  {tickerPaused ? 'Start Motion' : 'Stop Motion'}
+                </button>
+              </div>
               <style>{`
                 @keyframes nx-attention-ticker {
                   from { transform: translateX(0); }
