@@ -32,8 +32,9 @@ const EVENT_MESSAGES: Record<string, { type: 'success' | 'error'; text: string }
 export default async function AdminDashboard({
   searchParams,
 }: {
-  searchParams: { event?: string; msg?: string };
+  searchParams: Promise<{ event?: string; msg?: string }>;
 }) {
+  const query = await searchParams;
   const supabase = createClient();
   const adminClient = createAdminClient();
 
@@ -177,8 +178,8 @@ export default async function AdminDashboard({
       <div className="max-w-[1440px] mx-auto px-6 lg:px-12 relative z-10">
 
         {/* ── Toasts ── */}
-        {searchParams.event && (() => {
-          const mapped = EVENT_MESSAGES[searchParams.event];
+        {query.event && (() => {
+          const mapped = EVENT_MESSAGES[query.event];
           if (mapped?.type === 'success') {
             return (
               <div className="mb-6 bg-emerald-950/40 border border-emerald-500/40 rounded-xl px-5 py-4 flex items-center gap-3 text-sm text-emerald-300">
@@ -186,10 +187,10 @@ export default async function AdminDashboard({
               </div>
             );
           }
-          if (searchParams.event === 'error') {
+          if (query.event === 'error') {
             // msg is URL-encoded by actions.ts; decode for display but never trust it for logic.
-            const errorText = searchParams.msg
-              ? decodeURIComponent(searchParams.msg).slice(0, 200)
+            const errorText = query.msg
+              ? decodeURIComponent(query.msg).slice(0, 200)
               : 'An unexpected error occurred.';
             return (
               <div className="mb-6 bg-red-950/40 border border-red-500/40 rounded-xl px-5 py-4 flex items-center gap-3 text-sm text-red-300">

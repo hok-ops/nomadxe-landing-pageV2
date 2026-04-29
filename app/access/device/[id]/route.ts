@@ -4,6 +4,17 @@ import { createRemoteWebUiSession, getGatewayBearerToken, TeltonikaRmsError } fr
 
 export const dynamic = 'force-dynamic';
 
+function hasSameOrigin(request: NextRequest) {
+  const origin = request.headers.get('origin');
+  if (!origin) return true;
+
+  try {
+    return new URL(origin).origin === request.nextUrl.origin;
+  } catch {
+    return false;
+  }
+}
+
 function hasValidGatewayBearerToken(request: NextRequest) {
   const expected = getGatewayBearerToken();
   if (!expected) return false;
@@ -12,13 +23,26 @@ function hasValidGatewayBearerToken(request: NextRequest) {
   return header === `Bearer ${expected}`;
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  const deviceId = params.id;
+export async function GET() {
+  return NextResponse.json(
+    { ok: false, error: 'Use POST to open a modem session.' },
+    { status: 405, headers: { Allow: 'POST' } }
+  );
+}
 
-  if (!hasValidGatewayBearerToken(request)) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: deviceId } = await params;
+
+  const hasGatewayBearer = hasValidGatewayBearerToken(request);
+
+  if (!hasGatewayBearer) {
+    if (!hasSameOrigin(request)) {
+      return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     const access = await assertTeltonikaRmsDeviceAccess(deviceId);
     if (!access.ok) {
       return NextResponse.json({ ok: false, error: access.error }, { status: access.status });

@@ -1,5 +1,7 @@
 'use client';
 
+import { ArrowRight, ExternalLink } from 'lucide-react';
+
 const FEATURES = [
   { label: 'AI Inspector',        desc: 'Autonomous PTZ patrol & real-time object detection across every camera' },
   { label: 'AI Deterrence Agent', desc: 'Responds to threats with automated audio warnings before escalation'   },
@@ -55,9 +57,9 @@ export default function MonitoringPartners() {
               href="https://alphavision.ai"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-mono text-[10px] tracking-wider text-white/25 hover:text-blue/70 transition-colors duration-200 uppercase"
+              className="font-mono text-[10px] tracking-wider text-white/25 hover:text-blue/70 transition-colors duration-200 uppercase inline-flex items-center gap-1.5"
             >
-              alphavision.ai ↗
+              alphavision.ai <ExternalLink size={11} aria-hidden="true" />
             </a>
           </div>
 
@@ -119,7 +121,7 @@ export default function MonitoringPartners() {
                 aria-label="Learn about the Alpha Vision AGI7 platform (opens in new tab)"
               >
                 Learn about the platform
-                <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
+                <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" aria-hidden="true" />
               </a>
             </div>
           </div>

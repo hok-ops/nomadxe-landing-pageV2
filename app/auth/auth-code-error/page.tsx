@@ -2,13 +2,14 @@ import Link from 'next/link';
 
 export const metadata = { title: 'Authentication Error | NomadXE' };
 
-export default function AuthCodeErrorPage({
+export default async function AuthCodeErrorPage({
   searchParams,
 }: {
-  searchParams: { error?: string };
+  searchParams: Promise<{ error?: string }>;
 }) {
-  const message = searchParams.error
-    ? decodeURIComponent(searchParams.error)
+  const query = await searchParams;
+  const message = query.error
+    ? decodeURIComponent(query.error)
     : 'This authentication link has expired or has already been used.';
   return (
     <div className="min-h-screen bg-[#080c14] flex items-center justify-center p-6 relative overflow-hidden">

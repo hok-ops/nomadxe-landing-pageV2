@@ -1,11 +1,11 @@
-'use server';
+﻿'use server';
 
 import { createAdminClient } from '@/utils/supabase/admin';
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-// Safe error codes for redirect URLs — never put raw error messages in the URL.
+// Safe error codes for redirect URLs â€” never put raw error messages in the URL.
 // Raw strings can expose DB constraint names, table names, user emails, and
 // internal Supabase error details in browser history and server access logs.
 const ERROR_CODES: Record<string, string> = {
@@ -32,12 +32,12 @@ function toErrorCode(message: string): string {
   return ERROR_CODES[message] ?? 'server_error';
 }
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const VALID_ROLES   = new Set(['admin', 'user']);
 const VALID_STATUSES = new Set(['active', 'suspended']);
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function getSiteUrl(): string {
   if (process.env.SITE_URL) return process.env.SITE_URL.replace(/\/$/, '');
@@ -60,7 +60,7 @@ async function generateToken(): Promise<string> {
 /**
  * Atomically rotate an auth token for a user.
  * Uses the rotate_auth_token Postgres RPC (migration 009) which runs the
- * invalidate + insert in a single implicit transaction — eliminates the TOCTOU
+ * invalidate + insert in a single implicit transaction â€” eliminates the TOCTOU
  * race present in the prior two-step UPDATE then INSERT pattern.
  */
 async function createAuthToken(
@@ -83,7 +83,7 @@ async function createAuthToken(
   return token;
 }
 
-// ── Auth guard ────────────────────────────────────────────────────────────────
+// â”€â”€ Auth guard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function verifyAdmin() {
   const supabase = createClient();
@@ -99,7 +99,7 @@ async function verifyAdmin() {
   if (profileError || data?.role !== 'admin') throw new Error('Forbidden');
 }
 
-// ── Actions ───────────────────────────────────────────────────────────────────
+// â”€â”€ Actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function inviteNewUser(formData: FormData) {
   try {
@@ -114,37 +114,21 @@ export async function inviteNewUser(formData: FormData) {
     const adminClient = createAdminClient();
     const siteUrl     = getSiteUrl();
 
-    // Step 1: generateLink — creates the auth user and returns their ID.
-    // Does NOT send an email (that's handled by inviteUserByEmail below).
-    const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
-      type: 'invite',
-      email,
-      options: { redirectTo: `${siteUrl}/auth/callback` },
-    });
-    if (linkError) throw new Error(linkError.message);
-    if (!linkData.user?.id) throw new Error('User creation failed — no user ID returned');
-
-    // Step 2: Create the 48-hour invite token (atomic RPC)
-    const inviteToken = await createAuthToken(linkData.user.id, 'invite', 48);
-
-    // Step 3: Send the invite email with the token embedded in redirectTo.
-    // If this fails, clean up the orphaned auth user created in step 1.
+    // Send the Supabase invite email and create the custom app token against
+    // the returned user id. Do not call generateLink first; it can pre-create
+    // the same user and make inviteUserByEmail fail as an already-registered
+    // email.
     const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
       email,
-      { redirectTo: `${siteUrl}/auth/callback?invite_token=${inviteToken}` }
+      { redirectTo: `${siteUrl}/auth/confirm` }
     );
-    if (inviteError) {
-      // Roll back the orphaned auth user to avoid ghost accounts.
-      console.error('[inviteNewUser] inviteUserByEmail failed, rolling back user:', linkData.user.id);
-      await adminClient.auth.admin.deleteUser(linkData.user.id).catch((e: any) =>
-        console.error('[inviteNewUser] rollback deleteUser failed:', e.message)
-      );
-      throw new Error(inviteError.message);
-    }
+    if (inviteError) throw new Error(inviteError.message);
     if (!inviteData.user) throw new Error('Invite user data missing');
 
-    // Step 4: Optionally register and assign a VRM device
-    const userId = inviteData.user.id ?? linkData.user.id;
+    const userId = inviteData.user.id;
+    await createAuthToken(userId, 'invite', 48);
+
+    // Optionally register and assign a VRM device
     if (vrm_site_id && device_name && userId) {
       const { data: device, error: deviceError } = await adminClient
         .from('vrm_devices')
@@ -163,7 +147,7 @@ export async function inviteNewUser(formData: FormData) {
     }
 
     revalidatePath('/admin');
-    // Do not include email in URL — visible in browser history and server logs.
+    // Do not include email in URL â€” visible in browser history and server logs.
     redirect('/admin?event=user_invited');
   } catch (err: any) {
     if (err.digest) throw err;
@@ -184,10 +168,10 @@ export async function resendInvite(formData: FormData) {
     const siteUrl     = getSiteUrl();
 
     // Create fresh invite token (atomic RPC)
-    const inviteToken = await createAuthToken(userId, 'invite', 48);
+    await createAuthToken(userId, 'invite', 48);
 
     const { error } = await adminClient.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${siteUrl}/auth/callback?invite_token=${inviteToken}`,
+      redirectTo: `${siteUrl}/auth/confirm`,
     });
     if (error) throw new Error(error.message);
 
@@ -239,17 +223,17 @@ export async function requestPasswordReset(formData: FormData) {
     const adminClient = createAdminClient();
     const siteUrl     = getSiteUrl();
 
-    // ── Replace O(n) listUsers() with targeted RPC lookup ─────────────────────
+    // â”€â”€ Replace O(n) listUsers() with targeted RPC lookup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // get_user_id_by_email queries auth.users directly via SECURITY DEFINER
-    // function — avoids loading the entire user list on every public form submit.
+    // function â€” avoids loading the entire user list on every public form submit.
     // Returns null if the user doesn't exist; we still redirect to "sent" to
     // prevent email enumeration.
     const { data: userId, error: rpcError } = await adminClient
       .rpc('get_user_id_by_email', { email_input: email.trim().toLowerCase() });
 
     if (rpcError) {
-      // RPC not yet deployed (migration 009 pending) — fall back gracefully.
-      // Do NOT fall back to listUsers() — just skip token creation.
+      // RPC not yet deployed (migration 009 pending) â€” fall back gracefully.
+      // Do NOT fall back to listUsers() â€” just skip token creation.
       console.warn('[requestPasswordReset] get_user_id_by_email RPC unavailable:', rpcError.message);
     } else if (userId) {
       await createAuthToken(userId as string, 'recovery', 24);
@@ -265,11 +249,11 @@ export async function requestPasswordReset(formData: FormData) {
       console.error('[requestPasswordReset] send-reset error:', body.error);
     }
 
-    // Always redirect to "sent" — don't reveal whether the email exists.
+    // Always redirect to "sent" â€” don't reveal whether the email exists.
     redirect(`/forgot-password?sent=1`);
   } catch (err: any) {
     if (err.digest) throw err;
-    // Generic error message — don't expose internal details in URL
+    // Generic error message â€” don't expose internal details in URL
     redirect('/forgot-password?event=error&code=server_error');
   }
 }
@@ -282,9 +266,9 @@ export async function updateUserRole(formData: FormData) {
 
     if (!userId || !role) throw new Error('User ID and role required');
 
-    // ── Allowlist validation — prevents arbitrary string injection ─────────────
+    // â”€â”€ Allowlist validation â€” prevents arbitrary string injection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (!VALID_ROLES.has(role)) {
-      throw new Error(`Invalid role '${role}' — must be 'admin' or 'user'`);
+      throw new Error(`Invalid role '${role}' â€” must be 'admin' or 'user'`);
     }
 
     const adminClient = createAdminClient();
@@ -306,7 +290,7 @@ export async function updateUserStatus(formData: FormData) {
 
     if (!userId || !status) throw new Error('User ID and status required');
 
-    // ── Allowlist validation ───────────────────────────────────────────────────
+    // â”€â”€ Allowlist validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (!VALID_STATUSES.has(status)) throw new Error('Invalid status value');
 
     const adminClient = createAdminClient();

@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState, useRef } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
 import VRMDeepDivePanel from '@/components/dashboard/VRMDeepDivePanel';
 import ManagedNetworkDevicesPanel from '@/components/dashboard/ManagedNetworkDevicesPanel';
+import AssetIntelligencePanel from '@/components/dashboard/AssetIntelligencePanel';
 import type { VRMData, VRMDetailData } from '@/lib/vrm';
 import { formatWatts, getDcLoadSignalDetail, getDcLoadSignalTitle, hasMissingDcLoadSignal } from '@/lib/telemetryHealth';
+import type { DiscoveredNetworkDevice, ManagedNetworkDevice } from '@/lib/networkDevices';
 
 // ── Weather ───────────────────────────────────────────────────────────────────
 
@@ -475,6 +477,10 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
   const [weather, setWeather]   = useState<WeatherData | null>(null);
   const [details, setDetails]   = useState<VRMDetailData | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [networkInventory, setNetworkInventory] = useState<{
+    managedDevices: ManagedNetworkDevice[];
+    discoveredDevices: DiscoveredNetworkDevice[];
+  }>({ managedDevices: [], discoveredDevices: [] });
   const [lastPoll, setLastPoll] = useState(new Date());
   const [, setTick]             = useState(0);
   const rootRef                 = useRef<HTMLDivElement>(null);
@@ -674,6 +680,12 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
   const activeDisplayName = displayName ?? device.name;
   const vrmUrl = `https://vrm.victronenergy.com/installation/${device.siteId}/dashboard`;
   const modemAccessUrl = device.routerAccessUrl ?? null;
+  const handleInventoryChange = useCallback((inventory: {
+    managedDevices: ManagedNetworkDevice[];
+    discoveredDevices: DiscoveredNetworkDevice[];
+  }) => {
+    setNetworkInventory(inventory);
+  }, []);
 
   return (
     <div
@@ -939,7 +951,15 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
           </div>
         </div>
 
-        <ManagedNetworkDevicesPanel siteId={device.siteId} />
+        <AssetIntelligencePanel
+          device={{ ...device, displayName }}
+          data={data}
+          details={details}
+          managedDevices={networkInventory.managedDevices}
+          discoveredDevices={networkInventory.discoveredDevices}
+        />
+
+        <ManagedNetworkDevicesPanel siteId={device.siteId} onInventoryChange={handleInventoryChange} />
 
         {weather && <WeatherCard weather={weather} isLight={isLight} />}
 

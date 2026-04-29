@@ -11,13 +11,14 @@ export function createClient() {
     // Force PKCE: email links use ?code= (server-readable) not #access_token= (hash, invisible to server)
     auth: { flowType: 'pkce' },
     cookies: {
-      getAll() {
-        return cookieStore.getAll();
+      async getAll() {
+        return (await cookieStore).getAll();
       },
-      setAll(cookiesToSet) {
+      async setAll(cookiesToSet) {
         try {
+          const store = await cookieStore;
           cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
+            store.set(name, value, options)
           );
         } catch {
           // Server Component context — cookies can only be set in Server Actions / Route Handlers

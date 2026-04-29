@@ -14,24 +14,25 @@ import Footer from '../components/Footer';
 import ScrollReveal from '../components/ScrollReveal';
 
 // Supabase auth callbacks land here. Catch auth params and forward appropriately.
-export default function Home({
+export default async function Home({
   searchParams,
 }: {
-  searchParams: { code?: string; token_hash?: string; type?: string; error_code?: string; error_description?: string };
+  searchParams: Promise<{ code?: string; token_hash?: string; type?: string; error_code?: string; error_description?: string }>;
 }) {
+  const query = await searchParams;
   // Successful auth redirect — forward to the route handler
-  if (searchParams.code) {
-    redirect(`/auth/confirm?code=${encodeURIComponent(searchParams.code)}`);
+  if (query.code) {
+    redirect(`/auth/confirm?code=${encodeURIComponent(query.code)}`);
   }
-  if (searchParams.token_hash && searchParams.type) {
+  if (query.token_hash && query.type) {
     redirect(
-      `/auth/confirm?token_hash=${encodeURIComponent(searchParams.token_hash)}&type=${encodeURIComponent(searchParams.type)}`
+      `/auth/confirm?token_hash=${encodeURIComponent(query.token_hash)}&type=${encodeURIComponent(query.type)}`
     );
   }
   // Supabase error redirect (expired/invalid OTP) — show proper error page
-  if (searchParams.error_code) {
+  if (query.error_code) {
     redirect(
-      `/auth/auth-code-error?error=${encodeURIComponent(searchParams.error_description ?? searchParams.error_code)}`
+      `/auth/auth-code-error?error=${encodeURIComponent(query.error_description ?? query.error_code)}`
     );
   }
 

@@ -418,15 +418,20 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
         </div>
       </button>
       {modemAccessUrl && (
-        <a
-          href={modemAccessUrl}
+        <form
+          action={modemAccessUrl}
+          method="post"
           target="_blank"
-          rel="noopener noreferrer"
-          onClick={(event) => event.stopPropagation()}
-          className="mt-1.5 flex items-center justify-center rounded-lg border border-[#1e3a5f] bg-[#08111f] px-3 py-2 text-[9px] font-mono font-bold uppercase tracking-[0.28em] text-[#22c55e]/80 transition-colors hover:border-[#22c55e]/40 hover:text-white"
+          onSubmit={(event) => event.stopPropagation()}
         >
-          Modem Login
-        </a>
+          <button
+            type="submit"
+            onClick={(event) => event.stopPropagation()}
+            className="mt-1.5 flex w-full items-center justify-center rounded-lg border border-[#1e3a5f] bg-[#08111f] px-3 py-2 text-[9px] font-mono font-bold uppercase tracking-[0.28em] text-[#22c55e]/80 hover:text-white hover:border-[#22c55e]/40 transition-colors"
+          >
+            Modem Login
+          </button>
+        </form>
       )}
       {hovered && mounted && data && !noData && createPortal(
         <HoverDetail

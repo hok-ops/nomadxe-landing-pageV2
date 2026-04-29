@@ -19,9 +19,9 @@ function filenameFor(kind: string, siteId: string) {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { siteId: string } }
+  { params }: { params: Promise<{ siteId: string }> }
 ) {
-  const { siteId } = params;
+  const { siteId } = await params;
   const access = await assertVrmSiteAccess(siteId);
 
   if (!access.ok) {

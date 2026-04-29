@@ -1,15 +1,26 @@
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseOrigin = (() => {
+  try {
+    return supabaseUrl ? new URL(supabaseUrl).origin : null;
+  } catch {
+    return null;
+  }
+})();
+
+const connectSrc = [
+  "'self'",
+  'https://*.supabase.co',
+  'https://api.open-meteo.com',
+  'https://www.windy.com',
+  supabaseOrigin,
+].filter(Boolean);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
-
+  outputFileTracingRoot: process.cwd(),
   images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
-        pathname: '/**',
-      },
-    ],
+    qualities: [60, 75, 90, 94],
   },
 
   /**
@@ -51,7 +62,6 @@ const nextConfig = {
            *  - 'self'              — same-origin scripts, styles, images, fonts
            *  - data:               — base64 photo previews in OrderFormClient
            *  - blob:               — object URLs for photo thumbnails
-           *  - images.unsplash.com — Next.js <Image> remote pattern (next.config)
            *  - vrmapi.victronenergy.com — VRM API (server-side only, included for SW)
            *  - api.open-meteo.com  — weather fetch from browser
            *  - nominatim.openstreetmap.org — blocked; geocoding now proxied via /api/geocode
@@ -66,9 +76,9 @@ const nextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https://images.unsplash.com",
+              "img-src 'self' data: blob:",
               "font-src 'self'",
-              "connect-src 'self' https://*.supabase.co https://api.open-meteo.com https://www.windy.com",
+              `connect-src ${connectSrc.join(' ')}`,
               "frame-ancestors 'self'",
               "base-uri 'self'",
               "form-action 'self'",

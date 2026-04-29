@@ -2,6 +2,7 @@ import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { type EmailOtpType } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
+import { AUTH_TOKEN_COOKIE_NAMES, authTokenCookieOptions } from '@/lib/authTokenCookies';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -69,10 +70,14 @@ export async function GET(request: NextRequest) {
   // ── Step 4: Route to the correct page ─────────────────────────────────────
 
   if (tokenRecord) {
-    const dest = tokenType === 'recovery'
-      ? `/auth/reset/${tokenRecord.token}`
-      : `/auth/setup/${tokenRecord.token}`;
-    return NextResponse.redirect(new URL(dest, request.url));
+    const dest = tokenType === 'recovery' ? '/auth/reset' : '/auth/setup';
+    const response = NextResponse.redirect(new URL(dest, request.url));
+    response.cookies.set(
+      AUTH_TOKEN_COOKIE_NAMES[tokenType],
+      tokenRecord.token,
+      authTokenCookieOptions(tokenRecord.expires_at)
+    );
+    return response;
   }
 
   // No valid token in DB — the session is still good, so for recovery we can

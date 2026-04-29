@@ -1,15 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import NomadXECoreView, { type VRMData } from '@/components/dashboard/NomadXECoreView';
 import FleetTile from '@/components/dashboard/FleetTile';
 import FleetFilter, { type FleetFilters, EMPTY_FILTERS, deviceMatchesFilters, hasActiveFilters } from '@/components/dashboard/FleetFilter';
+import FleetIntelligenceBriefing from '@/components/dashboard/FleetIntelligenceBriefing';
 import ReadingKey from '@/components/dashboard/ReadingKey';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/components/ToastProvider';
 import { formatWatts, getDcLoadSignalTitle, hasMissingDcLoadSignal } from '@/lib/telemetryHealth';
+import { assessAssetIntelligence, assessFleetIntelligence } from '@/lib/assetIntelligence';
 
 export interface Device {
   siteId: string;
@@ -377,12 +379,23 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin }: Pr
   const devicesRef = useRef(devices);
   useEffect(() => { devicesRef.current = devices; }, [devices]);
 
-  // VRM logs telemetry every 1–5 min; polling faster wastes API quota and CPU.
-  // Fire an immediate fan-out on mount so data is fresh regardless of when the
-  // user opens the page relative to the VRM telemetry cycle. Then tick every
-  // 5 min with per-device jitter to avoid a thundering herd on large fleets.
+  const intelligenceDevices = useMemo(
+    () => devices.map((device) => ({
+      ...device,
+      displayName: displayNames[device.siteId] ?? device.displayName,
+    })),
+    [devices, displayNames]
+  );
+  const intelligenceAssets = useMemo(
+    () => intelligenceDevices.map((device) => assessAssetIntelligence({ device, data: dataMap[device.siteId] ?? null })),
+    [intelligenceDevices, dataMap]
+  );
+  const fleetIntelligence = useMemo(() => assessFleetIntelligence(intelligenceAssets), [intelligenceAssets]);
+  const fleetPollMs = fleetIntelligence.telemetryPlan.pollIntervalMs;
+
+  // VRM logs telemetry every 1-5 min. The intelligence plan can increase
+  // cadence for watch states while backing off when VRM is stale.
   useEffect(() => {
-    const POLL_MS = 5 * 60_000;
     const JITTER_MAX_MS = 4_000;
     const fanOut = () => {
       devicesRef.current.forEach((d, i) => {
@@ -390,10 +403,10 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin }: Pr
         setTimeout(() => pollDevice(d.siteId), delay);
       });
     };
-    fanOut(); // immediate on mount — don't wait for first interval tick
-    const id = setInterval(fanOut, POLL_MS);
+    fanOut(); // immediate on mount, then follow the adaptive cadence
+    const id = setInterval(fanOut, fleetPollMs);
     return () => clearInterval(id);
-  }, [pollDevice]);
+  }, [pollDevice, fleetPollMs]);
 
   useEffect(() => {
     const prev = prevSelectedRef.current;
@@ -535,6 +548,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin }: Pr
         {devices.length > 1 && !hasMany && (
           <div className="space-y-6 pb-10">
             <ShiftBriefingPanel briefing={briefing} isLight={isLight} onOpenDevice={openSite} />
+            <FleetIntelligenceBriefing devices={intelligenceDevices} dataMap={dataMap} />
             {devices.map(d => (
               <div key={d.siteId} data-site-id={d.siteId}>
                 <NomadXECoreView device={d} initialData={dataMap[d.siteId] ?? null} displayName={displayNames[d.siteId] ?? null} onRename={handleRename} onData={handleDeviceData} />
@@ -546,6 +560,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin }: Pr
         {hasMany && (
           <>
             <ShiftBriefingPanel briefing={briefing} isLight={isLight} onOpenDevice={openSite} />
+            <FleetIntelligenceBriefing devices={intelligenceDevices} dataMap={dataMap} />
             <div className="lg:hidden pb-10">
               {mobileView === 'detail' && (
                 <div className="flex items-center justify-between mb-4">

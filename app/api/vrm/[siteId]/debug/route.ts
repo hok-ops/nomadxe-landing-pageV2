@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { siteId: string } }
+  { params }: { params: Promise<{ siteId: string }> }
 ) {
   // Gate: only available when explicitly enabled — never on production by default.
   if (process.env.ENABLE_DEBUG_ROUTES !== 'true') {
@@ -30,7 +30,7 @@ export async function GET(
     return NextResponse.json({ error: 'Unauthorized — admin only' }, { status: 401 });
   }
 
-  const { siteId } = params;
+  const { siteId } = await params;
   if (!/^\d+$/.test(siteId)) {
     return NextResponse.json({ error: 'Invalid site ID' }, { status: 400 });
   }

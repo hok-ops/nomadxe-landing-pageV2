@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { NextRequest, NextResponse } from 'next/server';
+import { AUTH_TOKEN_COOKIE_NAMES, AuthTokenType } from '@/lib/authTokenCookies';
 
 // Whitelist of profile fields that a user is allowed to set through the
 // invite activation flow. Prevents privilege escalation via injected keys
@@ -11,11 +12,20 @@ export async function POST(request: NextRequest) {
   try {
     const { token, type, profileUpdate } = await request.json();
 
-    if (!token || !type) {
-      return NextResponse.json({ error: 'token and type are required' }, { status: 400 });
+    if (!type) {
+      return NextResponse.json({ error: 'type is required' }, { status: 400 });
     }
     if (!['invite', 'recovery'].includes(type)) {
       return NextResponse.json({ error: 'Invalid token type' }, { status: 400 });
+    }
+    const tokenType = type as AuthTokenType;
+    const cookieName = AUTH_TOKEN_COOKIE_NAMES[tokenType];
+    const resolvedToken = typeof token === 'string' && token.length > 0
+      ? token
+      : request.cookies.get(cookieName)?.value;
+
+    if (!resolvedToken) {
+      return NextResponse.json({ error: 'Token is required' }, { status: 400 });
     }
     // profileUpdate is only valid for the invite (account activation) flow
     if (profileUpdate && type !== 'invite') {
@@ -45,8 +55,8 @@ export async function POST(request: NextRequest) {
     const { data: invalidated, error: invalidateError } = await adminClient
       .from('auth_tokens')
       .update({ used_at: new Date().toISOString() })
-      .eq('token', token)
-      .eq('type', type)
+      .eq('token', resolvedToken)
+      .eq('type', tokenType)
       .eq('user_id', user.id)          // ownership check — prevents token hijacking
       .is('used_at', null)             // single-use enforcement
       .gt('expires_at', new Date().toISOString())  // expiry check
@@ -83,12 +93,14 @@ export async function POST(request: NextRequest) {
 
         if (profileError) {
           console.error('[use-token] profile update:', profileError.message);
-          return NextResponse.json({ error: `Profile update failed: ${profileError.message}` }, { status: 500 });
+          return NextResponse.json({ error: 'Profile update failed' }, { status: 500 });
         }
       }
     }
 
-    return NextResponse.json({ success: true });
+    const response = NextResponse.json({ success: true });
+    response.cookies.delete(cookieName);
+    return response;
   } catch (err: any) {
     console.error('[use-token] unexpected:', err);
     return NextResponse.json({ error: 'Unexpected server error' }, { status: 500 });

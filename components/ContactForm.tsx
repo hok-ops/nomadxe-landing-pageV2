@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useLayoutEffect } from 'react';
+import { ArrowRight, Check, RadioTower, ShieldCheck, Truck, Zap } from 'lucide-react';
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error';
 
@@ -11,6 +12,13 @@ const SITE_TYPES = [
   'Industrial Facility',
   'Remote / Off-Grid Site',
   'Other',
+];
+
+const TRUST_SIGNALS = [
+  { Icon: Zap, label: 'Site-ready in hours, not weeks' },
+  { Icon: RadioTower, label: 'Solar, shore, and generator power options' },
+  { Icon: ShieldCheck, label: 'Vetted monitoring partner network' },
+  { Icon: Truck, label: 'Fully mobile — relocate anytime' },
 ];
 
 export default function ContactForm() {
@@ -67,7 +75,7 @@ export default function ContactForm() {
     setFormState('submitting');
 
     try {
-      const res = await fetch('https://formspree.io/f/xqeylqgg', {
+      const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
@@ -118,18 +126,13 @@ export default function ContactForm() {
 
           {/* Trust signals */}
           <div data-contact-animate className="flex flex-col gap-4">
-            {[
-              { icon: '⚡', label: 'Site-ready in hours, not weeks' },
-              { icon: '📡', label: 'Solar, shore, and generator power options' },
-              { icon: '🔒', label: 'Vetted monitoring partner network' },
-              { icon: '🚛', label: 'Fully mobile — relocate anytime' },
-            ].map(({ icon, label }) => (
+            {TRUST_SIGNALS.map(({ Icon, label }) => (
               <div key={label} className="flex items-center gap-3">
                 <span
                   className="w-8 h-8 rounded-full bg-blue/10 border border-blue/20 flex items-center justify-center text-sm flex-shrink-0"
                   aria-hidden="true"
                 >
-                  {icon}
+                  <Icon size={15} strokeWidth={2.1} className="text-blue" />
                 </span>
                 <span className="text-sm text-white/70">{label}</span>
               </div>
@@ -146,7 +149,7 @@ export default function ContactForm() {
               aria-live="polite"
             >
               <div className="w-16 h-16 rounded-full bg-blue/10 border border-blue/30 flex items-center justify-center text-3xl">
-                ✓
+                <Check size={28} strokeWidth={2.4} className="text-blue" aria-hidden="true" />
               </div>
               <div>
                 <h3 className="text-xl font-bold text-white mb-2">Message received.</h3>
@@ -158,7 +161,9 @@ export default function ContactForm() {
                 onClick={() => setFormState('idle')}
                 className="font-mono text-xs tracking-widest uppercase text-blue/70 hover:text-blue transition-colors duration-200"
               >
-                Send another →
+                <span className="inline-flex items-center gap-1.5">
+                  Send another <ArrowRight size={14} aria-hidden="true" />
+                </span>
               </button>
             </div>
           ) : (
@@ -285,7 +290,9 @@ export default function ContactForm() {
                     Sending…
                   </>
                 ) : (
-                  'Request a Quote →'
+                  <>
+                    Request a Quote <ArrowRight size={16} aria-hidden="true" />
+                  </>
                 )}
               </button>
 

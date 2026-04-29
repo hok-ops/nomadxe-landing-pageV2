@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useLayoutEffect } from 'react';
 import Image from 'next/image';
+import { ArrowRight, Route } from 'lucide-react';
 
 const STATUS_TEXT = '[ DEPLOYED ] Mobile Surveillance · Certified Partner Network';
 
@@ -239,7 +240,7 @@ export default function Hero() {
 }
 
 /* Shared hero copy block so mobile + desktop stay in lockstep. */
-function HeroCopy({ statusRef }: { statusRef: React.RefObject<HTMLSpanElement> }) {
+function HeroCopy({ statusRef }: { statusRef: React.RefObject<HTMLSpanElement | null> }) {
   return (
     <>
       {/* Status bar */}
@@ -276,15 +277,15 @@ function HeroCopy({ statusRef }: { statusRef: React.RefObject<HTMLSpanElement> }
       <div data-hero-animate className="flex flex-wrap gap-3">
         <a
           href="#contact"
-          className="inline-flex items-center bg-blue text-midnight font-semibold rounded-full px-7 py-3 text-sm transition-all duration-300 hover:scale-[1.02] hover:-translate-y-px hover:shadow-blue-glow active:scale-[0.98]"
+          className="inline-flex items-center gap-2 bg-blue text-midnight font-semibold rounded-full px-7 py-3 text-sm transition-all duration-300 hover:scale-[1.02] hover:-translate-y-px hover:shadow-blue-glow active:scale-[0.98]"
         >
-          Get in touch
+          Get in touch <ArrowRight size={16} aria-hidden="true" />
         </a>
         <a
           href="#how-it-works"
-          className="inline-flex items-center border border-white/25 text-white font-semibold rounded-full px-7 py-3 text-sm transition-all duration-300 hover:border-blue hover:text-blue active:scale-[0.98]"
+          className="inline-flex items-center gap-2 border border-white/25 text-white font-semibold rounded-full px-7 py-3 text-sm transition-all duration-300 hover:border-blue hover:text-blue active:scale-[0.98]"
         >
-          See how it works
+          <Route size={16} aria-hidden="true" /> See how it works
         </a>
       </div>
 

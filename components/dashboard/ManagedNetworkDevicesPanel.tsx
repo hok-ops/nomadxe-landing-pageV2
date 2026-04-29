@@ -109,7 +109,16 @@ function sortObservedDevices(a: DiscoveredNetworkDevice, b: DiscoveredNetworkDev
   return ipSortValue(a.ipAddress) - ipSortValue(b.ipAddress);
 }
 
-export default function ManagedNetworkDevicesPanel({ siteId }: { siteId: string }) {
+export default function ManagedNetworkDevicesPanel({
+  siteId,
+  onInventoryChange,
+}: {
+  siteId: string;
+  onInventoryChange?: (inventory: {
+    managedDevices: ManagedNetworkDevice[];
+    discoveredDevices: DiscoveredNetworkDevice[];
+  }) => void;
+}) {
   const [managedDevices, setManagedDevices] = useState<ManagedNetworkDevice[]>([]);
   const [discoveredDevices, setDiscoveredDevices] = useState<DiscoveredNetworkDevice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,9 +137,15 @@ export default function ManagedNetworkDevicesPanel({ siteId }: { siteId: string 
         }
         const payload = await response.json();
         if (cancelled) return;
+        const nextManagedDevices = Array.isArray(payload.devices) ? payload.devices : [];
+        const nextDiscoveredDevices = Array.isArray(payload.discoveredDevices) ? payload.discoveredDevices : [];
         setLoadError(null);
-        setManagedDevices(Array.isArray(payload.devices) ? payload.devices : []);
-        setDiscoveredDevices(Array.isArray(payload.discoveredDevices) ? payload.discoveredDevices : []);
+        setManagedDevices(nextManagedDevices);
+        setDiscoveredDevices(nextDiscoveredDevices);
+        onInventoryChange?.({
+          managedDevices: nextManagedDevices,
+          discoveredDevices: nextDiscoveredDevices,
+        });
       } catch {
         if (!cancelled) setLoadError('Network error while loading LAN inventory.');
       } finally {
@@ -144,7 +159,7 @@ export default function ManagedNetworkDevicesPanel({ siteId }: { siteId: string 
       cancelled = true;
       clearInterval(id);
     };
-  }, [siteId]);
+  }, [siteId, onInventoryChange]);
 
   const managedByKey = new Map(managedDevices.map((device) => [deviceKey(device), device]));
   const orderedObserved = [...discoveredDevices].sort(sortObservedDevices);

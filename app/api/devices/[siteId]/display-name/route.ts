@@ -12,8 +12,9 @@ import { createAdminClient } from '@/utils/supabase/admin';
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { siteId: string } }
+  { params }: { params: Promise<{ siteId: string }> }
 ) {
+  const { siteId } = await params;
   const supabase    = createClient();
   const adminClient = createAdminClient();
 
@@ -33,7 +34,7 @@ export async function PATCH(
     .from('device_assignments')
     .select('device_id, vrm_devices!inner(id, vrm_site_id)')
     .eq('user_id', user.id)
-    .eq('vrm_devices.vrm_site_id', params.siteId)
+    .eq('vrm_devices.vrm_site_id', siteId)
     .maybeSingle();
 
   if (!assignment) {
@@ -44,7 +45,7 @@ export async function PATCH(
   const { error } = await adminClient
     .from('vrm_devices')
     .update({ display_name: trimmed || null })
-    .eq('vrm_site_id', params.siteId);
+    .eq('vrm_site_id', siteId);
 
   if (error) {
     console.error('[display-name] update error:', error.message);

@@ -5,9 +5,10 @@ import type { ManagedNetworkStatus } from '@/lib/networkDevices';
 
 export async function GET(
   _request: Request,
-  { params }: { params: { siteId: string } }
+  { params }: { params: Promise<{ siteId: string }> }
 ) {
-  const access = await assertVrmSiteAccess(params.siteId);
+  const { siteId } = await params;
+  const access = await assertVrmSiteAccess(siteId);
   if (!access.ok) {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
@@ -29,7 +30,7 @@ export async function GET(
       last_detail,
       vrm_devices!inner(vrm_site_id)
     `)
-    .eq('vrm_devices.vrm_site_id', params.siteId)
+    .eq('vrm_devices.vrm_site_id', siteId)
     .eq('is_active', true)
     .order('last_status', { ascending: true })
     .order('name', { ascending: true });
@@ -55,7 +56,7 @@ export async function GET(
       is_ignored,
       vrm_devices!inner(vrm_site_id)
     `)
-    .eq('vrm_devices.vrm_site_id', params.siteId)
+    .eq('vrm_devices.vrm_site_id', siteId)
     .eq('is_ignored', false)
     .order('last_seen_at', { ascending: false });
 

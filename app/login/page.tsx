@@ -11,8 +11,9 @@ export const metadata = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: { error?: string; success?: string };
+  searchParams: Promise<{ error?: string; success?: string }>;
 }) {
+  const query = await searchParams;
   const signIn = async (formData: FormData) => {
     'use server';
 
@@ -119,7 +120,7 @@ export default async function LoginPage({
             </div>
 
             {/* ── Success Toast ── */}
-            {searchParams.success && (
+            {query.success && (
               <div className="mb-6 bg-emerald-950/25 border border-emerald-500/35 rounded-xl p-3.5 flex items-start gap-3">
                 <span className="text-emerald-400 mt-px flex-shrink-0" aria-hidden="true">
                   <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor">
@@ -127,13 +128,13 @@ export default async function LoginPage({
                   </svg>
                 </span>
                 <span className="text-[12.5px] text-emerald-400 leading-snug">
-                  {decodeURIComponent(searchParams.success)}
+                  {decodeURIComponent(query.success)}
                 </span>
               </div>
             )}
 
             {/* ── Error Alert ── */}
-            {searchParams.error && (
+            {query.error && (
               <div className="mb-6 bg-red-950/25 border border-red-500/35 rounded-xl p-3.5 flex items-start gap-3">
                 <span className="text-red-400 mt-px flex-shrink-0" aria-hidden="true">
                   <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor">
@@ -144,7 +145,7 @@ export default async function LoginPage({
                     />
                   </svg>
                 </span>
-                <span className="text-[12.5px] text-red-400 leading-snug">{searchParams.error}</span>
+                <span className="text-[12.5px] text-red-400 leading-snug">{query.error}</span>
               </div>
             )}
 

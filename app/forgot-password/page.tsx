@@ -4,13 +4,14 @@ import Link from 'next/link';
 
 export const metadata = { title: 'Forgot Password | NomadXE' };
 
-export default function ForgotPasswordPage({
+export default async function ForgotPasswordPage({
   searchParams,
 }: {
-  searchParams: { sent?: string; error?: string; email?: string };
+  searchParams: Promise<{ sent?: string; error?: string; email?: string }>;
 }) {
-  const sent  = searchParams.sent === '1';
-  const email = searchParams.email ?? '';
+  const query = await searchParams;
+  const sent  = query.sent === '1';
+  const email = query.email ?? '';
 
   return (
     <div className="min-h-screen bg-[#080c14] flex items-center justify-center p-6 relative overflow-hidden">
@@ -46,9 +47,9 @@ export default function ForgotPasswordPage({
             </div>
 
             {/* Error from server action */}
-            {searchParams.error && (
+            {query.error && (
               <div className="mb-5 bg-red-950/25 border border-red-500/35 rounded-xl p-3.5 text-[12.5px] text-red-400">
-                {decodeURIComponent(searchParams.error)}
+                {decodeURIComponent(query.error)}
               </div>
             )}
 

@@ -37,23 +37,14 @@ ALTER TABLE public.device_assignments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.auth_tokens       ENABLE ROW LEVEL SECURITY;
 
 
--- ── 4. Tighten profiles: prevent users from writing privileged columns ────────
--- The existing UPDATE policy allows users to update their entire own row,
--- including `role` and `status`. Replace it with a column-scoped policy that
--- only allows updating safe fields (full_name, is_active).
--- Role and status changes must go through service_role (admin actions).
+-- ── 4. Tighten profiles: prevent users from direct profile writes ─────────────
+-- Row-level UPDATE policies cannot restrict which columns are written. Allowing
+-- users to update their own row would also let them write privileged columns
+-- such as `role` and `status` through PostgREST. Profile writes therefore go
+-- through server-side service_role routes/actions only.
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
-CREATE POLICY "Users can update own profile"
-  ON public.profiles
-  FOR UPDATE
-  USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id);
-
--- NOTE: Postgres column-level RLS (via WITH CHECK) restricts which rows can be
--- updated but not which columns. To fully restrict columns, the safest approach
--- is the service_role pattern already in use: all privileged writes go through
--- the admin client. The policy above is left as row-scoped for clarity.
--- The application-level whitelist in /api/auth/use-token enforces column safety.
+REVOKE UPDATE ON public.profiles FROM anon;
+REVOKE UPDATE ON public.profiles FROM authenticated;
 
 
 -- ── 5. Revoke public execute on handle_new_user trigger function ──────────────

@@ -1,6 +1,7 @@
 'use client';
 
 import { useLayoutEffect, useRef } from 'react';
+import { ArrowRight, Check } from 'lucide-react';
 
 const PANEL1_FEATURES = [
   'Integrates with existing cameras',
@@ -91,10 +92,10 @@ export default function TwoOptions() {
               {PANEL1_FEATURES.map((f) => (
                 <li key={f} className="flex items-center gap-3">
                   <span
-                    className="font-mono text-xs bg-midnight rounded-full px-3 py-1 text-white/70 border border-white/10"
+                    className="bg-midnight rounded-full w-7 h-7 text-white/70 border border-white/10 flex items-center justify-center flex-shrink-0"
                     aria-hidden="true"
                   >
-                    ✓
+                    <Check size={14} strokeWidth={2.3} />
                   </span>
                   <span className="text-sm text-white/70">{f}</span>
                 </li>
@@ -103,10 +104,10 @@ export default function TwoOptions() {
 
             <a
               href="#contact"
-              className="mt-auto self-start border border-white/20 text-white font-semibold rounded-full px-8 py-3 text-sm transition-all duration-300 hover:border-blue hover:text-blue hover:scale-[1.02] active:scale-[0.98]"
+              className="mt-auto self-start inline-flex items-center gap-2 border border-white/20 text-white font-semibold rounded-full px-8 py-3 text-sm transition-all duration-300 hover:border-blue hover:text-blue hover:scale-[1.02] active:scale-[0.98]"
               aria-label="Inquire about Trailer and Power Base option"
             >
-              Learn More
+              Learn More <ArrowRight size={16} aria-hidden="true" />
             </a>
           </div>
 
@@ -132,10 +133,10 @@ export default function TwoOptions() {
               {PANEL2_FEATURES.map((f) => (
                 <li key={f} className="flex items-center gap-3">
                   <span
-                    className="font-mono text-xs bg-midnight/10 rounded-full px-3 py-1 text-midnight/80 border border-midnight/10"
+                    className="bg-midnight/10 rounded-full w-7 h-7 text-midnight/80 border border-midnight/10 flex items-center justify-center flex-shrink-0"
                     aria-hidden="true"
                   >
-                    ✓
+                    <Check size={14} strokeWidth={2.3} />
                   </span>
                   <span className="text-sm text-midnight/80">{f}</span>
                 </li>
@@ -144,10 +145,10 @@ export default function TwoOptions() {
 
             <a
               href="#contact"
-              className="mt-auto self-start bg-midnight text-blue font-semibold rounded-full px-8 py-3 text-sm transition-all duration-300 hover:shadow-blue-glow hover:scale-[1.02] active:scale-[0.98]"
+              className="mt-auto self-start inline-flex items-center gap-2 bg-midnight text-blue font-semibold rounded-full px-8 py-3 text-sm transition-all duration-300 hover:shadow-blue-glow hover:scale-[1.02] active:scale-[0.98]"
               aria-label="Get in touch about Fully Equipped option"
             >
-              Get in touch
+              Get in touch <ArrowRight size={16} aria-hidden="true" />
             </a>
           </div>
         </div>

@@ -57,12 +57,10 @@ export async function POST(request: NextRequest) {
 
   const siteUrl = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.nomadxe.com';
 
-  let inviteToken: string | null = null;
-
   const { data, error } = await adminClient.auth.admin.generateLink({
     type: type as 'invite' | 'recovery' | 'magiclink',
     email,
-    options: { redirectTo: `${siteUrl}/auth/callback` },
+    options: { redirectTo: `${siteUrl}/auth/confirm` },
   });
 
   // Return a generic error to the client — never expose internal Supabase messages
@@ -77,7 +75,7 @@ export async function POST(request: NextRequest) {
   // Create the auth_tokens row using atomic RPC
   if (invitedUserId && (type === 'invite' || type === 'recovery')) {
     try {
-      inviteToken = await createAuthToken(
+      await createAuthToken(
         adminClient,
         invitedUserId,
         type as 'invite' | 'recovery',
@@ -90,19 +88,5 @@ export async function POST(request: NextRequest) {
     console.warn('[generate-link] skipping createAuthToken — invitedUserId missing:', { invitedUserId, type });
   }
 
-  // For invite links, embed invite_token in the redirect URL so /auth/callback
-  // can route without a DB lookup (avoids RLS block on client queries).
-  let actionLink = data.properties.action_link;
-  if (type === 'invite' && inviteToken) {
-    try {
-      const url           = new URL(actionLink);
-      const newRedirectTo = `${siteUrl}/auth/callback?invite_token=${inviteToken}`;
-      url.searchParams.set('redirect_to', newRedirectTo);
-      actionLink = url.toString();
-    } catch {
-      // URL parse failed — fall back to unpatched link
-    }
-  }
-
-  return NextResponse.json({ link: actionLink });
+  return NextResponse.json({ link: data.properties.action_link });
 }

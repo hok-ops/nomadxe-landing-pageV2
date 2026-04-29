@@ -10,23 +10,22 @@ const USE_CASES = [
   {
     title: 'Construction & Civil',
     descriptor: 'ACTIVE SITE MONITORING',
-    image: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=70',
-    // TODO: replace with final brand imagery
+    image: '/images/usecase_construction.png',
   },
   {
     title: 'Remote Energy & Utilities',
     descriptor: 'PERIMETER SURVEILLANCE',
-    image: 'https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=800&q=70',
+    image: '/images/usecase_energy.png',
   },
   {
     title: 'Events & Temporary Venues',
     descriptor: 'CROWD & ACCESS CONTROL',
-    image: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&q=70',
+    image: '/images/usecase_incident.png',
   },
   {
     title: 'Asset Yards & Logistics',
     descriptor: 'INVENTORY PROTECTION',
-    image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800&q=70',
+    image: '/images/usecase_compliance.png',
   },
 ];
 
@@ -91,9 +90,9 @@ export default function UseCases() {
           </h2>
         </div>
 
-        {/* Desktop 2×2 grid / Mobile horizontal scroll */}
+        {/* Desktop 2x2 grid / Mobile horizontal scroll */}
         <div
-          className="grid md:grid-cols-2 gap-6 overflow-x-auto md:overflow-visible scrollbar-hide snap-x snap-mandatory md:snap-none flex md:grid"
+          className="flex md:grid md:grid-cols-2 gap-6 overflow-x-auto md:overflow-visible scrollbar-hide snap-x snap-mandatory md:snap-none pb-2 md:pb-0"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {USE_CASES.map((uc, idx) => (

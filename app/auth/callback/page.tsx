@@ -5,16 +5,16 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 
 /**
- * Looks up the auth token for the current user via the server API.
+ * Prepares the current user's server-side auth token cookie via the server API.
  * Uses adminClient (service_role) server-side to bypass the RESTRICTIVE deny
  * RLS policy on auth_tokens that blocks authenticated/anon role queries.
  */
-async function fetchAuthToken(type: 'invite' | 'recovery'): Promise<string | null> {
+async function prepareAuthToken(type: 'invite' | 'recovery'): Promise<string | null> {
   try {
     const res = await fetch(`/api/auth/invite-token?type=${type}`);
     if (!res.ok) return null;
-    const { token } = await res.json();
-    return token ?? null;
+    const { redirectTo } = await res.json();
+    return redirectTo ?? null;
   } catch {
     return null;
   }
@@ -29,10 +29,10 @@ function AuthCallbackInner() {
   useEffect(() => {
     let handled = false;
 
-    const code        = searchParams.get('code');
-    const inviteToken = searchParams.get('invite_token');
-    const hash        = window.location.hash.substring(1);
-    const hashParams  = new URLSearchParams(hash);
+    const code               = searchParams.get('code');
+    const hasInviteTokenHint = searchParams.has('invite_token');
+    const hash               = window.location.hash.substring(1);
+    const hashParams         = new URLSearchParams(hash);
 
     async function route(userId: string, type: string | null) {
       if (handled) return;
@@ -40,25 +40,17 @@ function AuthCallbackInner() {
 
       if (type === 'recovery') {
         setStatus('Redirecting to password reset…');
-        const token = await fetchAuthToken('recovery');
-        router.replace(token ? `/auth/reset/${token}` : '/reset-password');
+        const redirectTo = await prepareAuthToken('recovery');
+        router.replace(redirectTo ?? '/reset-password');
         return;
       }
 
       if (type === 'invite') {
         setStatus('Setting up your account…');
+        const redirectTo = await prepareAuthToken('invite');
 
-        // Fast path: invite_token was embedded in the redirect URL by generate-link
-        if (inviteToken) {
-          router.replace(`/auth/setup/${inviteToken}`);
-          return;
-        }
-
-        // Fallback: look up via server API (bypasses RLS)
-        const token = await fetchAuthToken('invite');
-
-        if (token) {
-          router.replace(`/auth/setup/${token}`);
+        if (redirectTo) {
+          router.replace(redirectTo);
         } else {
           router.replace('/login?error=Invite+link+expired.+Ask+your+admin+to+resend+the+invite.');
         }
@@ -87,7 +79,7 @@ function AuthCallbackInner() {
         }
         const type = data.session.user.user_metadata?.type
           ?? hashParams.get('type')
-          ?? (inviteToken ? 'invite' : null);
+          ?? (hasInviteTokenHint ? 'invite' : null);
         await route(data.session.user.id, type);
         return;
       }

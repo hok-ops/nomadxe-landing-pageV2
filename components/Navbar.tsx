@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Menu, X } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 
 const navLinks = [
   { label: 'Solutions', href: '#solutions' },
@@ -56,13 +57,13 @@ export default function Navbar() {
         style={scrolled ? { borderColor: `${accentColor}33` } : {}}
       >
         {/* ── Brand ── */}
-        <a
+        <Link
           href="/"
           className="font-mono text-sm tracking-[0.3em] uppercase text-white hover:text-white transition-colors duration-300 flex-shrink-0"
           aria-label="Nomadxe home"
         >
           NOMADXE<span style={{ color: accentColor }}>_</span>
-        </a>
+        </Link>
 
         {/* ── Nav links — centered ── */}
         <nav
@@ -88,7 +89,7 @@ export default function Navbar() {
         {/* ── CTA buttons — right-aligned ── */}
         <div className="hidden md:flex items-center gap-2.5 flex-shrink-0">
           {/* DASHBOARD LOGIN — solid accent button, clearly distinct from nav links */}
-          <a
+          <Link
             href="/login"
             aria-label="Open the Nomadxe dashboard"
             className="inline-flex items-center gap-1.5 text-[11.5px] font-bold tracking-wider uppercase px-4 py-2 rounded-full transition-all duration-200 hover:scale-[1.03] active:scale-[0.97]"
@@ -105,7 +106,7 @@ export default function Navbar() {
             }}
           >
             {isOps ? 'Portal' : 'Dashboard'}
-          </a>
+          </Link>
         </div>
 
         {/* ── Mobile hamburger ── */}
@@ -148,7 +149,7 @@ export default function Navbar() {
         ))}
 
         {/* Mobile: Dashboard Login — solid filled pill */}
-        <a
+        <Link
           href="/login"
           onClick={() => setMenuOpen(false)}
           aria-label="Open the Nomadxe dashboard"
@@ -161,7 +162,7 @@ export default function Navbar() {
           }}
         >
           {isOps ? 'Portal' : 'Dashboard'}
-        </a>
+        </Link>
       </div>
     </>
   );
