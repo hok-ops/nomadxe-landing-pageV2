@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { VRMData } from './NomadXECoreView';
 import { useTheme } from '@/components/ThemeProvider';
-import { getCachedLocation, reverseGeocode } from '@/lib/geocode';
 
 
 function getBatteryColor(soc: number, light: boolean) {
@@ -118,31 +117,10 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
   const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({});
   const [entered, setEntered] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [location, setLocation] = useState<string | null>(() => {
-    // Initialise synchronously from cache so there's no flicker on re-render.
-    if (data?.lat != null && data?.lon != null) {
-      return getCachedLocation(data.lat, data.lon);
-    }
-    return null;
-  });
   const tileRef = useRef<HTMLDivElement>(null);
 
   // Portal target is document.body — only available after mount (SSR safety).
   useEffect(() => { setMounted(true); }, []);
-
-  // Reverse-geocode the device's GPS coords → "City, ST ZIP".
-  // Stagger by tile index to stay within Nominatim's 1 req/sec limit.
-  useEffect(() => {
-    if (data?.lat == null || data?.lon == null) return;
-    const lat = data.lat;
-    const lon = data.lon;
-    // Already in cache (set by lazy init or a previous tile) — nothing to do.
-    if (getCachedLocation(lat, lon)) return;
-    const t = setTimeout(() => {
-      reverseGeocode(lat, lon).then(result => { if (result) setLocation(result); });
-    }, index * 1100);
-    return () => clearTimeout(t);
-  }, [data?.lat, data?.lon, index]);
 
 
   // Mount stagger — tiles appear in a gentle cascade. Cap delay so large
@@ -264,7 +242,7 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
             {charging ? '↑ chg' : discharging ? '↓ bat' : noData ? '—' : 'stby'}
           </span>
         </div>
-        <div className="mt-1 text-[9px] font-mono text-[#93c5fd]/50 truncate">{location ?? device.siteId}</div>
+        <div className="mt-1 text-[9px] font-mono text-[#93c5fd]/50 truncate">{data?.location ?? device.siteId}</div>
       </button>
       {modemAccessUrl && (
         <a

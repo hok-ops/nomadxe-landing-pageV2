@@ -5,7 +5,6 @@ import { useTheme } from '@/components/ThemeProvider';
 import VRMDeepDivePanel from '@/components/dashboard/VRMDeepDivePanel';
 import ManagedNetworkDevicesPanel from '@/components/dashboard/ManagedNetworkDevicesPanel';
 import type { VRMData, VRMDetailData } from '@/lib/vrm';
-import { getCachedLocation, reverseGeocode } from '@/lib/geocode';
 
 // ── Weather ───────────────────────────────────────────────────────────────────
 
@@ -425,12 +424,6 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
   const isLight = theme === 'light';
 
   const [data, setData]         = useState<VRMData | null>(initialData);
-  const [location, setLocation] = useState<string | null>(() => {
-    if (initialData?.lat != null && initialData?.lon != null) {
-      return getCachedLocation(initialData.lat, initialData.lon);
-    }
-    return null;
-  });
   const [weather, setWeather]   = useState<WeatherData | null>(null);
   const [details, setDetails]   = useState<VRMDetailData | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
@@ -480,13 +473,6 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
     loadDetails();
     return () => { cancelled = true; };
   }, [device.siteId]);
-
-  // Reverse-geocode GPS coordinates once per device open. Only one device is
-  // ever open at a time so there is no rate-limit concern.
-  useEffect(() => {
-    if (data?.lat == null || data?.lon == null) return;
-    reverseGeocode(data.lat, data.lon).then(result => { if (result) setLocation(result); });
-  }, [data?.lat, data?.lon]);
 
   // Fetch weather once per device open — re-fetches only if coordinates change.
   useEffect(() => {
@@ -593,14 +579,22 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
   // Compare by lastSeen timestamp rather than object reference — the parent spreads
   // a new object on every poll regardless of whether the values changed, so a
   // reference comparison would fire on every parent re-render (stale closure risk).
+  // Location is resolved separately from VRM telemetry, so allow that field to
+  // refresh even when the upstream lastSeen timestamp is unchanged.
   useEffect(() => {
-    if (initialData && initialData.lastSeen !== data?.lastSeen) {
+    if (
+      initialData &&
+      (
+        initialData.lastSeen !== data?.lastSeen ||
+        initialData.location !== data?.location
+      )
+    ) {
       setData(initialData);
       setLastPoll(new Date());
       onData?.(device.siteId, initialData);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialData?.lastSeen]);
+  }, [initialData?.lastSeen, initialData?.location]);
 
   // 10s is sufficient — staleness text shows "Xm ago" for most real-world data ages.
   // Reduces from 1 re-render/sec per open device card to 1 per 10s.
@@ -693,7 +687,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
           )}
 
           <span className="hidden sm:inline text-[10px] font-mono text-[#93c5fd]/60 uppercase tracking-widest flex-shrink-0">
-            {location ?? `Site ${device.siteId}`}
+            {data?.location ?? `Site ${device.siteId}`}
           </span>
         </div>
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchVRMData } from '@/lib/vrm';
+import { resolveAndPersistDeviceLocation } from '@/lib/deviceLocation';
 import { assertVrmSiteAccess } from '@/lib/vrmAccess';
 
 // Re-export VRMData type so DashboardClient can import from this route path
@@ -19,7 +20,8 @@ export async function GET(
 
   try {
     const data = await fetchVRMData(siteId);
-    return NextResponse.json({ data, ok: true });
+    const location = await resolveAndPersistDeviceLocation(siteId, data.lat, data.lon);
+    return NextResponse.json({ data: { ...data, location }, ok: true });
   } catch (err: any) {
     // Log full error server-side; return only a generic message to the client
     // to avoid leaking internal VRM API details (installation IDs, token status, etc.)

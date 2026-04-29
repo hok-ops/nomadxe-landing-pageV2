@@ -56,6 +56,8 @@ export interface VRMData {
   /** GPS coordinates from the VRM GPS widget — null when unavailable */
   lat: number | null;
   lon: number | null;
+  /** Cached "City, ST ZIP" label derived from the latest known coordinates. */
+  location: string | null;
 }
 
 export interface VRMWidgetMetric {
@@ -600,6 +602,7 @@ export async function fetchVRMData(siteId: string): Promise<VRMData> {
     batterySparkline: extractSparkline(statsJson, A.BATTERY_SOC),
     lat: gps?.latitude ?? null,
     lon: gps?.longitude ?? null,
+    location: null,
   };
 }
 

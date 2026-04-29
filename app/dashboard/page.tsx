@@ -3,6 +3,8 @@ import { createAdminClient } from '@/utils/supabase/admin';
 import { redirect } from 'next/navigation';
 import DashboardClient from './DashboardClient';
 import { fetchVRMData, type VRMData } from '@/lib/vrm';
+import { getStoredDeviceLocations } from '@/lib/deviceLocation';
+import { getLocationKey } from '@/lib/location';
 
 export const metadata = { title: 'Power Base Readings | NomadXE' };
 
@@ -75,10 +77,25 @@ export default async function DashboardPage() {
     return true;
   });
 
+  const storedLocations = await getStoredDeviceLocations(devices.map((d) => d.siteId));
+
   // Cap concurrent VRM fetches at 4 — each call fans out to 3 sub-requests;
   // uncapped this causes a thundering herd (20 devices = 60 simultaneous calls).
   const pairs = await pLimit(
-    devices.map((d) => () => fetchInitialVRMData(d.siteId).then((data) => [d.siteId, data] as const)),
+    devices.map((d) => () => fetchInitialVRMData(d.siteId).then((data) => {
+      const stored = storedLocations.get(d.siteId);
+      const geocodeKey = data ? getLocationKey(data.lat, data.lon) : null;
+      if (
+        data &&
+        stored?.locationLabel &&
+        stored.locationGeocodeKey &&
+        geocodeKey &&
+        stored.locationGeocodeKey === geocodeKey
+      ) {
+        return [d.siteId, { ...data, location: stored.locationLabel }] as const;
+      }
+      return [d.siteId, data] as const;
+    })),
     4
   );
   const initialDataMap = Object.fromEntries(pairs);
