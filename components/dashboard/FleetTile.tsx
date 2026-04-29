@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { VRMData } from './NomadXECoreView';
 import { useTheme } from '@/components/ThemeProvider';
+import { formatWatts, getDcLoadSignalDetail, getDcLoadSignalTitle, hasMissingDcLoadSignal } from '@/lib/telemetryHealth';
 
 function getBatteryColor(soc: number, light: boolean) {
   if (soc >= 80) return light ? '#16a34a' : '#22c55e';
@@ -17,12 +18,6 @@ function getLedgerBatteryTone(soc: number) {
   if (soc >= 60) return { color: '#f59e0b', label: 'Battery alert' };
   if (soc >= 30) return { color: '#fb923c', label: 'Low battery' };
   return { color: '#ef4444', label: 'Critical battery' };
-}
-
-function formatWatts(value: number) {
-  const rounded = Math.round(value);
-  if (Math.abs(rounded) >= 1000) return `${(rounded / 1000).toFixed(1)} kW`;
-  return `${rounded} W`;
 }
 
 function formatSyncAge(lastSeen: number) {
@@ -156,6 +151,7 @@ function HoverDetail({
   const mpptColor = MPPT_LABEL_COLOR[mpptLabel] ?? '#9ca3af';
   const charging = data.battery.state === 1;
   const discharging = data.battery.state === 2;
+  const loadSignalMissing = hasMissingDcLoadSignal(data);
 
   const nowS = Date.now() / 1000;
   const staleS = nowS - (data.lastSeen ?? 0);
@@ -213,7 +209,16 @@ function HoverDetail({
       </div>
       <div className="space-y-1.5 border-t border-[#1e3a5f]/40 pt-2.5">
         <div className="mb-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[#93c5fd]/30">DC Load</div>
-        <Row label="Load" value={`${data.dcLoad.toFixed(1)} W`} color="#f59e0b" />
+        <Row
+          label="Load"
+          value={loadSignalMissing ? getDcLoadSignalTitle(data) : `${data.dcLoad.toFixed(1)} W`}
+          color={loadSignalMissing ? '#fb923c' : '#f59e0b'}
+        />
+        {loadSignalMissing && (
+          <div className="pt-1 text-[10px] leading-4 text-amber-200/80">
+            {getDcLoadSignalDetail(data)}
+          </div>
+        )}
         <Row label="Site ID" value={device.siteId} color="#93c5fd60" />
       </div>
     </div>
@@ -255,13 +260,14 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
   const dcLoadW = data?.dcLoad ?? 0;
   const hasDirectLoadReading = data?.hasDcLoadReading !== false;
   const noDirectLoadReading = Boolean(data) && !hasDirectLoadReading;
+  const loadSignalMissing = hasMissingDcLoadSignal(data);
   const batteryVoltage = data?.battery.voltage ?? 0;
   const batteryFlow = getBatteryFlowState(charging, discharging, noData);
   const batteryFlowWidth = noData ? 100 : Math.max(18, Math.min(100, Math.abs(data?.battery.current ?? 0) * 5 + 18));
   const location = data?.location ?? 'Location pending';
   const syncAge = formatSyncAge(lastSeenS);
-  const priorityLabel = noData ? 'No Data' : isOffline ? 'Offline' : soc < 80 ? 'Alert' : 'Healthy';
-  const priorityColor = noData ? '#64748b' : isOffline ? '#f43f5e' : soc < 80 ? '#f59e0b' : '#10b981';
+  const priorityLabel = noData ? 'No Data' : isOffline ? 'Offline' : loadSignalMissing ? 'No DC Read' : soc < 80 ? 'Alert' : 'Healthy';
+  const priorityColor = noData ? '#64748b' : isOffline ? '#f43f5e' : loadSignalMissing ? '#ea580c' : soc < 80 ? '#f59e0b' : '#10b981';
   const cloudyWeather = tileWeather && isCloudyWeatherCode(tileWeather.code) ? tileWeather : null;
 
   useEffect(() => {
@@ -367,15 +373,15 @@ export default function FleetTile({ device, data, selected, onClick, index = 0 }
                 <div className="mt-1 text-sm font-black tabular-nums">{formatWatts(solarW)}</div>
               </div>
               <div className={`rounded-lg px-2.5 py-2 ${
-                noDirectLoadReading
+                loadSignalMissing
                   ? 'border border-[#f59e0b]/35 bg-[#f59e0b]/10'
                   : 'bg-[#15120c]/5'
               }`}>
                 <div className="text-[9px] font-black uppercase tracking-[0.18em] text-[#7b6a52]">Load</div>
-                <div className="mt-1 text-sm font-black tabular-nums">{noData ? 'Pending' : noDirectLoadReading ? 'No read' : formatWatts(dcLoadW)}</div>
-                {noDirectLoadReading && (
+                <div className="mt-1 text-sm font-black tabular-nums">{noData ? 'Pending' : loadSignalMissing ? 'No read' : formatWatts(dcLoadW)}</div>
+                {loadSignalMissing && (
                   <div className="mt-0.5 text-[8px] font-black uppercase tracking-[0.16em] text-[#b45309]">
-                    Est. {formatWatts(dcLoadW)}
+                    {noDirectLoadReading ? `Est. ${formatWatts(dcLoadW)}` : 'Verify signal'}
                   </div>
                 )}
               </div>

@@ -5,6 +5,7 @@ import { useTheme } from '@/components/ThemeProvider';
 import VRMDeepDivePanel from '@/components/dashboard/VRMDeepDivePanel';
 import ManagedNetworkDevicesPanel from '@/components/dashboard/ManagedNetworkDevicesPanel';
 import type { VRMData, VRMDetailData } from '@/lib/vrm';
+import { formatWatts, getDcLoadSignalDetail, getDcLoadSignalTitle, hasMissingDcLoadSignal } from '@/lib/telemetryHealth';
 
 // ── Weather ───────────────────────────────────────────────────────────────────
 
@@ -372,33 +373,79 @@ function SocBar({ soc, light, animate, shimmerKey }: { soc: number; light: boole
 
 // ── Offline overlay ───────────────────────────────────────────────────────────
 
-function OfflineOverlay({ staleSince, deviceName }: { staleSince: number; deviceName: string }) {
+function OfflineSnapshotReport({
+  staleSince,
+  deviceName,
+  data,
+}: {
+  staleSince: number;
+  deviceName: string;
+  data: VRMData | null;
+}) {
   const mins = Math.floor((Date.now() / 1000 - staleSince) / 60);
+  const loadSignalMissing = hasMissingDcLoadSignal(data);
+  const rows = data
+    ? [
+        { label: 'SOC', value: `${Math.round(data.battery.soc)}%`, tone: getBatteryColor(data.battery.soc) },
+        { label: 'Battery V', value: `${data.battery.voltage.toFixed(2)} V`, tone: '#93c5fd' },
+        { label: 'Battery A', value: `${data.battery.current >= 0 ? '+' : ''}${data.battery.current.toFixed(1)} A`, tone: data.battery.current < -0.1 ? '#f59e0b' : '#22c55e' },
+        { label: 'Battery W', value: formatWatts(Math.abs(data.battery.power)), tone: '#93c5fd' },
+        { label: 'Solar', value: formatWatts(data.solar.power), tone: '#22c55e' },
+        { label: 'Solar V', value: `${data.solar.voltage.toFixed(1)} V`, tone: '#22c55e' },
+        { label: 'Yield Today', value: `${data.solar.yieldToday.toFixed(2)} kWh`, tone: '#22c55e' },
+        { label: 'DC Load', value: loadSignalMissing ? getDcLoadSignalTitle(data) : formatWatts(data.dcLoad), tone: loadSignalMissing ? '#fb923c' : '#f59e0b' },
+        { label: 'MPPT', value: data.solar.mpptStateLabel, tone: '#c4b5fd' },
+        { label: 'Location', value: data.location ?? 'Location pending', tone: '#93c5fd' },
+      ]
+    : [];
+
   return (
-    <div className="absolute inset-0 z-20 rounded-2xl flex flex-col items-center justify-center gap-3"
-      style={{ background: 'rgba(8,12,20,0.92)', backdropFilter: 'blur(3px)' }}>
+    <section className="mb-4 overflow-hidden rounded-2xl border border-red-500/35 bg-[radial-gradient(circle_at_top_left,rgba(239,68,68,0.16),transparent_35%),rgba(127,29,29,0.12)]">
       <style>{`
         @keyframes op{0%,100%{border-color:rgba(239,68,68,.55);box-shadow:0 0 0 0 rgba(239,68,68,0)}
         50%{border-color:rgba(75,85,99,.35);box-shadow:0 0 20px 3px rgba(239,68,68,.15)}}
         .op{animation:op 2.2s ease-in-out infinite}
       `}</style>
-      <div className="absolute inset-0 rounded-2xl border-2 op" />
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="1.5">
-        <circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-      </svg>
-      <div className="text-center space-y-0.5 px-4">
-        <div className="text-white font-black text-sm tracking-tight truncate max-w-xs">{deviceName}</div>
-        <div className="text-red-400 font-black text-xs tracking-[0.35em] uppercase font-mono">Signal Lost</div>
-        <div className="text-[#93c5fd]/45 text-[11px] font-mono mt-1">
-          {mins < 60 ? `No data for ${mins}m` : `Offline ${Math.floor(mins / 60)}h ${mins % 60}m`}
-          {mins >= 30 ? ' \u2014 check trailer' : ''}
+      <div className="op rounded-2xl border-2 border-red-500/40 p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="mt-1 rounded-xl border border-red-500/30 bg-red-500/10 p-2">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="1.7" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-[10px] font-mono font-black uppercase tracking-[0.35em] text-red-300">Offline Last Report</div>
+              <div className="mt-1 text-lg font-black text-white">{deviceName}</div>
+              <div className="mt-1 text-xs font-mono text-[#93c5fd]/55">
+                {mins < 60 ? `No fresh VRM telemetry for ${mins}m` : `Offline ${Math.floor(mins / 60)}h ${mins % 60}m`}
+                {mins >= 30 ? ' - check trailer comms, Cerbo, and router power.' : ' - watching for reconnect.'}
+              </div>
+              {loadSignalMissing && (
+                <div className="mt-3 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
+                  {getDcLoadSignalDetail(data)}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 rounded-full border border-red-500/25 bg-red-500/10 px-3 py-1.5 text-[10px] font-mono font-black uppercase tracking-[0.24em] text-red-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-ping" />
+            Reconnect watch
+          </div>
         </div>
+
+        {rows.length > 0 && (
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+            {rows.map((row) => (
+              <div key={row.label} className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5">
+                <div className="text-[9px] font-mono font-black uppercase tracking-[0.22em] text-[#93c5fd]/45">{row.label}</div>
+                <div className="mt-1 truncate text-sm font-black tabular-nums" style={{ color: row.tone }}>{row.value}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-      <div className="flex items-center gap-1.5 text-[10px] text-red-500/50 font-mono">
-        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping inline-block" />
-        Attempting reconnect\u2026
-      </div>
-    </div>
+    </section>
   );
 }
 
@@ -613,7 +660,8 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
   const batColor    = getBatteryColor(soc, isLight);
   const mppt        = getMpptStyle(data?.solar.mpptState ?? 0);
   const solarActive = (data?.solar.power ?? 0) > 5;
-  const loadActive  = (data?.dcLoad ?? 0) > 5;
+  const loadSignalMissing = hasMissingDcLoadSignal(data);
+  const loadActive  = !loadSignalMissing && (data?.dcLoad ?? 0) > 5;
   const charging    = (data?.battery.state ?? 0) === 1;
   const discharging = (data?.battery.state ?? 0) === 2;
 
@@ -638,8 +686,6 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
       }}
     >
 
-
-      {isOffline && <OfflineOverlay staleSince={lastSeenS} deviceName={activeDisplayName} />}
 
       <div className="h-px bg-gradient-to-r from-transparent via-[#3b82f6]/20 to-transparent" />
 
@@ -740,6 +786,8 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
       </div>
 
       <div className="p-4 sm:p-6">
+        {isOffline && <OfflineSnapshotReport staleSince={lastSeenS} deviceName={activeDisplayName} data={data} />}
+
         <div className="flex flex-col lg:flex-row lg:items-stretch gap-3 lg:gap-0">
 
           {/* Solar Card */}
@@ -834,7 +882,8 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
           <FlowArrow active={loadActive} color="#f59e0b" />
 
           {/* DC Loads Card */}
-          <div data-core-card="dc" className="group/core flex-1 min-w-0 bg-[#080c14] border border-[#1e3a5f]/50 rounded-xl p-5 flex flex-col transition-all duration-300 hover:border-[#f59e0b]/40 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-12px_rgba(245,158,11,0.35)]">
+          <div data-core-card="dc" className="group/core flex-1 min-w-0 bg-[#080c14] rounded-xl p-5 flex flex-col transition-all duration-300 hover:border-[#f59e0b]/40 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-12px_rgba(245,158,11,0.35)]"
+            style={{ border: `1px solid ${loadSignalMissing ? 'rgba(251,146,60,0.55)' : 'rgba(30,58,95,0.50)'}` }}>
             <div className="flex items-center gap-2 mb-4">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2">
                 <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
@@ -845,14 +894,19 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
             </div>
             <div className="mb-0.5">
               <span className={`text-4xl font-black tabular-nums leading-none${flashDc ? ' nx-flash' : ''}`}
-                style={{ color: loadActive ? (isLight ? '#d97706' : '#f59e0b') : (isLight ? '#94a3b8' : '#374151') }}>
-                {+dispDc.toFixed(2)}
+                style={{ color: loadSignalMissing ? '#fb923c' : loadActive ? (isLight ? '#d97706' : '#f59e0b') : (isLight ? '#94a3b8' : '#374151') }}>
+                {loadSignalMissing ? 'No read' : +dispDc.toFixed(2)}
               </span>
-              <span className="text-sm font-bold text-[#f59e0b]/70 ml-1">W</span>
+              {!loadSignalMissing && <span className="text-sm font-bold text-[#f59e0b]/70 ml-1">W</span>}
             </div>
             <div className="text-[10px] font-mono text-[#93c5fd]/65 mt-2 uppercase tracking-widest">
-              DC System Load
+              {loadSignalMissing ? getDcLoadSignalTitle(data) : 'DC System Load'}
             </div>
+            {loadSignalMissing && (
+              <div className="mt-3 rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100/85">
+                {getDcLoadSignalDetail(data)}
+              </div>
+            )}
 
             {solarActive && loadActive && (() => {
               const sW = data?.solar.power ?? 0;

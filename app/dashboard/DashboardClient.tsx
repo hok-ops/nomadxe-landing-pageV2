@@ -9,6 +9,7 @@ import ReadingKey from '@/components/dashboard/ReadingKey';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/components/ToastProvider';
+import { formatWatts, getDcLoadSignalTitle, hasMissingDcLoadSignal } from '@/lib/telemetryHealth';
 
 export interface Device {
   siteId: string;
@@ -23,12 +24,12 @@ interface Props {
   isAdmin: boolean;
 }
 
-type BriefingQueueKey = 'battery' | 'offline' | 'charging' | 'healthy';
+type BriefingQueueKey = 'battery' | 'load' | 'offline' | 'charging' | 'healthy';
 
 type BriefingDeviceState = {
   device: Device;
   data: VRMData | null;
-  state: 'healthy' | 'battery' | 'offline';
+  state: 'healthy' | 'battery' | 'load' | 'offline';
   reason: string;
   batterySoc: number | null;
   staleMinutes: number | null;
@@ -53,6 +54,12 @@ const BRIEFING_QUEUE_CONFIG: Record<BriefingQueueKey, {
     helper: 'Stale or missing telemetry',
     tone: '#fb7185',
     empty: 'No offline or no-telemetry units right now.',
+  },
+  load: {
+    label: 'Load Signal',
+    helper: 'Missing DC load reads',
+    tone: '#fb923c',
+    empty: 'Every live unit has a usable DC load signal.',
   },
   charging: {
     label: 'Charging',
@@ -97,6 +104,16 @@ function getDeviceState(device: Device, data: VRMData | null, nowS: number): Bri
       staleMinutes,
     };
   }
+  if (hasMissingDcLoadSignal(data)) {
+    return {
+      device,
+      data,
+      state: 'load',
+      reason: `${getDcLoadSignalTitle(data)}: ${formatWatts(data.dcLoad)}`,
+      batterySoc: data.battery.soc,
+      staleMinutes,
+    };
+  }
 
   return {
     device,
@@ -116,27 +133,32 @@ function buildBriefing(devices: Device[], dataMap: Record<string, VRMData | null
   const offline = states
     .filter((item) => item.state === 'offline')
     .sort((a, b) => (b.staleMinutes ?? 9999) - (a.staleMinutes ?? 9999));
+  const load = states
+    .filter((item) => item.state === 'load')
+    .sort((a, b) => (a.device.displayName ?? a.device.name).localeCompare(b.device.displayName ?? b.device.name));
   const charging = states
     .filter((item) => item.data && item.state !== 'offline' && isChargingData(item.data))
     .sort((a, b) => (a.batterySoc ?? 999) - (b.batterySoc ?? 999));
   const healthy = states
     .filter((item) => item.state === 'healthy')
     .sort((a, b) => (a.device.displayName ?? a.device.name).localeCompare(b.device.displayName ?? b.device.name));
-  const queues = { battery, offline, charging, healthy };
-  const priority = battery[0] ?? offline[0] ?? charging[0] ?? healthy[0] ?? null;
+  const queues = { battery, load, offline, charging, healthy };
+  const priority = battery[0] ?? load[0] ?? offline[0] ?? charging[0] ?? healthy[0] ?? null;
   const alertParts = [
     battery.length > 0 ? `${battery.length} battery ${battery.length === 1 ? 'alert' : 'alerts'}` : null,
+    load.length > 0 ? `${load.length} load ${load.length === 1 ? 'signal' : 'signals'}` : null,
     offline.length > 0 ? `${offline.length} offline` : null,
   ].filter(Boolean);
   const opening = alertParts.length > 0
     ? `${alertParts.join(' and ')}. ${healthy.length} healthy.`
-    : `${healthy.length} units healthy. No battery or offline alerts.`;
+    : `${healthy.length} units healthy. No battery, load, or offline alerts.`;
 
-  return { states, queues, battery, offline, charging, healthy, priority, opening };
+  return { states, queues, battery, load, offline, charging, healthy, priority, opening };
 }
 
 function getDefaultBriefingQueue(briefing: ReturnType<typeof buildBriefing>): BriefingQueueKey {
   if (briefing.battery.length > 0) return 'battery';
+  if (briefing.load.length > 0) return 'load';
   if (briefing.offline.length > 0) return 'offline';
   if (briefing.charging.length > 0) return 'charging';
   return 'healthy';
@@ -217,10 +239,10 @@ function ShiftBriefingPanel({
             {briefing.opening}
           </h2>
           <p className={`mt-3 max-w-2xl text-sm leading-6 ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>
-            Healthy means the unit is live and at or above 80% battery. Open an action queue below to jump straight to the trailer that needs attention.
+            Healthy means the unit is live, at or above 80% battery, and not missing a DC load signal. Open an action queue below to jump straight to the trailer that needs attention.
           </p>
-          <div className="mt-5 grid gap-3 sm:grid-cols-4">
-            {(['battery', 'offline', 'charging', 'healthy'] as BriefingQueueKey[]).map((key) => {
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {(['battery', 'load', 'offline', 'charging', 'healthy'] as BriefingQueueKey[]).map((key) => {
               const config = BRIEFING_QUEUE_CONFIG[key];
               return (
                 <BriefingMetric

@@ -1,6 +1,7 @@
 'use client';
 
 import type { VRMData, VRMDetailData, VRMSeries, VRMWidgetMetric } from '@/lib/vrm';
+import { getDcLoadSignalDetail, getDcLoadSignalTitle, hasMissingDcLoadSignal } from '@/lib/telemetryHealth';
 
 interface Props {
   siteId: string;
@@ -78,6 +79,14 @@ function buildNotices(data: VRMData | null, details: VRMDetailData | null): Noti
       tone: 'critical',
       title: 'Solar charger fault reported',
       body: 'The current MPPT state is Fault, which usually means the trailer needs attention.',
+    });
+  }
+
+  if (hasMissingDcLoadSignal(data)) {
+    notices.push({
+      tone: 'warn',
+      title: getDcLoadSignalTitle(data),
+      body: getDcLoadSignalDetail(data),
     });
   }
 
