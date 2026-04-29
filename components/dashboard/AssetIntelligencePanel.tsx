@@ -92,6 +92,11 @@ export default function AssetIntelligencePanel({
   const trend = intelligence.power.socTrendPerHour == null
     ? 'No trend'
     : `${intelligence.power.socTrendPerHour > 0 ? '+' : ''}${intelligence.power.socTrendPerHour.toFixed(1)}%/h`;
+  const reserveValue = intelligence.power.runtimeHours == null && intelligence.power.severity === 'normal'
+    ? 'Stable'
+    : intelligence.power.runtimeHours == null
+      ? 'Needs trend'
+      : formatRuntime(intelligence.power.runtimeHours);
   const shellClass = isLight
     ? 'mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-[0_16px_44px_rgba(15,23,42,0.08)]'
     : 'mt-4 overflow-hidden rounded-2xl border border-[#1e3a5f]/65 bg-[linear-gradient(180deg,rgba(8,12,20,0.92),rgba(10,16,30,0.98))]';
@@ -135,11 +140,11 @@ export default function AssetIntelligencePanel({
           </div>
           <div className="grid min-w-[250px] grid-cols-2 gap-2">
             <div className={innerPanelClass}>
-              <div className={`text-[9px] font-bold uppercase tracking-[0.24em] ${labelText}`}>Trust</div>
-              <div className={`mt-1 text-lg font-black tabular-nums ${primaryText}`}>{intelligence.trustScore}%</div>
+              <div className={`text-[9px] font-bold uppercase tracking-[0.24em] ${labelText}`}>Freshness</div>
+              <div className={`mt-1 text-lg font-black tabular-nums ${primaryText}`}>{intelligence.dataFreshnessScore}%</div>
             </div>
             <div className={innerPanelClass}>
-              <div className={`text-[9px] font-bold uppercase tracking-[0.24em] ${labelText}`}>Twin</div>
+              <div className={`text-[9px] font-bold uppercase tracking-[0.24em] ${labelText}`}>Coverage</div>
               <div className={`mt-1 text-lg font-black tabular-nums ${isLight ? 'text-blue-700' : 'text-[#93c5fd]'}`}>{intelligence.readiness.score}%</div>
             </div>
           </div>
@@ -168,7 +173,7 @@ export default function AssetIntelligencePanel({
               </span>
             </div>
             <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
-              <SignalCard label="Reserve" value={formatRuntime(intelligence.power.runtimeHours)} tone={intelligence.power.severity} isLight={isLight} />
+              <SignalCard label="Reserve" value={reserveValue} tone={intelligence.power.severity} isLight={isLight} />
               <SignalCard label="Solar Coverage" value={coverage} tone={intelligence.power.solarCoveragePct != null && intelligence.power.solarCoveragePct < 60 ? 'watch' : 'normal'} isLight={isLight} />
               <SignalCard label="SOC Trend" value={trend} tone={intelligence.power.socTrendPerHour != null && intelligence.power.socTrendPerHour < -4 ? 'action' : 'normal'} isLight={isLight} />
             </div>

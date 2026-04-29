@@ -64,7 +64,7 @@ export interface AssetIntelligence {
   displayName: string;
   generatedAt: number;
   severity: IntelligenceSeverity;
-  trustScore: number;
+  dataFreshnessScore: number;
   headline: string;
   briefing: string;
   signals: IntelligenceSignal[];
@@ -80,7 +80,7 @@ export interface FleetIntelligence {
   severity: IntelligenceSeverity;
   headline: string;
   briefing: string;
-  fleetScore: number;
+  fleetFreshnessPct: number;
   counts: Record<IntelligenceSeverity, number>;
   priorityAssets: AssetIntelligence[];
   nextActions: string[];
@@ -102,6 +102,11 @@ const SEVERITY_RANK: Record<IntelligenceSeverity, number> = {
   action: 2,
   critical: 3,
 };
+
+const EXPECTED_REPORT_INTERVAL_MINUTES = 5;
+const MISSED_REPORT_CYCLES_BEFORE_DOWN = 3;
+const UNIT_DOWN_AFTER_MINUTES = EXPECTED_REPORT_INTERVAL_MINUTES * MISSED_REPORT_CYCLES_BEFORE_DOWN;
+const UNIT_DOWN_AFTER_SECONDS = UNIT_DOWN_AFTER_MINUTES * 60;
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -136,7 +141,33 @@ function trendPerHour(values?: number[] | null, hours = 3): number | null {
 
 function isOffline(data: VRMData | null, nowMs: number) {
   if (!data || data.lastSeen === 0) return true;
-  return (nowMs / 1000 - data.lastSeen) > 15 * 60;
+  return (nowMs / 1000 - data.lastSeen) > UNIT_DOWN_AFTER_SECONDS;
+}
+
+function telemetryAgeLabel(data: VRMData | null, nowMs: number) {
+  if (!data || data.lastSeen === 0) return 'No VRM sync has been received';
+  const ageSeconds = Math.max(0, nowMs / 1000 - data.lastSeen);
+  if (ageSeconds < 60) return `${Math.floor(ageSeconds)} seconds old`;
+  if (ageSeconds < 3600) return `${Math.floor(ageSeconds / 60)} minutes old`;
+  return `${Math.floor(ageSeconds / 3600)} hours old`;
+}
+
+function reportingThresholdEvidence(data: VRMData | null, nowMs: number) {
+  if (!data || data.lastSeen === 0) {
+    return `No dashboard report received; down threshold is ${UNIT_DOWN_AFTER_MINUTES} minutes`;
+  }
+  return `Down threshold: ${UNIT_DOWN_AFTER_MINUTES} minutes (${MISSED_REPORT_CYCLES_BEFORE_DOWN} missed ${EXPECTED_REPORT_INTERVAL_MINUTES}-minute reporting cycles)`;
+}
+
+function dataFreshnessScore(data: VRMData | null, nowMs: number) {
+  if (!data || data.lastSeen <= 0) return 0;
+  const ageSeconds = Math.max(0, nowMs / 1000 - data.lastSeen);
+  if (ageSeconds <= EXPECTED_REPORT_INTERVAL_MINUTES * 60) return 100;
+  return clamp(
+    Math.round(100 * (1 - ((ageSeconds - EXPECTED_REPORT_INTERVAL_MINUTES * 60) / ((UNIT_DOWN_AFTER_MINUTES - EXPECTED_REPORT_INTERVAL_MINUTES) * 60)))),
+    0,
+    100
+  );
 }
 
 function managedNetworkAttention(
@@ -171,9 +202,9 @@ function assessPower(data: VRMData | null): PowerRiskForecast {
       runtimeHours: null,
       socTrendPerHour: null,
       solarCoveragePct: null,
-      reserveLabel: 'No telemetry',
-      summary: 'VRM telemetry is unavailable, so runtime cannot be trusted.',
-      action: 'Confirm Cerbo connectivity and trailer power before relying on the site.',
+      reserveLabel: 'Not reporting',
+      summary: 'The unit is not reporting into the dashboard, so reserve cannot be calculated from current telemetry.',
+      action: 'Treat this as a down/reporting failure until the unit checks in again or field evidence clears it.',
     };
   }
 
@@ -189,9 +220,7 @@ function assessPower(data: VRMData | null): PowerRiskForecast {
   let runtimeHours: number | null = null;
   const declinePerHour = socTrend != null && socTrend < -0.1
     ? Math.abs(socTrend)
-    : discharging && loadW > 5
-      ? Math.max(1, Math.abs(netBatteryW) / Math.max(loadW, 1) * 2)
-      : 0;
+    : 0;
 
   if (declinePerHour > 0) {
     runtimeHours = clamp((soc - 20) / declinePerHour, 0, 240);
@@ -213,7 +242,7 @@ function assessPower(data: VRMData | null): PowerRiskForecast {
   const summary = charging
     ? `Battery is charging at ${soc.toFixed(0)}% with ${formatWatts(solarW)} solar input.`
     : discharging
-      ? `Battery is carrying load at ${soc.toFixed(0)}%; estimated reserve is ${formatRuntime(runtimeHours)}.`
+      ? `Battery is carrying load at ${soc.toFixed(0)}%; reserve ${runtimeHours == null ? 'needs more SOC trend history' : `is estimated at ${formatRuntime(runtimeHours)}`}.`
       : `Battery is steady at ${soc.toFixed(0)}% with ${formatWatts(loadW)} DC load.`;
 
   const action = severity === 'critical'
@@ -239,23 +268,32 @@ function buildAnomalies(
   const offline = isOffline(data, nowMs);
   const network = managedNetworkAttention(managedDevices, discoveredDevices, nowMs);
 
-  if (offline && device.teltonikaRmsDeviceId) {
+  if (offline && data && device.teltonikaRmsDeviceId) {
     anomalies.push({
       id: 'vrm-offline-router-known',
-      severity: 'action',
-      title: 'VRM path is offline',
-      summary: 'The trailer has a known Teltonika router but VRM telemetry is stale.',
-      evidence: ['VRM lastSeen is outside the 15-minute live window', 'Router RMS ID is registered'],
-      action: 'Open the modem session, confirm WAN/VPN status, then check Cerbo LAN reachability.',
+      severity: 'critical',
+      title: 'Unit is not reporting',
+      summary: `The unit has exceeded the ${UNIT_DOWN_AFTER_MINUTES}-minute reporting threshold. Treat it as down until it checks in again or field evidence clears it.`,
+      evidence: [`Last dashboard report is ${telemetryAgeLabel(data, nowMs)}`, reportingThresholdEvidence(data, nowMs), 'Router RMS ID is registered'],
+      action: 'Use RMS or field verification to confirm the reporting path, then restore dashboard telemetry.',
+    });
+  } else if (offline && data) {
+    anomalies.push({
+      id: 'vrm-stale-no-router',
+      severity: 'critical',
+      title: 'Unit is not reporting',
+      summary: `The unit has exceeded the ${UNIT_DOWN_AFTER_MINUTES}-minute reporting threshold. Treat it as down until it checks in again or field evidence clears it.`,
+      evidence: [`Last dashboard report is ${telemetryAgeLabel(data, nowMs)}`, reportingThresholdEvidence(data, nowMs), 'No Teltonika RMS device ID is linked'],
+      action: 'Dispatch or verify the Cerbo/VRM reporting path because no remote access path is linked.',
     });
   } else if (offline) {
     anomalies.push({
       id: 'vrm-offline-no-router',
       severity: 'critical',
-      title: 'Trailer telemetry is blind',
-      summary: 'VRM telemetry is missing and no router access path is registered.',
-      evidence: ['VRM is stale or unavailable', 'No Teltonika RMS device ID is linked'],
-      action: 'Attach a remote access path or dispatch local verification before promising live visibility.',
+      title: 'Unit is not reporting',
+      summary: `No current unit telemetry is available in the dashboard. The operational down threshold is ${UNIT_DOWN_AFTER_MINUTES} minutes without a report.`,
+      evidence: ['No dashboard report is available', reportingThresholdEvidence(data, nowMs), 'No Teltonika RMS device ID is linked'],
+      action: 'Treat as down/reporting failure until the unit checks in or field evidence clears it.',
     });
   }
 
@@ -439,10 +477,17 @@ export function assessAssetIntelligence(input: AssessInput): AssetIntelligence {
   const severity = maxSeverity([power.severity, ...anomalies.map((item) => item.severity)]);
   const telemetryPlan = buildTelemetryPlan(power, anomalies, offline);
   const readiness = buildReadiness(input.device, input.data, input.details, managedDevices, discoveredDevices, power, nowMs);
-  const trustScore = clamp(Math.round((readiness.score * 0.7) - (SEVERITY_RANK[severity] * 8) + (input.data ? 12 : 0)), 0, 100);
+  const freshnessScore = dataFreshnessScore(input.data, nowMs);
+  const runtimeSignal = !input.data
+    ? '--'
+    : power.runtimeHours == null && power.severity === 'normal'
+      ? 'stable'
+      : power.runtimeHours == null
+        ? 'needs trend'
+        : formatRuntime(power.runtimeHours);
   const nextActions = [
     ...anomalies.slice(0, 2).map((item) => item.action),
-    power.action,
+    ...(power.severity === 'normal' ? [] : [power.action]),
   ].filter((value, index, array) => array.indexOf(value) === index).slice(0, 3);
 
   const headline = severity === 'critical'
@@ -455,19 +500,19 @@ export function assessAssetIntelligence(input: AssessInput): AssetIntelligence {
 
   const briefing = input.data
     ? `${power.summary} ${anomalies.length > 0 ? anomalies[0].summary : 'No cross-signal exceptions are active.'}`
-    : 'Telemetry is not available; the system cannot provide a trusted operational briefing yet.';
+    : 'Telemetry is not available; the system cannot provide a current operational briefing yet.';
 
   return {
     siteId: input.device.siteId,
     displayName,
     generatedAt: nowMs,
     severity,
-    trustScore,
+    dataFreshnessScore: freshnessScore,
     headline,
     briefing,
     signals: [
       { label: 'SOC', value: input.data ? `${input.data.battery.soc.toFixed(0)}%` : '--', tone: power.severity },
-      { label: 'Runtime', value: formatRuntime(power.runtimeHours), tone: power.severity },
+      { label: 'Reserve', value: runtimeSignal, tone: power.severity },
       { label: 'Readiness', value: `${readiness.score}%`, tone: readiness.score >= 85 ? 'normal' : readiness.score >= 70 ? 'watch' : 'action' },
       { label: 'Telemetry', value: telemetryPlan.mode, tone: telemetryPlan.mode === 'normal' ? 'normal' : telemetryPlan.mode === 'offline' ? 'critical' : 'watch' },
     ],
@@ -483,17 +528,18 @@ export function assessFleetIntelligence(assets: AssetIntelligence[]): FleetIntel
   const counts: Record<IntelligenceSeverity, number> = { normal: 0, watch: 0, action: 0, critical: 0 };
   assets.forEach((asset) => { counts[asset.severity] += 1; });
   const severity = maxSeverity(assets.map((asset) => asset.severity));
-  const fleetScore = assets.length > 0
-    ? Math.round(assets.reduce((sum, asset) => sum + asset.trustScore, 0) / assets.length)
+  const fleetFreshnessPct = assets.length > 0
+    ? Math.round(assets.reduce((sum, asset) => sum + asset.dataFreshnessScore, 0) / assets.length)
     : 0;
   const rankedAssets = [...assets]
-    .sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity] || a.trustScore - b.trustScore)
+    .sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity] || a.dataFreshnessScore - b.dataFreshnessScore);
   const attentionAssets = rankedAssets.filter((asset) => asset.severity !== 'normal');
-  const priorityAssets = (attentionAssets.length > 0 ? attentionAssets : rankedAssets).slice(0, 4);
+  const priorityAssets = attentionAssets;
+  const telemetryBasis = priorityAssets.length > 0 ? priorityAssets : rankedAssets;
   const telemetryPlan = buildTelemetryPlan(
-    priorityAssets[0]?.power ?? assessPower(null),
-    priorityAssets.flatMap((asset) => asset.anomalies),
-    priorityAssets.some((asset) => asset.telemetryPlan.mode === 'offline')
+    telemetryBasis[0]?.power ?? assessPower(null),
+    telemetryBasis.flatMap((asset) => asset.anomalies),
+    telemetryBasis.some((asset) => asset.telemetryPlan.mode === 'offline')
   );
 
   const issueCount = counts.critical + counts.action + counts.watch;
@@ -505,8 +551,8 @@ export function assessFleetIntelligence(assets: AssetIntelligence[]): FleetIntel
       : 'Fleet is inside expected operating bands',
     briefing: assets.length === 0
       ? 'No assigned assets are available for intelligence scoring.'
-      : `${counts.normal}/${assets.length} asset${assets.length === 1 ? '' : 's'} are normal. Fleet trust score is ${fleetScore}%.`,
-    fleetScore,
+      : `${counts.normal}/${assets.length} asset${assets.length === 1 ? '' : 's'} are normal. ${assets.filter((asset) => asset.dataFreshnessScore > 0).length}/${assets.length} are reporting inside the live telemetry window.`,
+    fleetFreshnessPct,
     counts,
     priorityAssets,
     nextActions: (attentionAssets.length > 0 ? priorityAssets : [])

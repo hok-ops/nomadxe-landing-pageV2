@@ -193,7 +193,7 @@ function buildPowerSummary(data: VRMData | null, details: VRMDetailData | null |
 
   const summary = data
     ? `SOC ${formatPct(socNow)}, ${trend == null ? 'trend unavailable' : `${trend > 0 ? '+' : ''}${trend.toFixed(1)} pct/hr`}, solar coverage ${formatPct(coverage)}.`
-    : 'Power telemetry is unavailable, so historical autonomy cannot be trusted.';
+    : 'Power telemetry is unavailable, so historical autonomy cannot be calculated from current evidence.';
 
   return {
     severity,

@@ -407,7 +407,12 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin, leas
   useEffect(() => {
     const JITTER_MAX_MS = 4_000;
     const fanOut = () => {
-      devicesRef.current.forEach((d, i) => {
+      const selected = new Set(selectedIds);
+      const pollTargets = selected.size > 0
+        ? devicesRef.current.filter((device) => selected.has(device.siteId))
+        : devicesRef.current;
+
+      pollTargets.forEach((d, i) => {
         const delay = Math.min(i * 180, JITTER_MAX_MS) + Math.random() * 250;
         setTimeout(() => pollDevice(d.siteId), delay);
       });
@@ -415,7 +420,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin, leas
     fanOut(); // immediate on mount, then follow the adaptive cadence
     const id = setInterval(fanOut, fleetPollMs);
     return () => clearInterval(id);
-  }, [pollDevice, fleetPollMs]);
+  }, [pollDevice, fleetPollMs, selectedIds]);
 
   useEffect(() => {
     const prev = prevSelectedRef.current;
@@ -428,14 +433,14 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin, leas
 
   const toggleSite = (siteId: string) => {
     setSelectedIds(prev => {
-      const next = prev.includes(siteId) ? prev.filter(id => id !== siteId) : [...prev, siteId];
+      const next = prev.includes(siteId) ? [] : [siteId];
       setMobileView(next.length > 0 ? 'detail' : 'fleet');
       return next;
     });
   };
 
   const openSite = (siteId: string) => {
-    setSelectedIds(prev => prev.includes(siteId) ? prev : [...prev, siteId]);
+    setSelectedIds([siteId]);
     setMobileView('detail');
     setTimeout(() => {
       document.querySelector(`[data-site-id="${siteId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -572,7 +577,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin, leas
               fleetIntelligence={fleetIntelligence}
               onTicketCreated={handleTicketCreated}
             />
-            <FleetIntelligenceBriefing devices={intelligenceDevices} dataMap={dataMap} />
+            <FleetIntelligenceBriefing devices={intelligenceDevices} dataMap={dataMap} onOpenDevice={openSite} />
             {devices.map(d => (
               <div key={d.siteId} data-site-id={d.siteId}>
                 <NomadXECoreView device={d} initialData={dataMap[d.siteId] ?? null} displayName={displayNames[d.siteId] ?? null} onRename={handleRename} onData={handleDeviceData} />
@@ -591,7 +596,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin, leas
               fleetIntelligence={fleetIntelligence}
               onTicketCreated={handleTicketCreated}
             />
-            <FleetIntelligenceBriefing devices={intelligenceDevices} dataMap={dataMap} />
+            <FleetIntelligenceBriefing devices={intelligenceDevices} dataMap={dataMap} onOpenDevice={openSite} />
             <div className="lg:hidden pb-10">
               {mobileView === 'detail' && (
                 <div className="flex items-center justify-between mb-4">
@@ -599,7 +604,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin, leas
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6" /></svg>
                     Fleet &middot; {devices.length} units
                   </button>
-                  <span className="text-[10px] font-mono text-[#93c5fd]/50">{selectedIds.length} open</span>
+                  <span className="text-[10px] font-mono text-[#93c5fd]/50">{selectedIds.length} open &middot; 1 max</span>
                 </div>
               )}
               {mobileView === 'fleet' && (
@@ -642,7 +647,7 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin, leas
                   <span className="text-[10px] font-bold text-[#93c5fd]/65 uppercase tracking-widest font-mono">Fleet &middot; {devices.length} units</span>
                   {hasSelection && (
                     <div className="flex items-center gap-3">
-                      <span className="text-[10px] font-mono text-[#93c5fd]/65">{selectedIds.length} open</span>
+                      <span className="text-[10px] font-mono text-[#93c5fd]/65">{selectedIds.length} open &middot; 1 max</span>
                       <button onClick={closeAll} className="text-[10px] text-[#93c5fd]/65 hover:text-white font-mono uppercase tracking-widest transition-colors">&#x2715; Close all</button>
                     </div>
                   )}

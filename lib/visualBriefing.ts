@@ -34,7 +34,7 @@ function fmt(value: number | null | undefined, unit = '') {
 }
 
 function staleAge(data: VRMData | null) {
-  if (!data?.lastSeen) return 'no trusted sync yet';
+  if (!data?.lastSeen) return 'no VRM sync yet';
   const ageSeconds = Math.max(0, Date.now() / 1000 - data.lastSeen);
   if (ageSeconds < 60) return `${Math.floor(ageSeconds)}s ago`;
   if (ageSeconds < 3600) return `${Math.floor(ageSeconds / 60)}m ago`;
@@ -97,13 +97,13 @@ export function buildVisualBriefingFrames({
     {
       id: 'risk',
       kind: 'risk',
-      title: 'Risk window and confidence',
+      title: 'Risk window and data coverage',
       eyebrow: 'Frame 3 / Risk Window',
       severity: intelligence.readiness.score < 70 ? 'action' : intelligence.power.severity,
-      summary: `Trust score is ${intelligence.trustScore}%. Digital twin readiness is ${intelligence.readiness.score}%. Reserve estimate is ${intelligence.power.runtimeHours == null ? 'unknown' : `${intelligence.power.runtimeHours.toFixed(1)} hours`}.`,
+      summary: `Telemetry freshness is ${intelligence.dataFreshnessScore}%. Data coverage is ${intelligence.readiness.score}%. Reserve estimate is ${intelligence.power.runtimeHours == null ? (intelligence.power.severity === 'normal' ? 'stable' : 'not available') : `${intelligence.power.runtimeHours.toFixed(1)} hours`}.`,
       evidence: [
-        `Readiness ${intelligence.readiness.score}%`,
-        `Trust ${intelligence.trustScore}%`,
+        `Data coverage ${intelligence.readiness.score}%`,
+        `Telemetry freshness ${intelligence.dataFreshnessScore}%`,
         `Monitoring pace ${Math.round(intelligence.telemetryPlan.pollIntervalMs / 1000)}s`,
       ],
       hotspots: intelligence.readiness.components.slice(0, 4).map((component) => ({

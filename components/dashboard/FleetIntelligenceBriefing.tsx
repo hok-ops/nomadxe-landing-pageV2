@@ -1,6 +1,6 @@
 'use client';
 
-import { Activity, Brain, RadioTower, ShieldCheck } from 'lucide-react';
+import { Activity, Brain, RadioTower, Signal } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 import type { VRMData } from '@/lib/vrm';
 import {
@@ -20,9 +20,11 @@ const STYLES: Record<IntelligenceSeverity, { label: string; dot: string; badge: 
 export default function FleetIntelligenceBriefing({
   devices,
   dataMap,
+  onOpenDevice,
 }: {
   devices: IntelligenceDevice[];
   dataMap: Record<string, VRMData | null>;
+  onOpenDevice?: (siteId: string) => void;
 }) {
   const { theme } = useTheme();
   const isLight = theme === 'light';
@@ -30,10 +32,10 @@ export default function FleetIntelligenceBriefing({
   const intelligence = assessFleetIntelligence(assets);
   const style = STYLES[intelligence.severity];
   const issueCount = intelligence.counts.watch + intelligence.counts.action + intelligence.counts.critical;
-  const priorityLabel = issueCount > 0 ? 'Attention Queue' : 'Lowest Confidence Normal Units';
+  const priorityLabel = 'Attention Queue';
   const priorityHelp = issueCount > 0
-    ? 'Only trailers with watch, action, or critical signals appear here.'
-    : 'No active exceptions. These are the healthy trailers with the lowest confidence scores.';
+    ? 'Only units with watch, action, or critical signals appear here. Select one to open it.'
+    : 'No units need attention. Use Shift Briefing or the fleet list for normal units.';
   const shellClass = isLight
     ? 'mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-[0_16px_44px_rgba(15,23,42,0.08)]'
     : 'mb-6 overflow-hidden rounded-2xl border border-[#1e3a5f]/50 bg-[linear-gradient(180deg,rgba(8,12,20,0.78),rgba(10,16,30,0.92))]';
@@ -50,6 +52,11 @@ export default function FleetIntelligenceBriefing({
   const focusPanelClass = isLight
     ? 'rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 xl:col-span-2'
     : 'rounded-xl border border-[#1e3a5f]/40 bg-[#0b1323]/60 px-3 py-3 xl:col-span-2';
+  const assetReason = (asset: (typeof assets)[number]) => {
+    const anomaly = asset.anomalies[0];
+    if (anomaly) return `${anomaly.title} - ${anomaly.evidence[0] ?? `freshness ${asset.dataFreshnessScore}%`}`;
+    return `${asset.power.reserveLabel} - freshness ${asset.dataFreshnessScore}%`;
+  };
 
   return (
     <section className={shellClass}>
@@ -70,10 +77,10 @@ export default function FleetIntelligenceBriefing({
         <div className="grid min-w-[280px] grid-cols-3 gap-2">
           <div className={metricClass}>
             <div className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.22em] ${labelText}`}>
-              <ShieldCheck className="h-3 w-3" />
-              Trust
+              <Signal className="h-3 w-3" />
+              Freshness
             </div>
-            <div className={`mt-1 text-lg font-black tabular-nums ${primaryText}`}>{intelligence.fleetScore}%</div>
+            <div className={`mt-1 text-lg font-black tabular-nums ${primaryText}`}>{intelligence.fleetFreshnessPct}%</div>
           </div>
           <div className={metricClass}>
             <div className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.22em] ${labelText}`}>
@@ -107,20 +114,32 @@ export default function FleetIntelligenceBriefing({
             {priorityLabel}
             <span className={`ml-2 normal-case tracking-normal font-medium ${mutedText}`}>{priorityHelp}</span>
           </div>
-          {intelligence.priorityAssets.slice(0, 4).map((asset) => {
+          {issueCount === 0 && (
+            <div className={`sm:col-span-2 rounded-xl border px-3 py-3 text-[12px] leading-relaxed ${isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-500/20 bg-emerald-500/8 text-emerald-100/70'}`}>
+              All assigned units are inside expected reporting and power bands. Normal units are intentionally not listed here so this section stays exception-driven.
+            </div>
+          )}
+          {intelligence.priorityAssets.map((asset) => {
             const assetStyle = STYLES[asset.severity];
+            const clickable = typeof onOpenDevice === 'function';
+            const CardTag = clickable ? 'button' : 'div';
             return (
-              <div key={asset.siteId} className={`rounded-xl border ${assetStyle.border} ${isLight ? 'bg-white shadow-[0_6px_18px_rgba(15,23,42,0.04)]' : 'bg-[#080c14]/70'} px-3 py-3`}>
+              <CardTag
+                key={asset.siteId}
+                type={clickable ? 'button' : undefined}
+                onClick={clickable ? () => onOpenDevice(asset.siteId) : undefined}
+                className={`rounded-xl border text-left ${assetStyle.border} ${isLight ? 'bg-white shadow-[0_6px_18px_rgba(15,23,42,0.04)]' : 'bg-[#080c14]/70'} px-3 py-3 ${clickable ? 'transition-colors hover:border-[#3b82f6]/65 hover:bg-[#1e40af]/10' : ''}`}
+              >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <div className={`truncate text-sm font-bold ${primaryText}`}>{asset.displayName}</div>
-                    <div className={`mt-1 text-[10px] ${isLight ? 'text-slate-500' : 'text-[#93c5fd]/50'}`}>{asset.power.reserveLabel} &middot; trust {asset.trustScore}%</div>
+                    <div className={`mt-1 text-[10px] ${isLight ? 'text-slate-500' : 'text-[#93c5fd]/50'}`}>{assetReason(asset)}</div>
                   </div>
                   <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.18em] ${assetStyle.badge}`}>
                     {assetStyle.label}
                   </span>
                 </div>
-              </div>
+              </CardTag>
             );
           })}
         </div>

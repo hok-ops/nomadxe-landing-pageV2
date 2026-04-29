@@ -245,9 +245,9 @@ export default function LeaseCommandCenter({
             <div className={`rounded-xl border px-4 py-3 ${isLight ? 'border-slate-200 bg-slate-50' : 'border-[#1e3a5f]/55 bg-[#080c14]/76'}`}>
               <div className={`flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.24em] ${isLight ? 'text-slate-500' : 'text-[#93c5fd]/42'}`}>
                 <Sparkles className="h-3.5 w-3.5 text-[#60a5fa]" />
-                Confidence
+                Live Data
               </div>
-              <div className={`mt-1 text-2xl font-black tabular-nums ${primaryText}`}>{fleetIntelligence.fleetScore}%</div>
+              <div className={`mt-1 text-2xl font-black tabular-nums ${primaryText}`}>{liveCount}/{devices.length}</div>
               <div className={`mt-1 text-[10px] ${isLight ? 'text-slate-600' : 'text-[#93c5fd]/48'}`}>{liveCount}/{devices.length} live - {openTickets.length} open service</div>
             </div>
             <div className="grid grid-cols-2 gap-2">

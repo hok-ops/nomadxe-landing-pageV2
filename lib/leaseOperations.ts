@@ -132,7 +132,7 @@ export function buildSyntheticLeaseOperations(
       evidence: {
         source: 'VRM snapshot',
         siteId: device.siteId,
-        trustScore: asset?.trustScore ?? null,
+        dataFreshnessScore: asset?.dataFreshnessScore ?? null,
       },
       isSynthetic: true,
     };
