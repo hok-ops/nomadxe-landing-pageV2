@@ -420,11 +420,11 @@ function OfflineSnapshotReport({
               </svg>
             </div>
             <div>
-              <div className="text-[10px] font-mono font-black uppercase tracking-[0.35em] text-red-300">Offline Last Report</div>
+              <div className="text-[10px] font-mono font-black uppercase tracking-[0.35em] text-red-300">VRM Stale Last Report</div>
               <div className="mt-1 text-lg font-black text-white">{deviceName}</div>
               <div className="mt-1 text-xs font-mono text-[#93c5fd]/55">
-                {mins < 60 ? `No fresh VRM telemetry for ${mins}m` : `Offline ${Math.floor(mins / 60)}h ${mins % 60}m`}
-                {mins >= 30 ? ' - check trailer comms, Cerbo, and router power.' : ' - watching for reconnect.'}
+                {mins < 60 ? `No fresh VRM telemetry for ${mins}m` : `VRM feed stale ${Math.floor(mins / 60)}h ${mins % 60}m`}
+                {mins >= 30 ? ' - verify Cerbo, VRM, and router reporting path.' : ' - watching for the next report.'}
               </div>
               {loadSignalMissing && (
                 <div className="mt-3 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
@@ -435,7 +435,7 @@ function OfflineSnapshotReport({
           </div>
           <div className="flex items-center gap-1.5 rounded-full border border-red-500/25 bg-red-500/10 px-3 py-1.5 text-[10px] font-mono font-black uppercase tracking-[0.24em] text-red-300">
             <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-ping" />
-            Reconnect watch
+            Report watch
           </div>
         </div>
 
@@ -444,7 +444,7 @@ function OfflineSnapshotReport({
             {rows.map((row) => (
               <div key={row.label} className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5">
                 <div className="text-[9px] font-mono font-black uppercase tracking-[0.22em] text-[#93c5fd]/45">{row.label}</div>
-                <div className="mt-1 truncate text-sm font-black tabular-nums" style={{ color: row.tone }}>{row.value}</div>
+                <div className="mt-1 break-words text-sm font-black tabular-nums" style={{ color: row.tone }}>{row.value}</div>
               </div>
             ))}
           </div>
@@ -786,7 +786,7 @@ export default function NomadXECoreView({ device, initialData, displayName, onRe
 
           <div className="text-[10px] font-mono text-[#93c5fd]/60 uppercase tracking-widest">
             {isOffline
-              ? <span className="text-red-400 font-bold">Offline &middot; VRM {syncAgo}</span>
+              ? <span className="text-red-400 font-bold">VRM stale &middot; {syncAgo}</span>
               : <>
                   <span title={`VRM device last reported ${syncAgo}`}>
                     Synced {lastPoll.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}

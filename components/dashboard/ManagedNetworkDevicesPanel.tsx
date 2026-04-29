@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import {
+  cellularSignalTone,
   getManagedDeviceSummary,
+  type CellularSignalReport,
   type DiscoveredNetworkDevice,
   type ManagedNetworkDevice,
 } from '@/lib/networkDevices';
@@ -102,6 +104,18 @@ function managedState(device: ManagedNetworkDevice) {
   };
 }
 
+function formatSignal(value: number | null, unit: string) {
+  return typeof value === 'number' && Number.isFinite(value) ? `${value}${unit}` : 'Not reported';
+}
+
+function signalBadge(tone: ReturnType<typeof cellularSignalTone>) {
+  if (tone === 'good') return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300';
+  if (tone === 'fair') return 'border-sky-500/20 bg-sky-500/10 text-sky-300';
+  if (tone === 'watch') return 'border-amber-500/20 bg-amber-500/10 text-amber-300';
+  if (tone === 'poor') return 'border-rose-500/20 bg-rose-500/10 text-rose-300';
+  return 'border-slate-500/20 bg-slate-500/10 text-slate-300';
+}
+
 function sortObservedDevices(a: DiscoveredNetworkDevice, b: DiscoveredNetworkDevice) {
   const stateDelta = observedState(a).rank - observedState(b).rank;
   if (stateDelta !== 0) return stateDelta;
@@ -124,6 +138,9 @@ export default function ManagedNetworkDevicesPanel({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showAllObserved, setShowAllObserved] = useState(false);
+  const [cellularReport, setCellularReport] = useState<CellularSignalReport | null>(null);
+  const [cellularMessage, setCellularMessage] = useState<string | null>(null);
+  const [requestingCellular, setRequestingCellular] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,6 +163,11 @@ export default function ManagedNetworkDevicesPanel({
           managedDevices: nextManagedDevices,
           discoveredDevices: nextDiscoveredDevices,
         });
+        const cellularResponse = await fetch(`/api/devices/${siteId}/cellular-report`, { cache: 'no-store' });
+        if (cellularResponse.ok) {
+          const cellularPayload = await cellularResponse.json();
+          if (!cancelled) setCellularReport(cellularPayload.report ?? null);
+        }
       } catch {
         if (!cancelled) setLoadError('Network error while loading LAN inventory.');
       } finally {
@@ -177,6 +199,25 @@ export default function ManagedNetworkDevicesPanel({
   ]);
   const hasExceptions = attentionKeys.size > 0;
   const hasAnyInventory = orderedObserved.length > 0 || managedDevices.length > 0;
+  const signalTone = cellularSignalTone(cellularReport);
+
+  async function requestCellularReading() {
+    setRequestingCellular(true);
+    setCellularMessage(null);
+    try {
+      const response = await fetch(`/api/devices/${siteId}/cellular-report`, { method: 'POST' });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setCellularMessage(payload?.error ?? 'Could not request the cellular signal reading.');
+        return;
+      }
+      setCellularMessage('Cellular signal reading requested. The latest values will appear after the router/RMS reporter posts them.');
+    } catch {
+      setCellularMessage('Network error while requesting the cellular signal reading.');
+    } finally {
+      setRequestingCellular(false);
+    }
+  }
 
   return (
     <div className="mt-4 overflow-hidden rounded-2xl border border-[#1e3a5f]/65 bg-[linear-gradient(180deg,rgba(8,12,20,0.88),rgba(10,16,30,0.96))]">
@@ -207,6 +248,55 @@ export default function ManagedNetworkDevicesPanel({
       </div>
 
       <div className="space-y-4 px-4 py-3 sm:px-5">
+        <div className="rounded-xl border border-[#1e3a5f]/45 bg-[#0b1323]/62 px-4 py-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <span className={`h-2 w-2 rounded-full ${signalTone === 'poor' ? 'bg-rose-400' : signalTone === 'watch' ? 'bg-amber-400' : signalTone === 'unknown' ? 'bg-slate-400' : 'bg-emerald-400'}`} />
+                <h4 className="text-[10px] font-black uppercase tracking-[0.24em] text-white">Cellular Signal Health</h4>
+                <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] ${signalBadge(signalTone)}`}>
+                  {signalTone === 'unknown' ? 'No report' : signalTone}
+                </span>
+              </div>
+              <p className="mt-1 max-w-2xl text-[11px] leading-relaxed text-[#93c5fd]/56">
+                Shows the latest reported cellular quality from Teltonika/Cerbo collection. SINR is signal quality, RSRP is signal strength, and RSRQ is connection quality.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={requestCellularReading}
+              disabled={requestingCellular}
+              className="rounded-lg border border-[#2563eb]/45 bg-[#1e40af]/24 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#bfdbfe] transition-colors hover:border-[#60a5fa]/65 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {requestingCellular ? 'Requesting' : 'Request Reading'}
+            </button>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-4">
+            {[
+              ['SINR', formatSignal(cellularReport?.sinrDb ?? null, ' dB')],
+              ['RSRP', formatSignal(cellularReport?.rsrpDbm ?? null, ' dBm')],
+              ['RSRQ', formatSignal(cellularReport?.rsrqDb ?? null, ' dB')],
+              ['RSSI', formatSignal(cellularReport?.rssiDbm ?? null, ' dBm')],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-lg border border-[#1e3a5f]/42 bg-[#080c14]/62 px-3 py-2">
+                <div className="text-[9px] font-bold uppercase tracking-[0.22em] text-[#93c5fd]/42">{label}</div>
+                <div className="mt-1 text-sm font-black text-white">{value}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-[#93c5fd]/52">
+            <span>Last report: {cellularReport ? formatAgo(cellularReport.observedAt) : 'not available'}</span>
+            {cellularReport?.operator && <span>Carrier: {cellularReport.operator}</span>}
+            {cellularReport?.networkType && <span>Network: {cellularReport.networkType}</span>}
+            {cellularReport?.band && <span>Band: {cellularReport.band}</span>}
+          </div>
+          {cellularMessage && (
+            <div className="mt-2 rounded-lg border border-[#1e3a5f]/42 bg-[#080c14]/62 px-3 py-2 text-[11px] text-[#bfdbfe]/70">
+              {cellularMessage}
+            </div>
+          )}
+        </div>
+
         {loading ? (
           <div className="py-3 text-[11px] text-[#93c5fd]/48">Loading Cerbo LAN inventory...</div>
         ) : loadError ? (

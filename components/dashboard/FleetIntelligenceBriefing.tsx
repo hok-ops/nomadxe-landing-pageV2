@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Activity, Brain, RadioTower, Signal } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 import type { VRMData } from '@/lib/vrm';
@@ -29,6 +30,7 @@ export default function FleetIntelligenceBriefing({
   const { theme } = useTheme();
   const isLight = theme === 'light';
   const assets = devices.map((device) => assessAssetIntelligence({ device, data: dataMap[device.siteId] ?? null }));
+  const [tickerPaused, setTickerPaused] = useState(false);
   const intelligence = assessFleetIntelligence(assets);
   const style = STYLES[intelligence.severity];
   const issueCount = intelligence.counts.watch + intelligence.counts.action + intelligence.counts.critical;
@@ -36,6 +38,10 @@ export default function FleetIntelligenceBriefing({
   const priorityHelp = issueCount > 0
     ? 'Only units with watch, action, or critical signals appear here. Select one to open it.'
     : 'No units need attention. Use Shift Briefing or the fleet list for normal units.';
+  const shouldAnimateQueue = intelligence.priorityAssets.length > 2;
+  const tickerAssets = shouldAnimateQueue
+    ? [...intelligence.priorityAssets, ...intelligence.priorityAssets]
+    : intelligence.priorityAssets;
   const shellClass = isLight
     ? 'mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-[0_16px_44px_rgba(15,23,42,0.08)]'
     : 'mb-6 overflow-hidden rounded-2xl border border-[#1e3a5f]/50 bg-[linear-gradient(180deg,rgba(8,12,20,0.78),rgba(10,16,30,0.92))]';
@@ -54,8 +60,8 @@ export default function FleetIntelligenceBriefing({
     : 'rounded-xl border border-[#1e3a5f]/40 bg-[#0b1323]/60 px-3 py-3';
   const assetReason = (asset: (typeof assets)[number]) => {
     const anomaly = asset.anomalies[0];
-    if (anomaly) return `${anomaly.title} - ${anomaly.evidence[0] ?? `freshness ${asset.dataFreshnessScore}%`}`;
-    return `${asset.power.reserveLabel} - freshness ${asset.dataFreshnessScore}%`;
+    if (anomaly) return `${anomaly.title} - ${anomaly.evidence[0] ?? `reporting ${asset.dataFreshnessScore}%`}`;
+    return `${asset.power.reserveLabel} - reporting ${asset.dataFreshnessScore}%`;
   };
 
   return (
@@ -78,7 +84,7 @@ export default function FleetIntelligenceBriefing({
           <div className={metricClass}>
             <div className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.22em] ${labelText}`}>
               <Signal className="h-3 w-3" />
-              Freshness
+              Reporting
             </div>
             <div className={`mt-1 text-lg font-black tabular-nums ${primaryText}`}>{intelligence.fleetFreshnessPct}%</div>
           </div>
@@ -92,7 +98,7 @@ export default function FleetIntelligenceBriefing({
           <div className={metricClass}>
             <div className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.22em] ${labelText}`}>
               <RadioTower className="h-3 w-3" />
-              Refresh Rate
+              Update Cycle
             </div>
             <div className={`mt-1 text-lg font-black tabular-nums ${isLight ? 'text-blue-700' : 'text-[#93c5fd]'}`}>{Math.round(intelligence.telemetryPlan.pollIntervalMs / 1000)}s</div>
           </div>
@@ -120,16 +126,33 @@ export default function FleetIntelligenceBriefing({
             </div>
           )}
           {issueCount > 0 && (
-            <div className="-mx-1 mt-2 flex snap-x gap-2 overflow-x-auto px-1 pb-1">
-              {intelligence.priorityAssets.map((asset) => {
+            <div
+              className="-mx-1 mt-2 overflow-hidden px-1 pb-1"
+              onClick={() => setTickerPaused((value) => !value)}
+              title={tickerPaused ? 'Click to resume queue motion' : 'Click empty queue space to pause motion'}
+            >
+              <style>{`
+                @keyframes nx-attention-ticker {
+                  from { transform: translateX(0); }
+                  to { transform: translateX(-50%); }
+                }
+              `}</style>
+              <div
+                className="flex w-max snap-x gap-2"
+                style={{
+                  animation: shouldAnimateQueue ? `nx-attention-ticker ${Math.max(18, intelligence.priorityAssets.length * 5)}s linear infinite` : undefined,
+                  animationPlayState: tickerPaused ? 'paused' : 'running',
+                }}
+              >
+              {tickerAssets.map((asset, index) => {
                 const assetStyle = STYLES[asset.severity];
                 const clickable = typeof onOpenDevice === 'function';
                 const CardTag = clickable ? 'button' : 'div';
                 return (
                   <CardTag
-                    key={asset.siteId}
+                    key={`${asset.siteId}-${index}`}
                     type={clickable ? 'button' : undefined}
-                    onClick={clickable ? () => onOpenDevice(asset.siteId) : undefined}
+                    onClick={clickable ? (event: any) => { event.stopPropagation(); onOpenDevice(asset.siteId); } : undefined}
                     className={`min-w-[270px] max-w-[340px] snap-start rounded-xl border text-left ${assetStyle.border} ${isLight ? 'bg-white shadow-[0_6px_18px_rgba(15,23,42,0.04)]' : 'bg-[#080c14]/70'} px-3 py-3 ${clickable ? 'transition-colors hover:border-[#3b82f6]/65 hover:bg-[#1e40af]/10' : ''}`}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -144,6 +167,7 @@ export default function FleetIntelligenceBriefing({
                   </CardTag>
                 );
               })}
+              </div>
             </div>
           )}
         </div>

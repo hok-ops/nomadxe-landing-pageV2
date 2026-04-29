@@ -1,6 +1,6 @@
 'use client';
 
-import { Activity, AlertTriangle, BatteryCharging, Brain, CheckCircle2, Gauge, Network, ShieldCheck, Zap } from 'lucide-react';
+import { Activity, AlertTriangle, BatteryCharging, Gauge, Network, ShieldCheck, Zap } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 import type { VRMData, VRMDetailData } from '@/lib/vrm';
 import type { DiscoveredNetworkDevice, ManagedNetworkDevice } from '@/lib/networkDevices';
@@ -132,7 +132,7 @@ export default function AssetIntelligencePanel({
           </div>
           <div className="grid min-w-[250px] grid-cols-2 gap-2">
             <div className={innerPanelClass}>
-              <div className={`text-[9px] font-bold uppercase tracking-[0.24em] ${labelText}`}>Freshness</div>
+              <div className={`text-[9px] font-bold uppercase tracking-[0.24em] ${labelText}`}>Reporting</div>
               <div className={`mt-1 text-lg font-black tabular-nums ${primaryText}`}>{intelligence.dataFreshnessScore}%</div>
             </div>
             <div className={innerPanelClass}>
@@ -213,32 +213,6 @@ export default function AssetIntelligencePanel({
         </div>
 
         <div className="space-y-4">
-          <div className={panelClass}>
-            <div className="flex items-center gap-2.5">
-              <Brain className="h-4 w-4 text-[#60a5fa]" />
-              <h4 className={`text-[10px] font-black uppercase tracking-[0.24em] ${primaryText}`}>Monitoring Pace</h4>
-            </div>
-            <div className={`mt-3 ${innerPanelClass}`}>
-              <div className="flex items-baseline justify-between gap-3">
-                <span className={`text-[9px] font-bold uppercase tracking-[0.24em] ${labelText}`}>Mode</span>
-                <span className={`text-sm font-black uppercase tracking-[0.16em] ${isLight ? 'text-blue-700' : 'text-[#93c5fd]'}`}>{intelligence.telemetryPlan.mode}</span>
-              </div>
-              <div className="mt-1 flex items-baseline justify-between gap-3">
-                <span className={`text-[9px] font-bold uppercase tracking-[0.24em] ${labelText}`}>Refresh Rate</span>
-                <span className={`text-sm font-black ${primaryText}`}>{Math.round(intelligence.telemetryPlan.pollIntervalMs / 1000)}s</span>
-              </div>
-              <p className={`mt-2 text-[11px] leading-relaxed ${subtleText}`}>{intelligence.telemetryPlan.reason}</p>
-            </div>
-            <div className="mt-3 space-y-2">
-              {intelligence.telemetryPlan.rules.map((rule) => (
-                <div key={rule} className={`flex gap-2 text-[11px] leading-relaxed ${isLight ? 'text-slate-700' : 'text-[#bfdbfe]/66'}`}>
-                  <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-300" />
-                  <span>{rule}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
           <div className={panelClass}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">

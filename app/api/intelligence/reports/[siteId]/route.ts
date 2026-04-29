@@ -88,6 +88,37 @@ async function loadNetworkInventory(adminClient: ReturnType<typeof createAdminCl
   return { managedDevices, discoveredDevices };
 }
 
+async function loadLatestCellularSignal(adminClient: ReturnType<typeof createAdminClient>, vrmDeviceId: number) {
+  const { data, error } = await adminClient
+    .from('cellular_signal_reports')
+    .select('*')
+    .eq('vrm_device_id', vrmDeviceId)
+    .order('observed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('[historical-report] cellular signal lookup failed:', error.message);
+    return null;
+  }
+  if (!data) return null;
+  return {
+    id: Number(data.id),
+    vrmDeviceId: Number(data.vrm_device_id),
+    observedAt: String(data.observed_at),
+    source: String(data.source ?? 'manual') as any,
+    operator: data.operator ?? null,
+    networkType: data.network_type ?? null,
+    band: data.band ?? null,
+    rssiDbm: typeof data.rssi_dbm === 'number' ? data.rssi_dbm : null,
+    rsrpDbm: typeof data.rsrp_dbm === 'number' ? data.rsrp_dbm : null,
+    rsrqDb: data.rsrq_db == null ? null : Number(data.rsrq_db),
+    sinrDb: data.sinr_db == null ? null : Number(data.sinr_db),
+    connectionState: data.connection_state ?? null,
+    detail: data.detail ?? null,
+  };
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ siteId: string }> }
@@ -164,7 +195,10 @@ export async function POST(
   const weatherForecast = lat != null && lon != null
     ? await fetchWeatherForecast(lat, lon)
     : null;
-  const networkInventory = await loadNetworkInventory(adminClient, device.dbId);
+  const [networkInventory, cellularSignal] = await Promise.all([
+    loadNetworkInventory(adminClient, device.dbId),
+    loadLatestCellularSignal(adminClient, device.dbId),
+  ]);
   const asset = assessAssetIntelligence({
     device,
     data,
@@ -185,6 +219,7 @@ export async function POST(
     asset,
     operations,
     weatherForecast,
+    cellularSignal,
   });
 
   const payload = {

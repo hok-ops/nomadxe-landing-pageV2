@@ -16,7 +16,7 @@ const KNOWN_MPPT_VALUES = new Set(MPPT_OPTIONS.map(o => o.value));
 
 const CONNECTION_OPTIONS = [
   { label: 'Live',     value: 'live',    color: '#4ade80' },
-  { label: 'Offline',  value: 'offline', color: '#ef4444' },
+  { label: 'VRM stale', value: 'offline', color: '#ef4444' },
   { label: 'No data',  value: 'nodata',  color: '#6b7280' },
 ] as const;
 

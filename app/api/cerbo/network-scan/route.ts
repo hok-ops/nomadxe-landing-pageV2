@@ -26,6 +26,14 @@ function isReportedStatus(value: unknown): value is CerboNetworkScanPayload['dev
   return value === 'online' || value === 'offline';
 }
 
+function finiteNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function capText(value: unknown, max: number) {
+  return typeof value === 'string' ? value.trim().slice(0, max) || null : null;
+}
+
 async function sendAlertWebhook(payload: Record<string, unknown>) {
   const url = process.env.MAKE_NETWORK_ALERT_WEBHOOK_URL;
   if (!url) return;
@@ -99,6 +107,42 @@ export async function POST(request: Request) {
         },
       ])
     );
+
+    if (body.cellular && typeof body.cellular === 'object') {
+      const observedCellular = {
+        vrm_device_id: vrmDeviceRow.id,
+        observed_at: observedAt,
+        source: ['cerbo', 'teltonika_rms', 'router_api', 'manual'].includes(String(body.cellular.source))
+          ? body.cellular.source
+          : 'cerbo',
+        operator: capText(body.cellular.operator, 120),
+        network_type: capText(body.cellular.networkType, 64),
+        band: capText(body.cellular.band, 64),
+        rssi_dbm: finiteNumber(body.cellular.rssiDbm),
+        rsrp_dbm: finiteNumber(body.cellular.rsrpDbm),
+        rsrq_db: finiteNumber(body.cellular.rsrqDb),
+        sinr_db: finiteNumber(body.cellular.sinrDb),
+        connection_state: capText(body.cellular.connectionState, 120),
+        detail: capText(body.cellular.detail, 500),
+      };
+
+      const hasSignalValue = [
+        observedCellular.rssi_dbm,
+        observedCellular.rsrp_dbm,
+        observedCellular.rsrq_db,
+        observedCellular.sinr_db,
+      ].some((value) => value !== null);
+
+      if (hasSignalValue) {
+        const { error: cellularError } = await adminClient
+          .from('cellular_signal_reports')
+          .insert(observedCellular);
+
+        if (cellularError) {
+          console.error('[cerbo-network-scan] cellular report insert error:', cellularError.message);
+        }
+      }
+    }
 
     let updated = 0;
     let discovered = 0;

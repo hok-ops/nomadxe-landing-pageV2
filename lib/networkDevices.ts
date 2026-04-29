@@ -40,6 +40,18 @@ export interface CerboNetworkScanPayload {
   vrmSiteId: string;
   observedAt?: string;
   scanMode?: 'full' | 'targets';
+  cellular?: {
+    source?: 'cerbo' | 'teltonika_rms' | 'router_api' | 'manual';
+    operator?: string | null;
+    networkType?: string | null;
+    band?: string | null;
+    rssiDbm?: number | null;
+    rsrpDbm?: number | null;
+    rsrqDb?: number | null;
+    sinrDb?: number | null;
+    connectionState?: string | null;
+    detail?: string | null;
+  };
   devices: Array<{
     ipAddress: string;
     status: 'online' | 'offline';
@@ -48,6 +60,33 @@ export interface CerboNetworkScanPayload {
     latencyMs?: number | null;
     detail?: string | null;
   }>;
+}
+
+export interface CellularSignalReport {
+  id: number;
+  vrmDeviceId: number;
+  observedAt: string;
+  source: 'cerbo' | 'teltonika_rms' | 'router_api' | 'manual';
+  operator: string | null;
+  networkType: string | null;
+  band: string | null;
+  rssiDbm: number | null;
+  rsrpDbm: number | null;
+  rsrqDb: number | null;
+  sinrDb: number | null;
+  connectionState: string | null;
+  detail: string | null;
+}
+
+export function cellularSignalTone(report: Pick<CellularSignalReport, 'rsrpDbm' | 'rsrqDb' | 'sinrDb'> | null) {
+  if (!report) return 'unknown' as const;
+  const rsrp = report.rsrpDbm;
+  const rsrq = report.rsrqDb;
+  const sinr = report.sinrDb;
+  if ((typeof rsrp === 'number' && rsrp <= -115) || (typeof rsrq === 'number' && rsrq <= -15) || (typeof sinr === 'number' && sinr < 0)) return 'poor' as const;
+  if ((typeof rsrp === 'number' && rsrp <= -105) || (typeof rsrq === 'number' && rsrq <= -12) || (typeof sinr === 'number' && sinr < 5)) return 'watch' as const;
+  if ((typeof rsrp === 'number' && rsrp >= -95) && (typeof sinr === 'number' ? sinr >= 10 : true)) return 'good' as const;
+  return 'fair' as const;
 }
 
 export function isManagedNetworkStatus(value: unknown): value is ManagedNetworkStatus {

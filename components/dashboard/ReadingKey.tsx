@@ -168,7 +168,7 @@ export default function ReadingKey() {
                 <div className="space-y-2">
                   {[
                     { dot: 'bg-emerald-400 animate-pulse', glow: '0 0 5px #4ade80', label: 'Live', desc: 'Data received within last 15 minutes' },
-                    { dot: 'bg-red-500', glow: '', label: 'Offline', desc: 'No data for 15+ minutes - check trailer' },
+                    { dot: 'bg-red-500', glow: '', label: 'VRM stale', desc: 'No fresh VRM report for 15+ minutes' },
                     { dot: 'bg-[#4b5563]', glow: '', label: 'No data', desc: 'Unit has never reported - verify setup' },
                   ].map((status) => (
                     <div key={status.label} className="flex items-center gap-3">

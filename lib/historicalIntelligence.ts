@@ -1,5 +1,6 @@
 import type { AssetIntelligence, IntelligenceSeverity } from '@/lib/assetIntelligence';
 import type { DashboardDeviceRef, LeaseOperationsData, LeaseSummary } from '@/lib/leaseOperations';
+import { cellularSignalTone, type CellularSignalReport } from '@/lib/networkDevices';
 import type { VRMData, VRMDetailData, VRMSeries } from '@/lib/vrm';
 import { assessWeatherForecast, type WeatherForecastWindow } from '@/lib/weatherForecast';
 
@@ -60,6 +61,12 @@ export interface HistoricalReportSummary {
     label: string;
     managedCount: number;
     observedCount: number;
+    summary: string;
+  };
+  cellularSignal: {
+    severity: ReportSeverity;
+    label: string;
+    observedAt: string | null;
     summary: string;
   };
   alarmCoverage: {
@@ -290,6 +297,29 @@ function buildNetworkSummary(asset: AssetIntelligence | null) {
   return { severity, label, managedCount, observedCount, summary };
 }
 
+function buildCellularSummary(report: CellularSignalReport | null | undefined) {
+  if (!report) {
+    return {
+      severity: 'watch' as ReportSeverity,
+      label: 'Cellular reading missing',
+      observedAt: null,
+      summary: 'No cellular signal reading is stored yet; request SINR, RSRP, RSRQ, and RSSI before diagnosing cellular quality.',
+    };
+  }
+
+  const tone = cellularSignalTone(report);
+  const severity: ReportSeverity = tone === 'poor' ? 'action' : tone === 'watch' ? 'watch' : 'info';
+  const label = tone === 'poor'
+    ? 'Poor cellular quality'
+    : tone === 'watch'
+      ? 'Cellular watch'
+      : tone === 'unknown'
+        ? 'Cellular reading partial'
+        : 'Cellular acceptable';
+  const summary = `Last cellular report ${report.observedAt}: SINR ${report.sinrDb ?? 'not reported'} dB, RSRP ${report.rsrpDbm ?? 'not reported'} dBm, RSRQ ${report.rsrqDb ?? 'not reported'} dB, RSSI ${report.rssiDbm ?? 'not reported'} dBm${report.operator ? ` on ${report.operator}` : ''}.`;
+  return { severity, label, observedAt: report.observedAt, summary };
+}
+
 function buildAlarmSummary(details: VRMDetailData | null | undefined) {
   if (!details) {
     return {
@@ -428,6 +458,12 @@ function buildReportMetrics(summary: HistoricalReportSummary, details: VRMDetail
       severity: summary.networkHealth.severity,
     },
     {
+      label: 'Cellular Signal',
+      value: summary.cellularSignal.label,
+      detail: summary.cellularSignal.summary,
+      severity: summary.cellularSignal.severity,
+    },
+    {
       label: 'VRM Alarms',
       value: summary.alarmCoverage.configuredCount == null ? 'unknown' : String(summary.alarmCoverage.configuredCount),
       detail: summary.alarmCoverage.recipients == null
@@ -495,6 +531,7 @@ function buildNarrative({
     `Power: ${summary.powerAutonomy.summary}`,
     `Visibility: ${summary.visibilityRisk.summary}`,
     `Network: ${summary.networkHealth.summary}`,
+    `Cellular: ${summary.cellularSignal.summary}`,
     ...(summary.weatherOutlook ? [`Weather: ${summary.weatherOutlook.summary}`] : []),
     `Alarms: ${summary.alarmCoverage.summary}`,
     `Monitoring: ${summary.monitoring.summary}`,
@@ -657,6 +694,7 @@ export function buildHistoricalIntelligenceReport({
   asset,
   operations,
   weatherForecast,
+  cellularSignal,
   now = new Date(),
 }: {
   device: DashboardDeviceRef;
@@ -665,6 +703,7 @@ export function buildHistoricalIntelligenceReport({
   asset?: AssetIntelligence | null;
   operations: LeaseOperationsData;
   weatherForecast?: WeatherForecastWindow | null;
+  cellularSignal?: CellularSignalReport | null;
   now?: Date;
 }): HistoricalIntelligenceReport {
   const lease = findPrimaryLease(device, operations);
@@ -674,6 +713,7 @@ export function buildHistoricalIntelligenceReport({
   const powerAutonomy = buildPowerSummary(data, details, asset ?? null);
   const visibilityRisk = buildVisibilitySummary(device, data, nowMs);
   const networkHealth = buildNetworkSummary(asset ?? null);
+  const cellular = buildCellularSummary(cellularSignal);
   const alarmCoverage = buildAlarmSummary(details);
   const siteBoundary = buildBoundarySummary(data, details);
   const monitoring = buildMonitoringSummary(lease);
@@ -684,6 +724,7 @@ export function buildHistoricalIntelligenceReport({
     powerAutonomy.severity,
     visibilityRisk.severity,
     networkHealth.severity,
+    cellular.severity,
     alarmCoverage.severity,
     siteBoundary.severity,
     monitoring.severity,
@@ -702,6 +743,7 @@ export function buildHistoricalIntelligenceReport({
     powerAutonomy,
     visibilityRisk,
     networkHealth,
+    cellularSignal: cellular,
     alarmCoverage,
     siteBoundary,
     monitoring,
@@ -737,6 +779,7 @@ export function buildHistoricalIntelligenceReport({
         data ? 'VRM diagnostics snapshot' : 'VRM diagnostics unavailable',
         details ? 'VRM 24h graph, alarm, GPS, firmware, and overall stats' : 'VRM detail history unavailable',
         asset ? 'Teltonika/Cerbo LAN inventory and managed target status' : 'Teltonika/Cerbo network report unavailable',
+        cellularSignal ? 'Latest Teltonika cellular signal report' : 'Cellular signal reading unavailable',
         weatherForecast ? 'Open-Meteo GPS-based 24h weather and solar forecast' : 'Weather forecast unavailable',
         operations.dataSource === 'database' ? 'Linked lease operations records' : 'Telemetry-derived lease fallback',
       ],

@@ -2,7 +2,7 @@ import type { VRMData, VRMDetailData } from '@/lib/vrm';
 import type { DiscoveredNetworkDevice, ManagedNetworkDevice } from '@/lib/networkDevices';
 
 export type IntelligenceSeverity = 'normal' | 'watch' | 'action' | 'critical';
-export type AdaptiveTelemetryMode = 'normal' | 'watch' | 'incident' | 'offline';
+export type AdaptiveTelemetryMode = 'normal' | 'watch' | 'incident' | 'stale';
 
 export interface IntelligenceDevice {
   siteId: string;
@@ -351,7 +351,7 @@ function buildAnomalies(
 function buildTelemetryPlan(power: PowerRiskForecast, anomalies: RootCauseSignal[], offline: boolean): AdaptiveTelemetryPlan {
   if (offline) {
     return {
-      mode: 'offline',
+      mode: 'stale',
       pollIntervalMs: 10 * 60_000,
       captureWindowMinutes: 0,
       reason: 'VRM is stale; avoid aggressive cloud polling until the device checks in.',
@@ -514,7 +514,7 @@ export function assessAssetIntelligence(input: AssessInput): AssetIntelligence {
       { label: 'SOC', value: input.data ? `${input.data.battery.soc.toFixed(0)}%` : '--', tone: power.severity },
       { label: 'Reserve', value: runtimeSignal, tone: power.severity },
       { label: 'Readiness', value: `${readiness.score}%`, tone: readiness.score >= 85 ? 'normal' : readiness.score >= 70 ? 'watch' : 'action' },
-      { label: 'Telemetry', value: telemetryPlan.mode, tone: telemetryPlan.mode === 'normal' ? 'normal' : telemetryPlan.mode === 'offline' ? 'critical' : 'watch' },
+      { label: 'Reporting', value: telemetryPlan.mode, tone: telemetryPlan.mode === 'normal' ? 'normal' : telemetryPlan.mode === 'stale' ? 'critical' : 'watch' },
     ],
     power,
     anomalies,
@@ -539,7 +539,7 @@ export function assessFleetIntelligence(assets: AssetIntelligence[]): FleetIntel
   const telemetryPlan = buildTelemetryPlan(
     telemetryBasis[0]?.power ?? assessPower(null),
     telemetryBasis.flatMap((asset) => asset.anomalies),
-    telemetryBasis.some((asset) => asset.telemetryPlan.mode === 'offline')
+    telemetryBasis.some((asset) => asset.telemetryPlan.mode === 'stale')
   );
 
   const issueCount = counts.critical + counts.action + counts.watch;

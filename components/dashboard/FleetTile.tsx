@@ -192,7 +192,7 @@ function HoverDetail({
       <div className="mb-3 flex items-center gap-1.5">
         <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${noData ? 'bg-[#4b5563]' : isOffline ? 'bg-red-500' : 'bg-emerald-400'}`} />
         <span className={`font-mono text-[10px] font-semibold ${noData ? 'text-[#6b7280]' : isOffline ? 'text-red-400' : 'text-emerald-400'}`}>
-          {noData ? 'No data' : isOffline ? `Offline - ${syncAgo}` : `Live - ${syncAgo}`}
+          {noData ? 'No data' : isOffline ? `VRM stale - ${syncAgo}` : `Live - ${syncAgo}`}
         </span>
       </div>
       <div className="mb-2.5 space-y-1.5 border-t border-[#1e3a5f]/40 pt-2.5">
@@ -289,7 +289,7 @@ export default function FleetTile({ device, data, selected, hoverEnabled = true,
   const batteryFlowWidth = noData ? 100 : Math.max(18, Math.min(100, Math.abs(data?.battery.current ?? 0) * 5 + 18));
   const location = data?.location ?? 'Location pending';
   const syncAge = formatSyncAge(lastSeenS);
-  const priorityLabel = noData ? 'No Data' : isOffline ? 'Offline' : loadSignalMissing ? 'No DC Read' : soc < 80 ? 'Alert' : 'Healthy';
+  const priorityLabel = noData ? 'No Data' : isOffline ? 'VRM Stale' : loadSignalMissing ? 'No DC Read' : soc < 80 ? 'Alert' : 'Healthy';
   const priorityColor = noData ? '#64748b' : isOffline ? '#f43f5e' : loadSignalMissing ? '#ea580c' : soc < 80 ? '#f59e0b' : '#10b981';
   const cloudyWeather = tileWeather && isCloudyWeatherCode(tileWeather.code) ? tileWeather : null;
 
