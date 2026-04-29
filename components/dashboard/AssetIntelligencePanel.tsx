@@ -2,7 +2,6 @@
 
 import { Activity, AlertTriangle, BatteryCharging, Brain, CheckCircle2, Gauge, Network, ShieldCheck, Zap } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
-import VisualBriefingFlipbook from '@/components/dashboard/VisualBriefingFlipbook';
 import type { VRMData, VRMDetailData } from '@/lib/vrm';
 import type { DiscoveredNetworkDevice, ManagedNetworkDevice } from '@/lib/networkDevices';
 import {
@@ -130,13 +129,6 @@ export default function AssetIntelligencePanel({
             <p className={`mt-2 max-w-3xl text-[12px] leading-relaxed ${mutedText}`}>
               {intelligence.briefing}
             </p>
-            <VisualBriefingFlipbook
-              intelligence={intelligence}
-              data={data}
-              details={details}
-              managedDevices={managedDevices}
-              discoveredDevices={discoveredDevices}
-            />
           </div>
           <div className="grid min-w-[250px] grid-cols-2 gap-2">
             <div className={innerPanelClass}>
