@@ -2,6 +2,17 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
+  const { pathname } = request.nextUrl
+  const isDashboardConceptLab = pathname === '/dashboard/concepts'
+
+  if (isDashboardConceptLab) {
+    return NextResponse.next({
+      request: {
+        headers: request.headers,
+      },
+    })
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -36,7 +47,6 @@ export async function updateSession(request: NextRequest) {
     // If we cannot verify the session, treat as unauthenticated
   }
 
-  const { pathname } = request.nextUrl
   const isDashboard = pathname.startsWith('/dashboard')
   const isAdmin     = pathname.startsWith('/admin')
   // /access/* proxies modem WebUI sessions — enforce auth at the middleware layer
