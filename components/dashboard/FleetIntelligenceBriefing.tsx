@@ -30,6 +30,10 @@ export default function FleetIntelligenceBriefing({
   const intelligence = assessFleetIntelligence(assets);
   const style = STYLES[intelligence.severity];
   const issueCount = intelligence.counts.watch + intelligence.counts.action + intelligence.counts.critical;
+  const priorityLabel = issueCount > 0 ? 'Attention Queue' : 'Lowest Confidence Normal Units';
+  const priorityHelp = issueCount > 0
+    ? 'Only trailers with watch, action, or critical signals appear here.'
+    : 'No active exceptions. These are the healthy trailers with the lowest confidence scores.';
   const shellClass = isLight
     ? 'mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-[0_16px_44px_rgba(15,23,42,0.08)]'
     : 'mb-6 overflow-hidden rounded-2xl border border-[#1e3a5f]/50 bg-[linear-gradient(180deg,rgba(8,12,20,0.78),rgba(10,16,30,0.92))]';
@@ -99,6 +103,10 @@ export default function FleetIntelligenceBriefing({
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2">
+          <div className={`sm:col-span-2 text-[10px] font-bold uppercase tracking-[0.22em] ${labelText}`}>
+            {priorityLabel}
+            <span className={`ml-2 normal-case tracking-normal font-medium ${mutedText}`}>{priorityHelp}</span>
+          </div>
           {intelligence.priorityAssets.slice(0, 4).map((asset) => {
             const assetStyle = STYLES[asset.severity];
             return (

@@ -1,5 +1,6 @@
 'use client';
 
+import { useTheme } from '@/components/ThemeProvider';
 import type { VRMData, VRMDetailData, VRMSeries, VRMWidgetMetric } from '@/lib/vrm';
 import { getDcLoadSignalDetail, getDcLoadSignalTitle, hasMissingDcLoadSignal } from '@/lib/telemetryHealth';
 
@@ -118,25 +119,27 @@ function buildNotices(data: VRMData | null, details: VRMDetailData | null): Noti
 }
 
 function MetricGrid({ title, metrics }: { title: string; metrics: VRMWidgetMetric[] }) {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
   if (metrics.length === 0) return null;
 
   return (
-    <section className="rounded-2xl border border-[#1e3a5f]/45 bg-[#080c14]/75 p-4 sm:p-5">
+    <section className={`rounded-2xl border p-4 sm:p-5 ${isLight ? 'border-slate-300 bg-white shadow-sm' : 'border-[#1e3a5f]/45 bg-[#080c14]/75'}`}>
       <div className="flex items-center justify-between gap-3 mb-4">
-        <h3 className="text-[11px] font-bold text-[#93c5fd]/70 uppercase tracking-[0.35em] font-mono">
+        <h3 className={`text-[11px] font-bold uppercase tracking-[0.35em] font-mono ${isLight ? 'text-slate-800' : 'text-[#93c5fd]/70'}`}>
           {title}
         </h3>
-        <span className="text-[10px] font-mono text-[#93c5fd]/35">
+        <span className={`text-[10px] font-mono ${isLight ? 'text-slate-500' : 'text-[#93c5fd]/35'}`}>
           VRM widget data
         </span>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {metrics.map((metric) => (
-          <div key={`${title}-${metric.key}`} className="rounded-xl border border-[#1e3a5f]/35 bg-[#0c1425] px-3 py-3">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-[#93c5fd]/45 mb-1">
+          <div key={`${title}-${metric.key}`} className={`rounded-xl border px-3 py-3 ${isLight ? 'border-slate-200 bg-slate-50' : 'border-[#1e3a5f]/35 bg-[#0c1425]'}`}>
+            <div className={`text-[10px] font-mono uppercase tracking-widest mb-1 ${isLight ? 'text-slate-600' : 'text-[#93c5fd]/45'}`}>
               {metric.label}
             </div>
-            <div className="text-sm font-black text-white break-words">
+            <div className={`text-sm font-black break-words ${isLight ? 'text-slate-950' : 'text-white'}`}>
               {metric.value}
             </div>
             {metric.stale && (
@@ -152,6 +155,8 @@ function MetricGrid({ title, metrics }: { title: string; metrics: VRMWidgetMetri
 }
 
 function TrendChart({ siteId, title, series, color }: { siteId: string; title: string; series: VRMSeries | null; color: string }) {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
   if (!series || series.points.length < 2) return null;
 
   const width = 320;
@@ -168,15 +173,16 @@ function TrendChart({ siteId, title, series, color }: { siteId: string; title: s
   }).join(' ');
   const area = `M0,${height} ${points.split(' ').map((point) => `L${point}`).join(' ')} L${width},${height} Z`;
   const latest = series.points[series.points.length - 1];
+  const gradientId = `vrm-${siteId}-${title}`.replace(/[^a-zA-Z0-9_-]/g, '-');
 
   return (
-    <section className="rounded-2xl border border-[#1e3a5f]/45 bg-[#080c14]/75 p-4 sm:p-5">
+    <section className={`rounded-2xl border p-4 sm:p-5 ${isLight ? 'border-slate-300 bg-white shadow-sm' : 'border-[#1e3a5f]/45 bg-[#080c14]/75'}`}>
       <div className="flex items-center justify-between gap-3 mb-3">
         <div>
-          <h3 className="text-[11px] font-bold text-[#93c5fd]/70 uppercase tracking-[0.35em] font-mono">
+          <h3 className={`text-[11px] font-bold uppercase tracking-[0.35em] font-mono ${isLight ? 'text-slate-800' : 'text-[#93c5fd]/70'}`}>
             {title}
           </h3>
-          <p className="text-xs text-[#93c5fd]/35 mt-1">
+          <p className={`text-xs mt-1 ${isLight ? 'text-slate-600' : 'text-[#93c5fd]/35'}`}>
             {series.label}
           </p>
         </div>
@@ -184,31 +190,33 @@ function TrendChart({ siteId, title, series, color }: { siteId: string; title: s
           <div className="text-lg font-black" style={{ color }}>
             {latest.value.toFixed(series.unit === '%' ? 0 : 1)}
           </div>
-          <div className="text-[10px] font-mono uppercase tracking-widest text-[#93c5fd]/35">
+          <div className={`text-[10px] font-mono uppercase tracking-widest ${isLight ? 'text-slate-500' : 'text-[#93c5fd]/35'}`}>
             {series.unit ?? 'value'}
           </div>
         </div>
       </div>
 
       <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-28 overflow-visible">
-        <defs>
-          <linearGradient id={`vrm-${siteId}-${title}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.35" />
-            <stop offset="100%" stopColor={color} stopOpacity="0.02" />
-          </linearGradient>
-        </defs>
-        <path d={area} fill={`url(#vrm-${siteId}-${title})`} />
+        {!isLight && (
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+              <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+            </linearGradient>
+          </defs>
+        )}
+        {!isLight && <path d={area} fill={`url(#${gradientId})`} />}
         <polyline
           points={points}
           fill="none"
           stroke={color}
-          strokeWidth="2"
+          strokeWidth={isLight ? '2.4' : '2'}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
       </svg>
 
-      <div className="mt-3 flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-[#93c5fd]/35">
+      <div className={`mt-3 flex items-center justify-between text-[10px] font-mono uppercase tracking-widest ${isLight ? 'text-slate-500' : 'text-[#93c5fd]/35'}`}>
         <span>{min.toFixed(series.unit === '%' ? 0 : 1)}{series.unit ?? ''} min</span>
         <span>{max.toFixed(series.unit === '%' ? 0 : 1)}{series.unit ?? ''} max</span>
       </div>
@@ -225,9 +233,12 @@ function OverallCard({
   solarYieldKwh: number | null;
   consumptionKwh: number | null;
 }) {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
+
   return (
-    <div className="rounded-xl border border-[#1e3a5f]/35 bg-[#0c1425] p-4">
-      <div className="text-[10px] font-mono uppercase tracking-widest text-[#93c5fd]/45 mb-3">
+    <div className={`rounded-xl border p-4 ${isLight ? 'border-slate-200 bg-slate-50' : 'border-[#1e3a5f]/35 bg-[#0c1425]'}`}>
+      <div className={`text-[10px] font-mono uppercase tracking-widest mb-3 ${isLight ? 'text-slate-600' : 'text-[#93c5fd]/45'}`}>
         {label}
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -251,15 +262,25 @@ function OverallCard({
 }
 
 export default function VRMDeepDivePanel({ siteId, data, details, loading }: Props) {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
   const notices = buildNotices(data, details);
   const gpsText =
     details?.gps?.latitude != null && details?.gps?.longitude != null
       ? `${details.gps.latitude.toFixed(5)}, ${details.gps.longitude.toFixed(5)}`
       : 'GPS unavailable';
+  const panelClass = isLight ? 'border-slate-300 bg-white shadow-sm' : 'border-[#1e3a5f]/45 bg-[#080c14]/75';
+  const cardClass = isLight ? 'border-slate-200 bg-slate-50' : 'border-[#1e3a5f]/35 bg-[#0c1425]';
+  const labelClass = isLight ? 'text-slate-600' : 'text-[#93c5fd]/45';
+  const softLabelClass = isLight ? 'text-slate-500' : 'text-[#93c5fd]/35';
+  const valueClass = isLight ? 'text-slate-950' : 'text-white';
+  const exportLinkClass = isLight
+    ? 'border-slate-300 text-slate-700 hover:border-blue-400 hover:text-blue-700'
+    : 'border-[#1e3a5f] text-[#93c5fd]/70 hover:text-white hover:border-[#3b82f6]/50';
 
   return (
     <div className="mt-6 space-y-6">
-      <section className="rounded-2xl border border-[#1e3a5f]/45 bg-[#080c14]/75 p-4 sm:p-5">
+      <section className={`rounded-2xl border p-4 sm:p-5 ${panelClass}`}>
         <div className="flex items-center justify-end mb-4">
           {loading && (
             <div className="text-[10px] font-mono uppercase tracking-widest text-[#93c5fd]/40">
@@ -279,7 +300,7 @@ export default function VRMDeepDivePanel({ siteId, data, details, loading }: Pro
                 <div className={`text-[10px] font-mono uppercase tracking-[0.3em] mb-1 ${tone.text}`}>
                   {notice.title}
                 </div>
-                <p className="text-sm text-white/85">{notice.body}</p>
+                <p className={`text-sm ${isLight ? 'text-slate-800' : 'text-white/85'}`}>{notice.body}</p>
               </div>
             );
           })}
@@ -289,9 +310,9 @@ export default function VRMDeepDivePanel({ siteId, data, details, loading }: Pro
       {details && (
         <>
           <section className="grid gap-6 xl:grid-cols-[1.25fr_0.95fr]">
-            <div className="rounded-2xl border border-[#1e3a5f]/45 bg-[#080c14]/75 p-4 sm:p-5">
+            <div className={`rounded-2xl border p-4 sm:p-5 ${panelClass}`}>
               <div className="flex items-center justify-between gap-3 mb-4">
-                <h3 className="text-[11px] font-bold text-[#93c5fd]/70 uppercase tracking-[0.35em] font-mono">
+                <h3 className={`text-[11px] font-bold uppercase tracking-[0.35em] font-mono ${isLight ? 'text-slate-800' : 'text-[#93c5fd]/70'}`}>
                   Location And Access
                 </h3>
                 {details.gps?.mapUrl && (
@@ -307,24 +328,24 @@ export default function VRMDeepDivePanel({ siteId, data, details, loading }: Pro
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-[#1e3a5f]/35 bg-[#0c1425] p-4">
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-[#93c5fd]/45 mb-2">Coordinates</div>
-                  <div className="text-base font-black text-white">{gpsText}</div>
-                  <div className="mt-2 text-xs text-[#93c5fd]/40">
+                <div className={`rounded-xl border p-4 ${cardClass}`}>
+                  <div className={`text-[10px] font-mono uppercase tracking-widest mb-2 ${labelClass}`}>Coordinates</div>
+                  <div className={`text-base font-black ${valueClass}`}>{gpsText}</div>
+                  <div className={`mt-2 text-xs ${isLight ? 'text-slate-600' : 'text-[#93c5fd]/40'}`}>
                     {details.gps?.hasOldData ? 'Position is older than the live key feed.' : 'GPS is current enough for trailer lookup.'}
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-[#1e3a5f]/35 bg-[#0c1425] p-4">
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-[#93c5fd]/45 mb-2">Exports</div>
+                <div className={`rounded-xl border p-4 ${cardClass}`}>
+                  <div className={`text-[10px] font-mono uppercase tracking-widest mb-2 ${labelClass}`}>Exports</div>
                   <div className="flex flex-wrap gap-2">
-                    <a href={details.exports.csv7d} className="rounded-md border border-[#1e3a5f] px-3 py-2 text-[10px] font-mono uppercase tracking-widest text-[#93c5fd]/70 hover:text-white hover:border-[#3b82f6]/50 transition-colors">
+                    <a href={details.exports.csv7d} className={`rounded-md border px-3 py-2 text-[10px] font-mono uppercase tracking-widest transition-colors ${exportLinkClass}`}>
                       7d CSV
                     </a>
-                    <a href={details.exports.xlsx30d} className="rounded-md border border-[#1e3a5f] px-3 py-2 text-[10px] font-mono uppercase tracking-widest text-[#93c5fd]/70 hover:text-white hover:border-[#3b82f6]/50 transition-colors">
+                    <a href={details.exports.xlsx30d} className={`rounded-md border px-3 py-2 text-[10px] font-mono uppercase tracking-widest transition-colors ${exportLinkClass}`}>
                       30d XLSX
                     </a>
-                    <a href={details.exports.gpsKml7d} className="rounded-md border border-[#1e3a5f] px-3 py-2 text-[10px] font-mono uppercase tracking-widest text-[#93c5fd]/70 hover:text-white hover:border-[#3b82f6]/50 transition-colors">
+                    <a href={details.exports.gpsKml7d} className={`rounded-md border px-3 py-2 text-[10px] font-mono uppercase tracking-widest transition-colors ${exportLinkClass}`}>
                       7d KML
                     </a>
                   </div>
@@ -332,41 +353,41 @@ export default function VRMDeepDivePanel({ siteId, data, details, loading }: Pro
               </div>
             </div>
 
-            <div className="rounded-2xl border border-[#1e3a5f]/45 bg-[#080c14]/75 p-4 sm:p-5">
-              <h3 className="text-[11px] font-bold text-[#93c5fd]/70 uppercase tracking-[0.35em] font-mono mb-4">
+            <div className={`rounded-2xl border p-4 sm:p-5 ${panelClass}`}>
+              <h3 className={`text-[11px] font-bold uppercase tracking-[0.35em] font-mono mb-4 ${isLight ? 'text-slate-800' : 'text-[#93c5fd]/70'}`}>
                 Installation Inventory
               </h3>
               <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="rounded-xl border border-[#1e3a5f]/35 bg-[#0c1425] p-4">
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-[#93c5fd]/45 mb-1">Devices</div>
-                  <div className="text-2xl font-black text-white">{details.system.deviceCount}</div>
+                <div className={`rounded-xl border p-4 ${cardClass}`}>
+                  <div className={`text-[10px] font-mono uppercase tracking-widest mb-1 ${labelClass}`}>Devices</div>
+                  <div className={`text-2xl font-black ${valueClass}`}>{details.system.deviceCount}</div>
                 </div>
-                <div className="rounded-xl border border-[#1e3a5f]/35 bg-[#0c1425] p-4">
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-[#93c5fd]/45 mb-1">Solar Chargers</div>
+                <div className={`rounded-xl border p-4 ${cardClass}`}>
+                  <div className={`text-[10px] font-mono uppercase tracking-widest mb-1 ${labelClass}`}>Solar Chargers</div>
                   <div className="text-2xl font-black text-[#22c55e]">{details.system.solarChargers}</div>
                 </div>
-                <div className="rounded-xl border border-[#1e3a5f]/35 bg-[#0c1425] p-4">
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-[#93c5fd]/45 mb-1">Gateways</div>
+                <div className={`rounded-xl border p-4 ${cardClass}`}>
+                  <div className={`text-[10px] font-mono uppercase tracking-widest mb-1 ${labelClass}`}>Gateways</div>
                   <div className="text-2xl font-black text-[#3b82f6]">{details.system.gateways}</div>
                 </div>
-                <div className="rounded-xl border border-[#1e3a5f]/35 bg-[#0c1425] p-4">
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-[#93c5fd]/45 mb-1">Battery Devices</div>
+                <div className={`rounded-xl border p-4 ${cardClass}`}>
+                  <div className={`text-[10px] font-mono uppercase tracking-widest mb-1 ${labelClass}`}>Battery Devices</div>
                   <div className="text-2xl font-black text-[#f59e0b]">{details.system.batteryDevices}</div>
                 </div>
               </div>
               <div className="space-y-2 max-h-56 overflow-auto pr-1">
                 {details.system.devices.map((device) => (
-                  <div key={`${device.productCode}-${device.name}-${device.firmwareVersion}`} className="rounded-xl border border-[#1e3a5f]/30 bg-[#0c1425] px-3 py-3">
+                  <div key={`${device.productCode}-${device.name}-${device.firmwareVersion}`} className={`rounded-xl border px-3 py-3 ${cardClass}`}>
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <div className="text-sm font-bold text-white">{device.customName ?? device.name}</div>
-                        <div className="text-[10px] font-mono uppercase tracking-widest text-[#93c5fd]/35 mt-1">
+                        <div className={`text-sm font-bold ${valueClass}`}>{device.customName ?? device.name}</div>
+                        <div className={`text-[10px] font-mono uppercase tracking-widest mt-1 ${softLabelClass}`}>
                           {device.productName}
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-[10px] font-mono uppercase tracking-widest text-[#93c5fd]/35">Firmware</div>
-                        <div className="text-xs text-[#93c5fd]/75">{device.firmwareVersion}</div>
+                        <div className={`text-[10px] font-mono uppercase tracking-widest ${softLabelClass}`}>Firmware</div>
+                        <div className={`text-xs ${isLight ? 'text-slate-700' : 'text-[#93c5fd]/75'}`}>{device.firmwareVersion}</div>
                       </div>
                     </div>
                   </div>
@@ -382,12 +403,12 @@ export default function VRMDeepDivePanel({ siteId, data, details, loading }: Pro
             <TrendChart siteId={siteId} title="Forecast" series={details.graphs.forecastSolar} color="#60a5fa" />
           </section>
 
-          <section className="rounded-2xl border border-[#1e3a5f]/45 bg-[#080c14]/75 p-4 sm:p-5">
+          <section className={`rounded-2xl border p-4 sm:p-5 ${panelClass}`}>
             <div className="flex items-center justify-between gap-3 mb-4">
-              <h3 className="text-[11px] font-bold text-[#93c5fd]/70 uppercase tracking-[0.35em] font-mono">
+              <h3 className={`text-[11px] font-bold uppercase tracking-[0.35em] font-mono ${isLight ? 'text-slate-800' : 'text-[#93c5fd]/70'}`}>
                 Yield And Consumption Windows
               </h3>
-              <span className="text-[10px] font-mono text-[#93c5fd]/35">
+              <span className={`text-[10px] font-mono ${softLabelClass}`}>
                 From VRM overall stats
               </span>
             </div>
@@ -406,38 +427,38 @@ export default function VRMDeepDivePanel({ siteId, data, details, loading }: Pro
             <MetricGrid title="Historic Summary" metrics={details.widgets.historic} />
           </section>
 
-          <section className="rounded-2xl border border-[#1e3a5f]/45 bg-[#080c14]/75 p-4 sm:p-5">
+          <section className={`rounded-2xl border p-4 sm:p-5 ${panelClass}`}>
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <div>
-                <h3 className="text-[11px] font-bold text-[#93c5fd]/70 uppercase tracking-[0.35em] font-mono">
+                <h3 className={`text-[11px] font-bold uppercase tracking-[0.35em] font-mono ${isLight ? 'text-slate-800' : 'text-[#93c5fd]/70'}`}>
                   Alarm Coverage
                 </h3>
-                <p className="text-xs text-[#93c5fd]/35 mt-1">
+                <p className={`text-xs mt-1 ${isLight ? 'text-slate-600' : 'text-[#93c5fd]/35'}`}>
                   The alarms endpoint exposes configured notification guardrails for the installation.
                 </p>
               </div>
               <div className="flex items-center gap-4 text-sm">
-                <div className="text-white">
+                <div className={valueClass}>
                   <span className="text-2xl font-black text-[#3b82f6]">{details.alarms.configuredCount}</span>
-                  <span className="text-[#93c5fd]/45 ml-2">rules</span>
+                  <span className={`ml-2 ${labelClass}`}>rules</span>
                 </div>
-                <div className="text-white">
+                <div className={valueClass}>
                   <span className="text-2xl font-black text-[#22c55e]">{details.alarms.notificationRecipients}</span>
-                  <span className="text-[#93c5fd]/45 ml-2">recipients</span>
+                  <span className={`ml-2 ${labelClass}`}>recipients</span>
                 </div>
               </div>
             </div>
 
             {details.alarms.items.length === 0 ? (
-              <div className="rounded-xl border border-[#1e3a5f]/35 bg-[#0c1425] px-4 py-4 text-sm text-[#93c5fd]/45">
+              <div className={`rounded-xl border px-4 py-4 text-sm ${cardClass} ${labelClass}`}>
                 No enabled VRM alarm rules were returned for this installation.
               </div>
             ) : (
               <div className="grid gap-3 md:grid-cols-2">
                 {details.alarms.items.map((alarm) => (
-                  <div key={`${alarm.attributeId}-${alarm.attributeLabel}`} className="rounded-xl border border-[#1e3a5f]/35 bg-[#0c1425] px-4 py-4">
-                    <div className="text-sm font-bold text-white">{alarm.attributeLabel}</div>
-                    <div className="mt-2 text-[10px] font-mono uppercase tracking-widest text-[#93c5fd]/45">
+                  <div key={`${alarm.attributeId}-${alarm.attributeLabel}`} className={`rounded-xl border px-4 py-4 ${cardClass}`}>
+                    <div className={`text-sm font-bold ${valueClass}`}>{alarm.attributeLabel}</div>
+                    <div className={`mt-2 text-[10px] font-mono uppercase tracking-widest ${labelClass}`}>
                       Notify after {alarm.notifyAfterSeconds ?? 0}s
                     </div>
                     <div className="mt-3 flex gap-4 text-sm">

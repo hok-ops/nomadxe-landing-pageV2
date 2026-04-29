@@ -5,6 +5,7 @@ import { AdminLeftPanel } from './AdminLeftPanel';
 import { ManagedNetworkPanel } from './ManagedNetworkPanel';
 import { OperationsIntelligencePanel } from './OperationsIntelligencePanel';
 import { RosterTable } from './RosterTable';
+import { ApiStructureGuide } from './ApiStructureGuide';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
 import type { ManagedNetworkStatus } from '@/lib/networkDevices';
@@ -240,6 +241,7 @@ export default async function AdminDashboard({
             <p className="text-sm text-[#93c5fd]/70 mt-1">Manage clients, Victron devices, and access control</p>
           </div>
           <div className="flex items-center gap-3">
+            <ApiStructureGuide />
             <ThemeToggle />
             <Link
               href="/"

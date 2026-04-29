@@ -207,10 +207,13 @@ interface SparklineProps {
 }
 
 function Sparkline({ data, color, label, unit, height = 36, pulseKey = 0 }: SparklineProps) {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
+
   if (data.length < 2) {
     return (
       <div className="h-9 flex items-center">
-        <span className="text-[10px] text-[#93c5fd]/20 font-mono uppercase tracking-widest">No trend data</span>
+        <span className={`text-[10px] font-mono uppercase tracking-widest ${isLight ? 'text-slate-400' : 'text-[#93c5fd]/20'}`}>No trend data</span>
       </div>
     );
   }
@@ -225,27 +228,27 @@ function Sparkline({ data, color, label, unit, height = 36, pulseKey = 0 }: Spar
   }));
   const polyline = pts.map(p => `${p.x},${p.y}`).join(' ');
   const area = `M${pts[0].x},${H} ${pts.map(p => `L${p.x},${p.y}`).join(' ')} L${pts[pts.length - 1].x},${H} Z`;
-  const uid = `${label}-${data.slice(0, 3).join('-')}`;
+  const uid = `${label}-${data.slice(0, 3).join('-')}`.replace(/[^a-zA-Z0-9_-]/g, '-');
   const last = data[data.length - 1];
 
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[9px] text-[#93c5fd]/60 font-mono uppercase tracking-widest">{label}</span>
+        <span className={`text-[9px] font-mono uppercase tracking-widest ${isLight ? 'text-slate-600' : 'text-[#93c5fd]/60'}`}>{label}</span>
         <span className="text-[10px] font-black font-mono tabular-nums" style={{ color }}>
           {typeof last === 'number' ? last.toFixed(label.includes('SOC') ? 0 : 1) : '\u2014'}{unit}
         </span>
       </div>
       <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="overflow-visible">
-        <defs>
+        {!isLight && <defs>
           <linearGradient id={`sg-${uid}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%"   stopColor={color} stopOpacity="0.42" />
             <stop offset="100%" stopColor={color} stopOpacity="0.02" />
           </linearGradient>
-        </defs>
+        </defs>}
 
         {/* Area under curve — fades in alongside the stroke for depth */}
-        <path
+        {!isLight && <path
           key={`area-${pulseKey}`}
           d={area}
           fill={`url(#sg-${uid})`}
@@ -254,12 +257,12 @@ function Sparkline({ data, color, label, unit, height = 36, pulseKey = 0 }: Spar
             animation: `sparkArea 1.4s cubic-bezier(.22,1,.36,1) 0.1s both`,
             transformOrigin: 'bottom',
           }}
-        />
+        />}
 
         {/* Main stroke — draws in from left with a pulsing glow */}
         <polyline
           key={`line-${pulseKey}`}
-          points={polyline} fill="none" stroke={color} strokeWidth="1.8"
+          points={polyline} fill="none" stroke={color} strokeWidth={isLight ? '2.2' : '1.8'}
           strokeLinecap="round" strokeLinejoin="round"
           style={{
             color,

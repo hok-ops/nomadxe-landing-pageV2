@@ -486,9 +486,10 @@ export function assessFleetIntelligence(assets: AssetIntelligence[]): FleetIntel
   const fleetScore = assets.length > 0
     ? Math.round(assets.reduce((sum, asset) => sum + asset.trustScore, 0) / assets.length)
     : 0;
-  const priorityAssets = [...assets]
+  const rankedAssets = [...assets]
     .sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity] || a.trustScore - b.trustScore)
-    .slice(0, 4);
+  const attentionAssets = rankedAssets.filter((asset) => asset.severity !== 'normal');
+  const priorityAssets = (attentionAssets.length > 0 ? attentionAssets : rankedAssets).slice(0, 4);
   const telemetryPlan = buildTelemetryPlan(
     priorityAssets[0]?.power ?? assessPower(null),
     priorityAssets.flatMap((asset) => asset.anomalies),
@@ -508,7 +509,10 @@ export function assessFleetIntelligence(assets: AssetIntelligence[]): FleetIntel
     fleetScore,
     counts,
     priorityAssets,
-    nextActions: priorityAssets.flatMap((asset) => asset.nextActions).filter((value, index, array) => array.indexOf(value) === index).slice(0, 4),
+    nextActions: (attentionAssets.length > 0 ? priorityAssets : [])
+      .flatMap((asset) => asset.nextActions)
+      .filter((value, index, array) => array.indexOf(value) === index)
+      .slice(0, 4),
     telemetryPlan,
   };
 }

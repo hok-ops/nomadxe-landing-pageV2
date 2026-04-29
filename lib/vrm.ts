@@ -161,8 +161,119 @@ export interface VRMDetailData {
 
 const VRM_BASE = 'https://vrmapi.victronenergy.com/v2';
 const FETCH_TIMEOUT_MS = 8_000;
+const VRM_REFILL_PER_SECOND = 3;
+const VRM_BURST_CAPACITY = 90;
+const VRM_MAX_CONCURRENT = 8;
+const VRM_SNAPSHOT_CACHE_MS = 45_000;
+const VRM_DETAIL_CACHE_MS = 120_000;
 
 type JsonRecord = Record<string, any>;
+type CacheEntry = { expiresAt: number; value: unknown };
+
+const vrmJsonCache = new Map<string, CacheEntry>();
+const vrmInflight = new Map<string, Promise<unknown>>();
+
+let vrmTokens = VRM_BURST_CAPACITY;
+let vrmLastRefillAt = Date.now();
+let vrmActiveRequests = 0;
+let vrmBackoffUntil = 0;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function refillVrmTokens(now = Date.now()) {
+  const elapsedMs = Math.max(0, now - vrmLastRefillAt);
+  if (elapsedMs === 0) return;
+  vrmTokens = Math.min(
+    VRM_BURST_CAPACITY,
+    vrmTokens + (elapsedMs / 1000) * VRM_REFILL_PER_SECOND
+  );
+  vrmLastRefillAt = now;
+}
+
+async function acquireVrmSlot() {
+  while (true) {
+    const now = Date.now();
+    if (now < vrmBackoffUntil) {
+      await sleep(Math.min(vrmBackoffUntil - now, 1_000));
+      continue;
+    }
+
+    refillVrmTokens();
+    if (vrmTokens >= 1 && vrmActiveRequests < VRM_MAX_CONCURRENT) {
+      vrmTokens -= 1;
+      vrmActiveRequests += 1;
+      return () => {
+        vrmActiveRequests = Math.max(0, vrmActiveRequests - 1);
+      };
+    }
+
+    const tokenWaitMs = vrmTokens >= 1
+      ? 50
+      : Math.ceil(((1 - vrmTokens) / VRM_REFILL_PER_SECOND) * 1000);
+    await sleep(Math.min(Math.max(tokenWaitMs, 50), 500));
+  }
+}
+
+function noteVrmRateLimit(response: Response) {
+  if (response.status !== 429) return;
+  const retryAfter = response.headers.get('retry-after');
+  const retrySeconds = retryAfter ? Number(retryAfter) : NaN;
+  const delayMs = Number.isFinite(retrySeconds)
+    ? Math.max(1_000, retrySeconds * 1_000)
+    : 5_000;
+  vrmBackoffUntil = Math.max(vrmBackoffUntil, Date.now() + delayMs);
+  vrmTokens = 0;
+}
+
+function cacheTtlForVrmPath(path: string) {
+  if (
+    path.includes('/system-overview') ||
+    path.includes('/alarms') ||
+    path.includes('/overallstats') ||
+    path.includes('/widgets/Status') ||
+    path.includes('/widgets/BatterySummary') ||
+    path.includes('/widgets/SolarChargerSummary') ||
+    path.includes('/widgets/HistoricData') ||
+    path.includes('/widgets/Graph') ||
+    path.includes('type=forecast')
+  ) {
+    return VRM_DETAIL_CACHE_MS;
+  }
+
+  return VRM_SNAPSHOT_CACHE_MS;
+}
+
+function cacheKeyForVrmPath(path: string) {
+  const [base, query] = path.split('?');
+  if (!query) return path;
+
+  const search = new URLSearchParams(query);
+  // Rolling VRM windows include fresh start/end timestamps on every poll.
+  // Cache by query shape so one browser tab does not defeat the short TTL cache.
+  search.delete('start');
+  search.delete('end');
+  const normalized = search.toString();
+  return normalized ? `${base}?${normalized}` : base;
+}
+
+function getCachedVrmJson(path: string) {
+  const cached = vrmJsonCache.get(path);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    vrmJsonCache.delete(path);
+    return null;
+  }
+  return cached.value;
+}
+
+function setCachedVrmJson(path: string, value: unknown) {
+  vrmJsonCache.set(path, {
+    value,
+    expiresAt: Date.now() + cacheTtlForVrmPath(path),
+  });
+}
 
 function getVrmToken(): string {
   const token = process.env.VICTRON_ADMIN_TOKEN;
@@ -189,25 +300,56 @@ function buildQuery(params: Record<string, string | number | boolean | Array<str
 }
 
 export async function fetchVRM(path: string): Promise<unknown> {
-  const res = await fetch(`${VRM_BASE}${path}`, {
-    headers: buildHeaders(),
-    cache: 'no-store',
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
+  const cacheKey = cacheKeyForVrmPath(path);
+  const cached = getCachedVrmJson(cacheKey);
+  if (cached !== null) return cached;
 
-  if (!res.ok) throw new Error(`VRM HTTP ${res.status}: ${path}`);
-  return res.json();
+  const inflight = vrmInflight.get(cacheKey);
+  if (inflight) return inflight;
+
+  const request = (async () => {
+    const release = await acquireVrmSlot();
+    try {
+      const res = await fetch(`${VRM_BASE}${path}`, {
+        headers: buildHeaders(),
+        cache: 'no-store',
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
+
+      if (!res.ok) {
+        noteVrmRateLimit(res);
+        throw new Error(`VRM HTTP ${res.status}: ${path}`);
+      }
+      const json = await res.json();
+      setCachedVrmJson(cacheKey, json);
+      return json;
+    } finally {
+      release();
+      vrmInflight.delete(cacheKey);
+    }
+  })();
+
+  vrmInflight.set(cacheKey, request);
+  return request;
 }
 
 export async function fetchVRMRaw(path: string): Promise<Response> {
-  const res = await fetch(`${VRM_BASE}${path}`, {
-    headers: buildHeaders(),
-    cache: 'no-store',
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
+  const release = await acquireVrmSlot();
+  try {
+    const res = await fetch(`${VRM_BASE}${path}`, {
+      headers: buildHeaders(),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
 
-  if (!res.ok) throw new Error(`VRM HTTP ${res.status}: ${path}`);
-  return res;
+    if (!res.ok) {
+      noteVrmRateLimit(res);
+      throw new Error(`VRM HTTP ${res.status}: ${path}`);
+    }
+    return res;
+  } finally {
+    release();
+  }
 }
 
 async function safeFetchVRM(path: string): Promise<unknown | null> {
