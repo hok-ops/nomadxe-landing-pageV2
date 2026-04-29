@@ -5,6 +5,26 @@
 -- writes stay service-role only.
 -- ############################################################################
 
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.id = auth.uid()
+      AND p.role = 'admin'
+      AND COALESCE(p.is_active, true) = true
+      AND COALESCE(p.status, 'active') = 'active'
+  );
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.is_admin() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
+
 CREATE TABLE IF NOT EXISTS public.asset_health_snapshots (
   id BIGSERIAL PRIMARY KEY,
   vrm_device_id INTEGER NOT NULL REFERENCES public.vrm_devices(id) ON DELETE CASCADE,
@@ -69,7 +89,7 @@ CREATE POLICY "Users see assigned asset snapshots"
     EXISTS (
       SELECT 1
       FROM public.vrm_devices vd
-      JOIN public.user_devices ud ON ud.device_id = vd.id
+      JOIN public.device_assignments ud ON ud.device_id = vd.id
       WHERE vd.id = asset_health_snapshots.vrm_device_id
         AND ud.user_id = auth.uid()
     )
@@ -89,7 +109,7 @@ CREATE POLICY "Users see assigned asset incidents"
     EXISTS (
       SELECT 1
       FROM public.vrm_devices vd
-      JOIN public.user_devices ud ON ud.device_id = vd.id
+      JOIN public.device_assignments ud ON ud.device_id = vd.id
       WHERE vd.id = asset_incidents.vrm_device_id
         AND ud.user_id = auth.uid()
     )
@@ -109,7 +129,7 @@ CREATE POLICY "Users see assigned telemetry policies"
     EXISTS (
       SELECT 1
       FROM public.vrm_devices vd
-      JOIN public.user_devices ud ON ud.device_id = vd.id
+      JOIN public.device_assignments ud ON ud.device_id = vd.id
       WHERE vd.id = telemetry_collection_policies.vrm_device_id
         AND ud.user_id = auth.uid()
     )

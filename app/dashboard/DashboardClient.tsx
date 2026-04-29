@@ -6,12 +6,14 @@ import NomadXECoreView, { type VRMData } from '@/components/dashboard/NomadXECor
 import FleetTile from '@/components/dashboard/FleetTile';
 import FleetFilter, { type FleetFilters, EMPTY_FILTERS, deviceMatchesFilters, hasActiveFilters } from '@/components/dashboard/FleetFilter';
 import FleetIntelligenceBriefing from '@/components/dashboard/FleetIntelligenceBriefing';
+import LeaseCommandCenter from '@/components/dashboard/LeaseCommandCenter';
 import ReadingKey from '@/components/dashboard/ReadingKey';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/components/ToastProvider';
 import { formatWatts, getDcLoadSignalTitle, hasMissingDcLoadSignal } from '@/lib/telemetryHealth';
 import { assessAssetIntelligence, assessFleetIntelligence } from '@/lib/assetIntelligence';
+import type { LeaseOperationsData } from '@/lib/leaseOperations';
 
 export interface Device {
   siteId: string;
@@ -24,6 +26,7 @@ interface Props {
   devices: Device[];
   initialDataMap: Record<string, VRMData | null>;
   isAdmin: boolean;
+  leaseOperations: LeaseOperationsData;
 }
 
 type BriefingQueueKey = 'battery' | 'load' | 'offline' | 'charging' | 'healthy';
@@ -319,7 +322,7 @@ function ShiftBriefingPanel({
   );
 }
 
-export default function DashboardClient({ devices, initialDataMap, isAdmin }: Props) {
+export default function DashboardClient({ devices, initialDataMap, isAdmin, leaseOperations }: Props) {
   const [dataMap, setDataMap] = useState<Record<string, VRMData | null>>(initialDataMap);
   const [displayNames, setDisplayNames] = useState<Record<string, string | null>>(
     Object.fromEntries(devices.map(d => [d.siteId, d.displayName]))
@@ -392,6 +395,9 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin }: Pr
   );
   const fleetIntelligence = useMemo(() => assessFleetIntelligence(intelligenceAssets), [intelligenceAssets]);
   const fleetPollMs = fleetIntelligence.telemetryPlan.pollIntervalMs;
+  const handleTicketCreated = useCallback(() => {
+    window.location.reload();
+  }, []);
 
   // VRM logs telemetry every 1-5 min. The intelligence plan can increase
   // cadence for watch states while backing off when VRM is stale.
@@ -540,13 +546,27 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin }: Pr
         )}
 
         {devices.length === 1 && (
-          <div className="pb-10">
+          <div className="space-y-6 pb-10">
+            <LeaseCommandCenter
+              devices={intelligenceDevices}
+              dataMap={dataMap}
+              operations={leaseOperations}
+              fleetIntelligence={fleetIntelligence}
+              onTicketCreated={handleTicketCreated}
+            />
             <NomadXECoreView device={devices[0]} initialData={dataMap[devices[0].siteId] ?? null} displayName={displayNames[devices[0].siteId] ?? null} onRename={handleRename} onData={handleDeviceData} />
           </div>
         )}
 
         {devices.length > 1 && !hasMany && (
           <div className="space-y-6 pb-10">
+            <LeaseCommandCenter
+              devices={intelligenceDevices}
+              dataMap={dataMap}
+              operations={leaseOperations}
+              fleetIntelligence={fleetIntelligence}
+              onTicketCreated={handleTicketCreated}
+            />
             <ShiftBriefingPanel briefing={briefing} isLight={isLight} onOpenDevice={openSite} />
             <FleetIntelligenceBriefing devices={intelligenceDevices} dataMap={dataMap} />
             {devices.map(d => (
@@ -559,6 +579,13 @@ export default function DashboardClient({ devices, initialDataMap, isAdmin }: Pr
 
         {hasMany && (
           <>
+            <LeaseCommandCenter
+              devices={intelligenceDevices}
+              dataMap={dataMap}
+              operations={leaseOperations}
+              fleetIntelligence={fleetIntelligence}
+              onTicketCreated={handleTicketCreated}
+            />
             <ShiftBriefingPanel briefing={briefing} isLight={isLight} onOpenDevice={openSite} />
             <FleetIntelligenceBriefing devices={intelligenceDevices} dataMap={dataMap} />
             <div className="lg:hidden pb-10">

@@ -5,6 +5,8 @@ import DashboardClient from './DashboardClient';
 import { fetchVRMData, type VRMData } from '@/lib/vrm';
 import { getStoredDeviceLocations } from '@/lib/deviceLocation';
 import { getLocationKey } from '@/lib/location';
+import { assessAssetIntelligence } from '@/lib/assetIntelligence';
+import { fetchLeaseOperationsForDashboard } from '@/lib/leaseOperationsServer';
 
 export const metadata = { title: 'Power Base Readings | NomadXE' };
 
@@ -99,12 +101,23 @@ export default async function DashboardPage() {
     4
   );
   const initialDataMap = Object.fromEntries(pairs);
+  const assetIntelligence = devices.map((device) => assessAssetIntelligence({
+    device,
+    data: initialDataMap[device.siteId] ?? null,
+  }));
+  const leaseOperations = await fetchLeaseOperationsForDashboard({
+    userId: user.id,
+    devices,
+    dataMap: initialDataMap,
+    assetIntelligence,
+  });
 
   return (
     <DashboardClient
       devices={devices}
       initialDataMap={initialDataMap}
       isAdmin={profile?.role === 'admin'}
+      leaseOperations={leaseOperations}
     />
   );
 }
