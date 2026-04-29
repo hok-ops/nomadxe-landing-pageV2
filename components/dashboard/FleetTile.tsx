@@ -94,10 +94,14 @@ function getBatteryFlowState(charging: boolean, discharging: boolean, noData: bo
   return { symbol: 'STBY', label: 'Standby', detail: 'Battery at rest', color: '#93c5fd', active: false };
 }
 
-function CloudWeatherCue({ label }: { label: string }) {
+function CloudWeatherCue({ label, isLight }: { label: string; isLight: boolean }) {
   return (
     <span
-      className="inline-flex flex-shrink-0 items-center gap-1 rounded-md border border-slate-400/30 bg-slate-200/70 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.15em] text-slate-700"
+      className={`inline-flex flex-shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.15em] ${
+        isLight
+          ? 'border-slate-400/30 bg-slate-200/70 text-slate-700'
+          : 'border-[#1e3a5f]/55 bg-[#0b1323]/80 text-[#bfdbfe]/70'
+      }`}
       title="Cloudy weather can reduce solar harvest today."
     >
       <svg width="13" height="9" viewBox="0 0 26 18" fill="none" aria-hidden="true">
@@ -262,19 +266,19 @@ export default function FleetTile({ device, data, selected, hoverEnabled = true,
           ? 'border-blue-500 ring-4 ring-blue-500/18 shadow-[0_0_0_1px_rgba(37,99,235,0.38),0_18px_44px_rgba(37,99,235,0.14)]'
           : 'border-slate-200'
       }`
-    : `relative w-full overflow-hidden rounded-xl border bg-[#f7f1e6] p-3.5 text-left text-[#15120c] shadow-[0_16px_34px_rgba(0,0,0,0.22)] transition-all duration-200 focus:outline-none ${
-        effectiveHoverEnabled ? 'hover:-translate-y-px hover:shadow-[0_22px_44px_rgba(0,0,0,0.28)]' : ''
+    : `relative w-full overflow-hidden rounded-xl border bg-[linear-gradient(180deg,rgba(8,12,20,0.92),rgba(10,16,30,0.98))] p-3.5 text-left text-white shadow-[0_16px_34px_rgba(0,0,0,0.34)] transition-all duration-200 focus:outline-none ${
+        effectiveHoverEnabled ? 'hover:-translate-y-px hover:border-[#3b82f6]/45 hover:shadow-[0_22px_44px_rgba(0,0,0,0.36)]' : ''
       } ${
         selected
-          ? 'border-[#2563eb] ring-4 ring-[#2563eb]/35 shadow-[0_0_0_1px_rgba(37,99,235,0.75),0_24px_54px_rgba(37,99,235,0.24)]'
-          : `border-[#d8cdb9] ${effectiveHoverEnabled ? 'hover:border-[#15120c]/35' : ''}`
+          ? 'border-[#3b82f6] ring-4 ring-[#2563eb]/28 shadow-[0_0_0_1px_rgba(59,130,246,0.72),0_24px_54px_rgba(37,99,235,0.22)]'
+          : `border-[#1e3a5f]/70 ${effectiveHoverEnabled ? 'hover:border-[#3b82f6]/45' : ''}`
       }`;
-  const dividerClass = isLight ? 'border-slate-200' : 'border-[#15120c]/10';
-  const tileMuted = isLight ? 'text-slate-500' : 'text-[#7b6a52]';
-  const tileSubtle = isLight ? 'text-slate-500/85' : 'text-[#7b6a52]/75';
-  const tilePrimary = isLight ? 'text-slate-950' : 'text-[#15120c]';
-  const tileMetricClass = isLight ? 'rounded-lg bg-slate-50 px-2.5 py-2' : 'rounded-lg bg-[#15120c]/5 px-2.5 py-2';
-  const tileBarBg = isLight ? 'bg-slate-200' : 'bg-[#15120c]/10';
+  const dividerClass = isLight ? 'border-slate-200' : 'border-[#1e3a5f]/55';
+  const tileMuted = isLight ? 'text-slate-500' : 'text-[#93c5fd]/58';
+  const tileSubtle = isLight ? 'text-slate-500/85' : 'text-[#93c5fd]/42';
+  const tilePrimary = isLight ? 'text-slate-950' : 'text-white';
+  const tileMetricClass = isLight ? 'rounded-lg bg-slate-50 px-2.5 py-2' : 'rounded-lg border border-[#1e3a5f]/45 bg-[#080c14]/58 px-2.5 py-2';
+  const tileBarBg = isLight ? 'bg-slate-200' : 'bg-[#1e3a5f]/55';
   const solarW = data?.solar.power ?? 0;
   const mpptLabel = data?.solar.mpptStateLabel ?? 'Off';
   const mpptColor = MPPT_LABEL_COLOR[mpptLabel] ?? '#4b5563';
@@ -354,7 +358,7 @@ export default function FleetTile({ device, data, selected, hoverEnabled = true,
           <div className="min-w-0">
             <div className={`text-[9px] font-black uppercase tracking-[0.26em] ${tileMuted}`}>{device.siteId}</div>
             <div className="mt-1 flex min-w-0 items-center gap-2">
-              <span className={`truncate text-[17px] font-black ${tilePrimary}`}>{device.displayName ?? device.name}</span>
+              <span className={`text-[17px] font-black leading-tight ${tilePrimary}`}>{device.displayName ?? device.name}</span>
               {selected && (
                 <span className="rounded-md border border-[#2563eb]/25 bg-[#2563eb] px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-white shadow-[0_0_12px_rgba(37,99,235,0.28)]">
                   Reviewing
@@ -362,16 +366,16 @@ export default function FleetTile({ device, data, selected, hoverEnabled = true,
               )}
             </div>
             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
-              <span className={`truncate text-[11px] font-bold ${tileMuted}`}>{location}</span>
-              {cloudyWeather && <CloudWeatherCue label={cloudyWeather.label} />}
+              <span className={`text-[11px] font-bold leading-snug ${tileMuted}`}>{location}</span>
+              {cloudyWeather && <CloudWeatherCue label={cloudyWeather.label} isLight={isLight} />}
             </div>
             <div className={`mt-1 text-[10px] font-black uppercase tracking-[0.18em] ${tileSubtle}`}>{syncAge}</div>
           </div>
           <div className="flex flex-shrink-0 flex-col items-end gap-1.5">
-            <span className={`rounded-lg border px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.2em] ${isLight ? 'border-slate-200 bg-slate-50' : 'border-[#15120c]/10 bg-white/55'}`} style={{ color: priorityColor }}>
+            <span className={`rounded-lg border px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.2em] ${isLight ? 'border-slate-200 bg-slate-50' : 'border-[#1e3a5f]/55 bg-[#080c14]/72'}`} style={{ color: priorityColor }}>
               {priorityLabel}
             </span>
-            <span className={`rounded-md border px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] ${isLight ? 'border-slate-200 bg-slate-50' : 'border-[#15120c]/10 bg-[#15120c]/5'}`} style={{ color: mpptColor }}>
+            <span className={`rounded-md border px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] ${isLight ? 'border-slate-200 bg-slate-50' : 'border-[#1e3a5f]/45 bg-[#080c14]/58'}`} style={{ color: mpptColor }}>
               {mpptLabel}
             </span>
           </div>
@@ -395,7 +399,7 @@ export default function FleetTile({ device, data, selected, hoverEnabled = true,
               <div className={`rounded-lg px-2.5 py-2 ${
                 loadSignalMissing
                   ? 'border border-[#f59e0b]/35 bg-[#f59e0b]/10'
-                  : isLight ? 'bg-slate-50' : 'bg-[#15120c]/5'
+                  : isLight ? 'bg-slate-50' : 'border border-[#1e3a5f]/45 bg-[#080c14]/58'
               }`}>
                 <div className={`text-[9px] font-black uppercase tracking-[0.18em] ${tileMuted}`}>Load</div>
                 <div className="mt-1 text-sm font-black tabular-nums">{noData ? 'Pending' : loadSignalMissing ? 'No read' : formatWatts(dcLoadW)}</div>
