@@ -8,6 +8,7 @@ export type TeltonikaRouterReport = {
   cellular?: RouterCellularReport;
   devices: RouterDeviceReport[];
   warnings: string[];
+  lanProbes: TeltonikaLanProbeResult[];
 };
 
 type JsonValue = Record<string, unknown> | unknown[] | string | number | boolean | null;
@@ -19,6 +20,17 @@ const LAN_ENDPOINTS = [
   '/api/dhcp/leases',
   '/api/hosts/status',
 ];
+
+export type TeltonikaLanProbeResult = {
+  path: string;
+  ok: boolean;
+  status: number | null;
+  elapsedMs: number;
+  deviceCount: number;
+  bodyShape: string;
+  sampleKeys: string[];
+  error?: string;
+};
 
 function normalizeBaseUrl(value: string) {
   const trimmed = value.trim();
@@ -34,7 +46,8 @@ function getRouterCredentials() {
   return { username, password };
 }
 
-async function fetchJson(url: string, init: RequestInit = {}, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<JsonValue> {
+async function fetchRouterJson(url: string, init: RequestInit = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  const startedAt = Date.now();
   const response = await fetch(url, {
     ...init,
     signal: AbortSignal.timeout(timeoutMs),
@@ -46,6 +59,7 @@ async function fetchJson(url: string, init: RequestInit = {}, timeoutMs = DEFAUL
   });
 
   const text = await response.text();
+  const contentType = response.headers.get('content-type');
   let parsed: JsonValue = null;
   if (text) {
     try {
@@ -55,19 +69,27 @@ async function fetchJson(url: string, init: RequestInit = {}, timeoutMs = DEFAUL
     }
   }
 
-  if (!response.ok) {
-    throw new Error(`Router API returned ${response.status}`);
+  return {
+    ok: response.ok,
+    status: response.status,
+    contentType,
+    parsed,
+    elapsedMs: Date.now() - startedAt,
+  };
+}
+
+async function fetchJson(url: string, init: RequestInit = {}, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<JsonValue> {
+  const result = await fetchRouterJson(url, init, timeoutMs);
+
+  if (!result.ok) {
+    throw new Error(`Router API returned ${result.status}`);
   }
 
-  return parsed;
+  return result.parsed;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
-}
-
-function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
 }
 
 function numberFrom(value: unknown): number | null {
@@ -101,6 +123,29 @@ function firstObject(value: JsonValue): Record<string, unknown> | null {
   if (data && typeof data === 'object') return asRecord(data);
   if (Array.isArray(value)) return asRecord(value[0]);
   return root;
+}
+
+function objectKeysFromJson(value: JsonValue) {
+  const firstCandidate = firstObject(value);
+  if (firstCandidate) return Object.keys(firstCandidate).slice(0, 12);
+  if (Array.isArray(value) && value.length > 0) {
+    const firstRow = asRecord(value[0]);
+    if (firstRow) return Object.keys(firstRow).slice(0, 12);
+  }
+  return [];
+}
+
+function describeJsonShape(value: JsonValue, contentType: string | null) {
+  if (Array.isArray(value)) return `array(${value.length})`;
+  const root = asRecord(value);
+  if (root) {
+    const keys = Object.keys(root).slice(0, 5);
+    return keys.length ? `object:${keys.join(',')}` : 'object';
+  }
+  if (typeof value === 'string') {
+    return contentType?.includes('html') ? 'html' : 'text';
+  }
+  return value === null ? 'empty' : typeof value;
 }
 
 async function login(baseUrl: string) {
@@ -145,49 +190,81 @@ function extractCellularReport(modemStatus: JsonValue): RouterCellularReport | u
   return Object.values(report).some((value) => value != null) ? report : undefined;
 }
 
-function extractCandidateArrays(value: JsonValue): unknown[][] {
-  const root = asRecord(value);
-  const candidates = [
-    value,
-    root?.data,
-    root?.devices,
-    root?.leases,
-    root?.hosts,
-    asRecord(root?.data)?.devices,
-    asRecord(root?.data)?.leases,
-    asRecord(root?.data)?.hosts,
-  ];
-  return candidates.map(asArray).filter((items) => items.length > 0);
+function extractIp(value: Record<string, unknown>) {
+  return textFrom(
+    value.ipAddress,
+    value.ip_address,
+    value.ip,
+    value.address,
+    value.ipaddr,
+    value.ipv4,
+    value.lease_ip,
+    value.host_ip
+  );
 }
 
-function extractIp(value: Record<string, unknown>) {
-  return textFrom(value.ipAddress, value.ip_address, value.ip, value.address, value.host, value.ipaddr);
+function extractCandidateRows(value: JsonValue): Record<string, unknown>[] {
+  const rows: Record<string, unknown>[] = [];
+  const seen = new Set<Record<string, unknown>>();
+
+  const visit = (current: unknown, depth: number) => {
+    if (depth > 4) return;
+
+    if (Array.isArray(current)) {
+      for (const item of current) visit(item, depth + 1);
+      return;
+    }
+
+    const record = asRecord(current);
+    if (!record) return;
+
+    if (extractIp(record) && !seen.has(record)) {
+      seen.add(record);
+      rows.push(record);
+    }
+
+    for (const child of Object.values(record)) {
+      if (child && typeof child === 'object') visit(child, depth + 1);
+    }
+  };
+
+  visit(value, 0);
+  return rows;
+}
+
+function statusFromRow(row: Record<string, unknown>): 'online' | 'offline' {
+  for (const value of [row.status, row.state, row.online, row.active, row.connected]) {
+    if (typeof value === 'boolean') return value ? 'online' : 'offline';
+    if (typeof value !== 'string') continue;
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) continue;
+    if (['offline', 'down', 'inactive', 'disconnected', 'expired', 'failed'].some((word) => normalized.includes(word))) {
+      return 'offline';
+    }
+    return 'online';
+  }
+  return 'online';
 }
 
 function extractLanReports(value: JsonValue, sourceLabel: string): RouterDeviceReport[] {
   const reports: RouterDeviceReport[] = [];
-  for (const collection of extractCandidateArrays(value)) {
-    for (const item of collection) {
-      const row = asRecord(item);
-      if (!row) continue;
-      const ipAddress = extractIp(row);
-      if (!ipAddress) continue;
+  for (const row of extractCandidateRows(value)) {
+    const ipAddress = extractIp(row);
+    if (!ipAddress) continue;
 
-      const statusText = textFrom(row.status, row.state, row.online);
-      reports.push({
-        ipAddress,
-        status: statusText?.toLowerCase() === 'offline' ? 'offline' : 'online',
-        macAddress: textFrom(row.macAddress, row.mac_address, row.mac),
-        hostname: textFrom(row.hostname, row.hostName, row.name, row.device_name),
-        latencyMs: firstNumber(row.latencyMs, row.latency_ms, row.ping_ms),
-        detail: `${sourceLabel} router client observation`,
-      });
-    }
+    reports.push({
+      ipAddress,
+      status: statusFromRow(row),
+      macAddress: textFrom(row.macAddress, row.mac_address, row.mac, row.macaddr, row.hwaddr),
+      hostname: textFrom(row.hostname, row.hostName, row.name, row.device_name, row.client_name),
+      latencyMs: firstNumber(row.latencyMs, row.latency_ms, row.ping_ms, row.rtt_ms, row.response_time_ms),
+      detail: `${sourceLabel} router client observation`,
+    });
   }
   return reports;
 }
 
-function getLanEndpointPaths() {
+export function getLanEndpointPaths() {
   const configured = process.env.TELTONIKA_LAN_CLIENTS_PATHS
     ?.split(',')
     .map((path) => path.trim())
@@ -195,35 +272,87 @@ function getLanEndpointPaths() {
   return configured?.length ? configured : LAN_ENDPOINTS;
 }
 
+async function probeLanEndpoint(baseUrl: string, token: string, endpointPath: string): Promise<{
+  result: TeltonikaLanProbeResult;
+  reports: RouterDeviceReport[];
+}> {
+  const path = endpointPath.startsWith('/') ? endpointPath : `/${endpointPath}`;
+  try {
+    const response = await fetchRouterJson(`${baseUrl}${path}`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+    }, 4_000);
+    const reports = response.ok ? extractLanReports(response.parsed, path) : [];
+
+    return {
+      result: {
+        path,
+        ok: response.ok,
+        status: response.status,
+        elapsedMs: response.elapsedMs,
+        deviceCount: reports.length,
+        bodyShape: describeJsonShape(response.parsed, response.contentType),
+        sampleKeys: objectKeysFromJson(response.parsed),
+        error: response.ok ? undefined : `HTTP ${response.status}`,
+      },
+      reports,
+    };
+  } catch (error) {
+    return {
+      result: {
+        path,
+        ok: false,
+        status: null,
+        elapsedMs: 4_000,
+        deviceCount: 0,
+        bodyShape: 'unavailable',
+        sampleKeys: [],
+        error: error instanceof Error ? error.message : 'Endpoint unavailable',
+      },
+      reports: [],
+    };
+  }
+}
+
 export async function collectTeltonikaRouterReport(routerAccessUrl: string): Promise<TeltonikaRouterReport> {
   const baseUrl = normalizeBaseUrl(routerAccessUrl);
   const token = await login(baseUrl);
   const warnings: string[] = [];
 
-  const modemStatus = await fetchJson(`${baseUrl}/api/modems/status`, {
+  const modemStatusPromise = fetchJson(`${baseUrl}/api/modems/status`, {
     method: 'GET',
     headers: { Authorization: `Bearer ${token}` },
-  });
+  })
+    .then((value) => ({ value, error: null }))
+    .catch((error) => ({ value: null, error }));
+
+  const lanProbePromise = Promise.all(
+    getLanEndpointPaths().map((endpointPath) => probeLanEndpoint(baseUrl, token, endpointPath))
+  );
+
+  const [modemStatusResult, lanProbeResults] = await Promise.all([modemStatusPromise, lanProbePromise]);
 
   const devicesByIp = new Map<string, RouterDeviceReport>();
-  for (const endpointPath of getLanEndpointPaths()) {
-    try {
-      const result = await fetchJson(`${baseUrl}${endpointPath.startsWith('/') ? endpointPath : `/${endpointPath}`}`, {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${token}` },
-      }, 4_000);
-      for (const report of extractLanReports(result, endpointPath)) {
-        devicesByIp.set(report.ipAddress, report);
-      }
-    } catch (error) {
-      warnings.push(`${endpointPath}: ${error instanceof Error ? error.message : 'unavailable'}`);
+  const lanProbes = lanProbeResults.map(({ result }) => result);
+  for (const { result, reports } of lanProbeResults) {
+    if (!result.ok) {
+      warnings.push(`${result.path}: ${result.error ?? 'unavailable'}`);
+      continue;
     }
+    for (const report of reports) {
+      devicesByIp.set(report.ipAddress, report);
+    }
+  }
+
+  if (modemStatusResult.error) {
+    warnings.push(`/api/modems/status: ${modemStatusResult.error instanceof Error ? modemStatusResult.error.message : 'unavailable'}`);
   }
 
   return {
     observedAt: new Date().toISOString(),
-    cellular: extractCellularReport(modemStatus),
+    cellular: modemStatusResult.value ? extractCellularReport(modemStatusResult.value) : undefined,
     devices: Array.from(devicesByIp.values()),
     warnings,
+    lanProbes,
   };
 }

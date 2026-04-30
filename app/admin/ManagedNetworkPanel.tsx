@@ -32,6 +32,32 @@ type DiscoveredDeviceWithParent = DiscoveredNetworkDevice & {
 
 type FleetSourceFilter = 'attention' | 'unreported' | 'all';
 
+type RouterLanDiagnosticResult = {
+  ok: true;
+  device: {
+    id: number;
+    siteId: string;
+    name: string;
+  };
+  observedAt: string;
+  modemReportSaved: boolean;
+  lanDeviceCount: number;
+  discovered: number;
+  updated: number;
+  markedOffline: number;
+  endpointResults: Array<{
+    path: string;
+    ok: boolean;
+    status: number | null;
+    elapsedMs: number;
+    deviceCount: number;
+    bodyShape: string;
+    sampleKeys: string[];
+    error?: string;
+  }>;
+  warnings: string[];
+};
+
 function ChevronIcon({ open }: { open: boolean }) {
   return (
     <svg
@@ -117,6 +143,10 @@ export function ManagedNetworkPanel({
   const [open, setOpen] = useState(true);
   const [fleetSearch, setFleetSearch] = useState('');
   const [fleetFilter, setFleetFilter] = useState<FleetSourceFilter>('attention');
+  const [diagnosticDeviceId, setDiagnosticDeviceId] = useState(devices[0] ? String(devices[0].id) : '');
+  const [diagnosticBusy, setDiagnosticBusy] = useState(false);
+  const [diagnosticResult, setDiagnosticResult] = useState<RouterLanDiagnosticResult | null>(null);
+  const [diagnosticError, setDiagnosticError] = useState<string | null>(null);
   const summary = getManagedDeviceSummary(managedDevices, STALE_AFTER_MS);
   const attentionCount = summary.offline + summary.stale;
   const unmanagedDiscoveries = discoveredDevices
@@ -181,6 +211,30 @@ export function ManagedNetworkPanel({
     if (aAttention !== bAttention) return aAttention - bAttention;
     return a.name.localeCompare(b.name);
   });
+
+  async function runLanDiagnostic() {
+    if (!diagnosticDeviceId || diagnosticBusy) return;
+    setDiagnosticBusy(true);
+    setDiagnosticError(null);
+    setDiagnosticResult(null);
+
+    try {
+      const response = await fetch('/api/admin/router-lan-diagnostic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vrmDeviceId: diagnosticDeviceId }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(typeof payload.error === 'string' ? payload.error : 'Router diagnostic failed');
+      }
+      setDiagnosticResult(payload as RouterLanDiagnosticResult);
+    } catch (error) {
+      setDiagnosticError(error instanceof Error ? error.message : 'Router diagnostic failed');
+    } finally {
+      setDiagnosticBusy(false);
+    }
+  }
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[#1e3a5f]/70 bg-[#0d1526]">
@@ -330,6 +384,117 @@ export function ManagedNetworkPanel({
 
             <div className="mt-2 text-[9px] text-[#93c5fd]/35">
               Showing {visibleFleetRows.length} of {filteredFleetRows.length} matching trailers. Use search to narrow large fleets.
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-[#1e3a5f]/70 bg-[#0b1323] p-4">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="max-w-2xl">
+            <h3 className="text-xs font-bold uppercase tracking-[0.28em] text-[#93c5fd]/72">Secure Router LAN Probe</h3>
+            <p className="mt-2 text-[11px] leading-relaxed text-[#93c5fd]/52">
+              Admin-only live test. The server logs into the linked Teltonika router, checks modem health, probes LAN inventory endpoints, and saves discovered hosts when a working endpoint is found.
+            </p>
+          </div>
+          <div className="grid w-full gap-2 sm:grid-cols-[minmax(0,1fr)_auto] xl:w-[34rem]">
+            <select
+              value={diagnosticDeviceId}
+              onChange={(event) => setDiagnosticDeviceId(event.target.value)}
+              disabled={devices.length === 0 || diagnosticBusy}
+              className="w-full rounded-lg border border-[#1e3a5f] bg-[#080c14] px-3 py-2.5 text-xs text-white outline-none transition-colors focus:border-[#3b82f6] disabled:opacity-45"
+            >
+              {devices.length === 0 ? (
+                <option value="">No trailers registered</option>
+              ) : (
+                devices.map((device) => (
+                  <option key={device.id} value={device.id}>
+                    {device.name} - Site {device.vrm_site_id}
+                  </option>
+                ))
+              )}
+            </select>
+            <button
+              type="button"
+              onClick={runLanDiagnostic}
+              disabled={!diagnosticDeviceId || diagnosticBusy}
+              className="rounded-lg border border-[#3b82f6]/45 bg-[#2563eb]/18 px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#bfdbfe] transition-all hover:border-[#60a5fa] hover:bg-[#2563eb]/28 hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              {diagnosticBusy ? 'Probing' : 'Run Probe'}
+            </button>
+          </div>
+        </div>
+
+        {diagnosticError && (
+          <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[11px] leading-relaxed text-rose-200">
+            {diagnosticError}
+          </div>
+        )}
+
+        {diagnosticResult && (
+          <div className="mt-4 space-y-3">
+            <div className="grid gap-2 sm:grid-cols-4">
+              {[
+                { label: 'Modem Report', value: diagnosticResult.modemReportSaved ? 'Saved' : 'No signal row' },
+                { label: 'LAN Hosts', value: String(diagnosticResult.lanDeviceCount) },
+                { label: 'Inventory Writes', value: String(diagnosticResult.discovered) },
+                { label: 'Managed Updates', value: String(diagnosticResult.updated + diagnosticResult.markedOffline) },
+              ].map((item) => (
+                <div key={item.label} className="rounded-xl border border-[#1e3a5f]/60 bg-[#080c14]/80 px-3 py-2">
+                  <div className="text-sm font-black text-white">{item.value}</div>
+                  <div className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.16em] text-[#93c5fd]/42">{item.label}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-xl border border-[#1e3a5f]/55 bg-[#080c14]/70 p-3">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#93c5fd]/62">
+                  Endpoint Proof - {diagnosticResult.device.name}
+                </div>
+                <div className="font-mono text-[9px] text-[#93c5fd]/38">{formatAgo(diagnosticResult.observedAt)}</div>
+              </div>
+              <div className="grid gap-2 lg:grid-cols-2">
+                {diagnosticResult.endpointResults.map((endpoint) => (
+                  <div
+                    key={endpoint.path}
+                    className={`rounded-lg border px-3 py-2 ${
+                      endpoint.deviceCount > 0
+                        ? 'border-emerald-500/30 bg-emerald-500/10'
+                        : endpoint.ok
+                          ? 'border-amber-500/20 bg-amber-500/10'
+                          : 'border-rose-500/20 bg-rose-500/10'
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-mono text-[10px] text-white">{endpoint.path}</span>
+                      <span className="rounded-full border border-[#1e3a5f]/70 px-2 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] text-[#93c5fd]/60">
+                        {endpoint.deviceCount > 0 ? `${endpoint.deviceCount} host${endpoint.deviceCount === 1 ? '' : 's'}` : endpoint.ok ? 'No hosts' : 'Failed'}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-[9px] leading-relaxed text-[#93c5fd]/42">
+                      {endpoint.ok
+                        ? `${endpoint.status ?? 'OK'} in ${endpoint.elapsedMs}ms - ${endpoint.bodyShape}`
+                        : `${endpoint.error ?? 'Unavailable'} - ${endpoint.elapsedMs}ms`}
+                    </div>
+                    {endpoint.sampleKeys.length > 0 && (
+                      <div className="mt-2 line-clamp-2 text-[8px] uppercase tracking-[0.12em] text-[#93c5fd]/30">
+                        Keys: {endpoint.sampleKeys.join(', ')}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {diagnosticResult.lanDeviceCount === 0 && (
+                <p className="mt-3 text-[10px] leading-relaxed text-amber-200/72">
+                  The router login and modem path may still be valid, but LAN attached-device discovery needs the exact RutOS client endpoint in TELTONIKA_LAN_CLIENTS_PATHS.
+                </p>
+              )}
+              {diagnosticResult.warnings.length > 0 && (
+                <p className="mt-2 text-[10px] leading-relaxed text-[#93c5fd]/42">
+                  Warnings: {diagnosticResult.warnings.join(' | ')}
+                </p>
+              )}
             </div>
           </div>
         )}

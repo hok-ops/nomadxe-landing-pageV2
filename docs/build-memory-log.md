@@ -116,3 +116,23 @@ This log captures durable decisions and lessons so future AI sessions do not hav
 - High-stakes admin interfaces should not make destructive or permission-changing actions feel as casual as routine filters.
 - Enterprise UX needs different friction levels: quick for reversible work, typed confirmation for RBAC and deletion.
 - A command center is useful only when each signal has a named owner, source of evidence, and next action.
+
+## 2026-04-30 Router LAN Diagnostic Proof Loop
+
+### Accomplished
+
+- Added an admin-only router LAN diagnostic API.
+  - `POST /api/admin/router-lan-diagnostic` verifies the operator is an admin, rate-limits requests, reads the selected trailer server-side, and never returns router URLs or credentials.
+  - The route logs into the linked Teltonika router, collects `/api/modems/status`, probes the configured/default LAN inventory endpoints, and ingests any modem or attached-host data found.
+  - Results are sanitized into endpoint proof: path, HTTP status, latency, JSON shape, sample keys, and discovered-host count.
+- Added a Secure Router LAN Probe panel to Admin > LAN Device Operations.
+  - Operators can select one trailer, run a live probe, and see whether modem reporting, LAN discovery, and database writes succeeded.
+  - If no attached hosts are found, the UI explicitly says the exact RutOS LAN client endpoint still needs to be configured through `TELTONIKA_LAN_CLIENTS_PATHS`.
+- Made Teltonika LAN endpoint probing parallel.
+  - LAN candidates now run together after router login so a slow or invalid endpoint does not multiply request time across every candidate.
+
+### Valuable Lessons
+
+- "Ready" is not enough for operational telemetry. The admin surface needs a proof loop that shows the exact source, result, and next configuration action.
+- Router diagnostics must stay server-side. Admins need evidence, not raw router URLs, bearer tokens, or passwords.
+- On Vercel and Supabase free-plan constraints, live diagnostics should be intentional, rate-limited, and scoped to one trailer at a time.
