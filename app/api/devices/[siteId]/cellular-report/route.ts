@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { assertVrmSiteAccess } from '@/lib/vrmAccess';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { ingestNetworkScanPayload } from '@/lib/networkScanIngest';
+import { collectTeltonikaRouterReport } from '@/lib/teltonikaRouter';
 
 export const dynamic = 'force-dynamic';
 
@@ -125,6 +127,47 @@ async function dispatchRouterReportRequest({
   }
 }
 
+async function collectNativeRouterReport(device: any) {
+  const routerAccessUrl = typeof device.router_access_url === 'string' ? device.router_access_url : '';
+  if (!routerAccessUrl.trim()) {
+    return { collected: false, warning: 'Router report request was logged, but this trailer does not have a router access URL linked yet.' };
+  }
+
+  try {
+    const report = await collectTeltonikaRouterReport(routerAccessUrl);
+    const hasCellular = Boolean(report.cellular);
+    const hasLanInventory = report.devices.length > 0;
+    if (!hasCellular && !hasLanInventory) {
+      return { collected: false, warning: 'Router responded, but no modem or LAN inventory data was available.' };
+    }
+
+    const ingestResult = await ingestNetworkScanPayload({
+      vrmSiteId: String(device.vrm_site_id),
+      observedAt: report.observedAt,
+      scanMode: hasLanInventory ? 'full' : 'targets',
+      scanSource: 'teltonika_router',
+      cellular: report.cellular,
+      devices: report.devices,
+    });
+
+    return {
+      collected: true,
+      warning: report.warnings.length
+        ? `Router report saved. LAN inventory probes need endpoint tuning: ${report.warnings.slice(0, 2).join('; ')}`
+        : null,
+      result: ingestResult,
+    };
+  } catch (error) {
+    console.error('[cellular-report] native router collection failed:', error);
+    return {
+      collected: false,
+      warning: error instanceof Error
+        ? `Direct router collection failed: ${error.message}`
+        : 'Direct router collection failed.',
+    };
+  }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ siteId: string }> }
@@ -207,6 +250,18 @@ export async function POST(
     evidence: { ticketId: ticket.id, requestType: 'router_network_report' },
   });
 
+  const nativeCollection = await collectNativeRouterReport(device);
+  if (nativeCollection.collected) {
+    return NextResponse.json({
+      ok: true,
+      ticketId: ticket.id,
+      automationQueued: false,
+      reportCollected: true,
+      warning: nativeCollection.warning,
+      result: nativeCollection.result,
+    });
+  }
+
   const dispatch = await dispatchRouterReportRequest({
     request,
     device,
@@ -218,6 +273,7 @@ export async function POST(
     ok: true,
     ticketId: ticket.id,
     automationQueued: dispatch.queued,
-    warning: dispatch.warning,
+    reportCollected: false,
+    warning: dispatch.warning ?? nativeCollection.warning,
   });
 }

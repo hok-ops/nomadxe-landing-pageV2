@@ -11,10 +11,18 @@
 
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `VICTRON_ADMIN_TOKEN`
-- `MAKE_WEBHOOK_URL`
 - `TELTONIKA_RMS_API_TOKEN`
 - `TELTONIKA_GATEWAY_BEARER_TOKEN`
 - `CERBO_INGEST_TOKEN`
+- `TELTONIKA_ROUTER_PASSWORD` when native router reports are enabled
+
+## Optional forwarding secrets
+
+- `FORMS_FORWARD_WEBHOOK_URL`
+- `ORDER_FORM_FORWARD_WEBHOOK_URL`
+- `RELOCATE_FORM_FORWARD_WEBHOOK_URL`
+- `DEACTIVATE_FORM_FORWARD_WEBHOOK_URL`
+- legacy Make webhook variables, only if an external automation bridge is still needed
 
 ## Local file handling
 

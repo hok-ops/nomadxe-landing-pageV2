@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { AdminLeftPanel } from './AdminLeftPanel';
 import { ManagedNetworkPanel } from './ManagedNetworkPanel';
 import { OperationsIntelligencePanel } from './OperationsIntelligencePanel';
+import { FormSubmissionsPanel } from './FormSubmissionsPanel';
 import { RosterTable } from './RosterTable';
 import { ApiStructureGuide } from './ApiStructureGuide';
 import Link from 'next/link';
@@ -99,6 +100,7 @@ export default async function AdminDashboard({
     historicalReportsResult,
     recommendationsResult,
     firmwareAdvisoriesResult,
+    formSubmissionsResult,
   ] = await Promise.all([
     adminClient
       .from('service_tickets')
@@ -118,6 +120,11 @@ export default async function AdminDashboard({
     adminClient
       .from('firmware_config_advisories')
       .select('id, severity, status, title, summary, product_name, firmware_version, created_at, vrm_devices(name, vrm_site_id)')
+      .order('created_at', { ascending: false })
+      .limit(12),
+    adminClient
+      .from('public_form_submissions')
+      .select('id, form_type, status, name, email, company, phone, created_at, payload')
       .order('created_at', { ascending: false })
       .limit(12),
   ]);
@@ -286,6 +293,8 @@ export default async function AdminDashboard({
             discoveredDevices={discoveredDeviceList}
           />
         </section>
+
+        <FormSubmissionsPanel submissions={(formSubmissionsResult.data ?? []) as any[]} />
 
         <OperationsIntelligencePanel
           tickets={(serviceTicketsResult.data ?? []) as any[]}

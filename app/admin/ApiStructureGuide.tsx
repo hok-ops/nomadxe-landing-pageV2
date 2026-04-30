@@ -145,7 +145,7 @@ export function ApiStructureGuide() {
                     <li>Open-Meteo: free tier is generous, but production commercial use should use a customer API key.</li>
                     <li>Nominatim: absolute maximum is 1 request/sec per application; cache all geocoding.</li>
                     <li>Supabase Auth: email/reset limits are strict unless custom SMTP is configured.</li>
-                    <li>Make/Formspree: submission endpoints are protected locally before forwarding.</li>
+                    <li>Forms: requests are stored first-party; optional external forwarding is not part of the critical path.</li>
                   </ul>
                 </div>
               </section>

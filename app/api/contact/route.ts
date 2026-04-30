@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import { submitPublicForm } from '@/lib/formSubmissions';
 
-const FORMSPREE_ENDPOINT = 'https://formspree.io/f/xqeylqgg';
 const EMAIL_RE = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z]{2,})+$/;
 
 interface ContactPayload {
@@ -59,16 +59,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Name and valid email are required' }, { status: 422 });
   }
 
-  const response = await fetch(FORMSPREE_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(sanitized),
-  });
-
-  if (!response.ok) {
-    console.error('[contact] Formspree submission failed:', response.status);
-    return NextResponse.json({ error: 'Contact submission failed' }, { status: 502 });
+  try {
+    const submission = await submitPublicForm({
+      formType: 'contact',
+      payload: sanitized,
+      sourceRoute: '/api/contact',
+      request,
+    });
+    return NextResponse.json({ ok: true, submissionId: submission.id, forwarded: submission.forwarded });
+  } catch (error) {
+    console.error('[contact] submission failed:', error);
+    return NextResponse.json({ error: 'Contact submission failed' }, { status: 503 });
   }
-
-  return NextResponse.json({ ok: true });
 }

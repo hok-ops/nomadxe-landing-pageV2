@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import { submitPublicForm } from '@/lib/formSubmissions';
 
 const ALLOWED_ORIGIN =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? 'https://nomadxe.com';
@@ -78,12 +79,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid destination longitude.', fields: ['dest_gps_lng'] }, { status: 422, headers: corsHeaders() });
   }
 
-  const webhookUrl = process.env.MAKE_RELOCATE_WEBHOOK_URL ?? process.env.MAKE_WEBHOOK_URL;
-  if (!webhookUrl) {
-    console.error('[relocate] Neither MAKE_RELOCATE_WEBHOOK_URL nor MAKE_WEBHOOK_URL is set.');
-    return NextResponse.json({ error: 'Webhook not configured.' }, { status: 500, headers: corsHeaders() });
-  }
-
   // ── Sanitised payload with field length caps ──────────────────────────────
   const sanitized = {
     full_name:          cap(body.full_name, 200),
@@ -136,17 +131,15 @@ export async function POST(req: NextRequest) {
   };
 
   try {
-    const res = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(sanitized),
-      signal: AbortSignal.timeout(10_000),
+    const submission = await submitPublicForm({
+      formType: 'relocation',
+      payload: sanitized,
+      sourceRoute: '/api/relocate',
+      request: req,
     });
-    if (!res.ok) throw new Error(`Make returned ${res.status}`);
+    return NextResponse.json({ ok: true, submissionId: submission.id, forwarded: submission.forwarded }, { status: 200, headers: corsHeaders() });
   } catch (err) {
-    console.error('[relocate] webhook error:', err);
-    return NextResponse.json({ error: 'Failed to reach processing endpoint.' }, { status: 502, headers: corsHeaders() });
+    console.error('[relocate] submission failed:', err);
+    return NextResponse.json({ error: 'Failed to save the relocation request.' }, { status: 503, headers: corsHeaders() });
   }
-
-  return NextResponse.json({ ok: true }, { status: 200, headers: corsHeaders() });
 }

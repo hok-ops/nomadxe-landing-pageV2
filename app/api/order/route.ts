@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import { submitPublicForm } from '@/lib/formSubmissions';
 
 interface PhotoAttachment {
   name: string;
@@ -106,12 +107,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid GPS longitude.', fields: ['gps_lng'] }, { status: 422, headers: corsHeaders() });
   }
 
-  const webhookUrl = process.env.MAKE_WEBHOOK_URL;
-  if (!webhookUrl) {
-    console.error('[order] MAKE_WEBHOOK_URL env var is not set.');
-    return NextResponse.json({ error: 'Webhook endpoint not configured.' }, { status: 500, headers: corsHeaders() });
-  }
-
   // ── Build sanitised payload with field length caps ─────────────────────────
   // Prevents a malicious actor from forwarding multi-MB strings to Make.com,
   // exhausting operation quotas or triggering downstream timeouts.
@@ -162,23 +157,16 @@ export async function POST(req: NextRequest) {
     submitted_at: new Date().toISOString(),
   };
 
-  let makeRes: Response;
   try {
-    makeRes = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(sanitized),
-      signal: AbortSignal.timeout(10_000),
+    const submission = await submitPublicForm({
+      formType: 'order',
+      payload: sanitized,
+      sourceRoute: '/api/order',
+      request: req,
     });
+    return NextResponse.json({ ok: true, submissionId: submission.id, forwarded: submission.forwarded }, { status: 200, headers: corsHeaders() });
   } catch (err) {
-    console.error('[order] Webhook fetch failed:', err);
-    return NextResponse.json({ error: 'Failed to reach the order processing endpoint.' }, { status: 502, headers: corsHeaders() });
+    console.error('[order] submission failed:', err);
+    return NextResponse.json({ error: 'Failed to save the order request.' }, { status: 503, headers: corsHeaders() });
   }
-
-  if (!makeRes.ok) {
-    console.error(`[order] Make.com returned ${makeRes.status}`);
-    return NextResponse.json({ error: 'Order processor returned an error.' }, { status: 502, headers: corsHeaders() });
-  }
-
-  return NextResponse.json({ ok: true }, { status: 200, headers: corsHeaders() });
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import { submitPublicForm } from '@/lib/formSubmissions';
 
 const ALLOWED_ORIGIN =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? 'https://nomadxe.com';
@@ -26,7 +27,6 @@ function cap(v: unknown, max: number): string {
 }
 
 export async function POST(req: NextRequest) {
-  // ── Rate limit: 5 submissions per IP per minute ───────────────────────────
   const ip = getClientIp(req);
   if (!checkRateLimit(`deactivate:${ip}`, 5, 60_000)) {
     return NextResponse.json(
@@ -35,19 +35,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── Origin validation ────────────────────────────────────────────────────
   const origin = req.headers.get('origin') ?? '';
   if (origin && origin !== ALLOWED_ORIGIN) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers: corsHeaders() });
   }
 
   let body: Record<string, unknown>;
-  try { body = await req.json(); }
-  catch {
+  try {
+    body = await req.json();
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400, headers: corsHeaders() });
   }
 
-  const REQUIRED = [
+  const requiredFields = [
     'full_name', 'email', 'company', 'phone',
     'unit_identifier', 'quantity',
     'site_name', 'street_address', 'city', 'state', 'zip_code',
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     'return_reason', 'equipment_condition', 'last_use_date',
   ];
 
-  const missing = REQUIRED.filter(f => !required(body[f]));
+  const missing = requiredFields.filter((field) => !required(body[field]));
   if (missing.length > 0) {
     return NextResponse.json({ error: 'Missing required fields.', fields: missing }, { status: 422, headers: corsHeaders() });
   }
@@ -66,64 +66,50 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid email address.', fields: ['email'] }, { status: 422, headers: corsHeaders() });
   }
 
-  // Require the deactivation-specific webhook. Falling back to MAKE_WEBHOOK_URL
-  // (the order webhook) would silently route deactivation requests to the wrong
-  // Make.com scenario and corrupt the workflow data.
-  const webhookUrl = process.env.MAKE_DEACTIVATE_WEBHOOK_URL;
-  if (!webhookUrl) {
-    console.error('[deactivate] MAKE_DEACTIVATE_WEBHOOK_URL is not set — deactivation submissions will fail.');
-    return NextResponse.json({ error: 'Deactivation endpoint not configured.' }, { status: 500, headers: corsHeaders() });
-  }
-
-  // ── Sanitised payload with field length caps ──────────────────────────────
   const sanitized = {
-    full_name:               cap(body.full_name, 200),
-    email:                   cap(body.email, 254),
-    company:                 cap(body.company, 200),
-    phone:                   cap(body.phone, 30),
-    cc_emails:               cap(body.cc_emails, 500),
-    unit_identifier:         cap(body.unit_identifier, 200),
-    quantity:                cap(body.quantity, 10),
-    site_name:               cap(body.site_name, 200),
-    street_address:          cap(body.street_address, 300),
-    city:                    cap(body.city, 100),
-    state:                   cap(body.state, 50),
-    zip_code:                cap(body.zip_code, 20),
-    pickup_date:             cap(body.pickup_date, 20),
-    pickup_window:           cap(body.pickup_window, 100),
-    pickup_contact_name:     cap(body.pickup_contact_name, 200),
-    pickup_contact_phone:    cap(body.pickup_contact_phone, 30),
-    forklift_at_pickup:      cap(body.forklift_at_pickup, 100),
+    full_name: cap(body.full_name, 200),
+    email: cap(body.email, 254),
+    company: cap(body.company, 200),
+    phone: cap(body.phone, 30),
+    cc_emails: cap(body.cc_emails, 500),
+    unit_identifier: cap(body.unit_identifier, 200),
+    quantity: cap(body.quantity, 10),
+    site_name: cap(body.site_name, 200),
+    street_address: cap(body.street_address, 300),
+    city: cap(body.city, 100),
+    state: cap(body.state, 50),
+    zip_code: cap(body.zip_code, 20),
+    pickup_date: cap(body.pickup_date, 20),
+    pickup_window: cap(body.pickup_window, 100),
+    pickup_contact_name: cap(body.pickup_contact_name, 200),
+    pickup_contact_phone: cap(body.pickup_contact_phone, 30),
+    forklift_at_pickup: cap(body.forklift_at_pickup, 100),
     gate_access_instructions: cap(body.gate_access_instructions, 1000),
-    return_reason:           cap(body.return_reason, 200),
-    equipment_condition:     cap(body.equipment_condition, 200),
-    condition_notes:         cap(body.condition_notes, 2000),
-    police_report_number:    cap(body.police_report_number, 100),
-    last_use_date:           cap(body.last_use_date, 20),
-    notes:                   cap(body.notes, 2000),
+    return_reason: cap(body.return_reason, 200),
+    equipment_condition: cap(body.equipment_condition, 200),
+    condition_notes: cap(body.condition_notes, 2000),
+    police_report_number: cap(body.police_report_number, 100),
+    last_use_date: cap(body.last_use_date, 20),
+    notes: cap(body.notes, 2000),
     additional_pickup_contacts: Array.isArray(body.additional_pickup_contacts)
-      ? (body.additional_pickup_contacts as unknown[]).slice(0, 10).map(c =>
-          typeof c === 'object' && c !== null
-            ? { name: cap((c as any).name, 200), phone: cap((c as any).phone, 30) }
+      ? (body.additional_pickup_contacts as unknown[]).slice(0, 10).map((contact) =>
+          typeof contact === 'object' && contact !== null
+            ? { name: cap((contact as any).name, 200), phone: cap((contact as any).phone, 30) }
             : {}
         )
       : [],
-    form_type:    'deactivation',
-    submitted_at: new Date().toISOString(),
   };
 
   try {
-    const res = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(sanitized),
-      signal: AbortSignal.timeout(10_000),
+    const submission = await submitPublicForm({
+      formType: 'deactivation',
+      payload: sanitized,
+      sourceRoute: '/api/deactivate',
+      request: req,
     });
-    if (!res.ok) throw new Error(`Make returned ${res.status}`);
+    return NextResponse.json({ ok: true, submissionId: submission.id, forwarded: submission.forwarded }, { status: 200, headers: corsHeaders() });
   } catch (err) {
-    console.error('[deactivate] webhook error:', err);
-    return NextResponse.json({ error: 'Failed to reach processing endpoint.' }, { status: 502, headers: corsHeaders() });
+    console.error('[deactivate] submission failed:', err);
+    return NextResponse.json({ error: 'Failed to save the deactivation request.' }, { status: 503, headers: corsHeaders() });
   }
-
-  return NextResponse.json({ ok: true }, { status: 200, headers: corsHeaders() });
 }
