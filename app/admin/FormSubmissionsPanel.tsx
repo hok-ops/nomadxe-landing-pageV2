@@ -33,7 +33,7 @@ function shortSummary(row: FormSubmissionRow) {
 
 export function FormSubmissionsPanel({ submissions }: { submissions: FormSubmissionRow[] }) {
   return (
-    <section className="mb-10 rounded-2xl border border-[#1e3a5f] bg-[#0d1526] p-5">
+    <section id="form-intake" className="mb-10 rounded-2xl border border-[#1e3a5f] bg-[#0d1526] p-5">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-sm font-black uppercase tracking-[0.24em] text-white">Form Intake</h2>

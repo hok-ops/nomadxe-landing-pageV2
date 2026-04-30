@@ -6,6 +6,7 @@ import { ManagedNetworkPanel } from './ManagedNetworkPanel';
 import { OperationsIntelligencePanel } from './OperationsIntelligencePanel';
 import { FormSubmissionsPanel } from './FormSubmissionsPanel';
 import { StorageGuardrailPanel } from './StorageGuardrailPanel';
+import { AdminCorrelationPanel } from './AdminCorrelationPanel';
 import { RosterTable } from './RosterTable';
 import { ApiStructureGuide } from './ApiStructureGuide';
 import Link from 'next/link';
@@ -33,6 +34,40 @@ const EVENT_MESSAGES: Record<string, { type: 'success' | 'error'; text: string }
   managed_device_removed: { type: 'success', text: 'Managed LAN device removed.' },
   maintenance_run: { type: 'success', text: 'Free-plan maintenance cleanup completed.' },
 };
+
+const ADMIN_LAN_STALE_AFTER_MS = 10 * 60_000;
+const RECENT_CELLULAR_AFTER_MS = 30 * 60_000;
+
+function isManagedNetworkAttention(device: { lastStatus: ManagedNetworkStatus; lastReportedAt: string | null }) {
+  if (device.lastStatus === 'offline') return true;
+  if (!device.lastReportedAt) return true;
+  const lastReportedMs = Date.parse(device.lastReportedAt);
+  return !Number.isFinite(lastReportedMs) || (Date.now() - lastReportedMs) > ADMIN_LAN_STALE_AFTER_MS;
+}
+
+function countByDevice(rows: Array<{ vrm_device_id?: number | null }> | null | undefined) {
+  const counts = new Map<number, number>();
+  for (const row of rows ?? []) {
+    const deviceId = Number(row.vrm_device_id);
+    if (!Number.isFinite(deviceId)) continue;
+    counts.set(deviceId, (counts.get(deviceId) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function latestValueByDevice<T extends string>(
+  rows: Array<{ vrm_device_id?: number | null } & Record<T, string | null | undefined>> | null | undefined,
+  key: T
+) {
+  const values = new Map<number, string>();
+  for (const row of rows ?? []) {
+    const deviceId = Number(row.vrm_device_id);
+    const value = row[key];
+    if (!Number.isFinite(deviceId) || !value || values.has(deviceId)) continue;
+    values.set(deviceId, value);
+  }
+  return values;
+}
 
 export default async function AdminDashboard({
   searchParams,
@@ -108,6 +143,12 @@ export default async function AdminDashboard({
     dailyReportCountResult,
     discoveredHostCountResult,
     networkEventCountResult,
+    cellularReportsForCorrelationResult,
+    openTicketsForCorrelationResult,
+    openRecommendationsForCorrelationResult,
+    openFirmwareForCorrelationResult,
+    reportsForCorrelationResult,
+    openFormSubmissionCountResult,
   ] = await Promise.all([
     adminClient
       .from('service_tickets')
@@ -149,6 +190,35 @@ export default async function AdminDashboard({
     adminClient
       .from('managed_network_device_events')
       .select('id', { count: 'exact', head: true }),
+    adminClient
+      .from('cellular_signal_reports')
+      .select('vrm_device_id, observed_at')
+      .order('observed_at', { ascending: false })
+      .limit(1000),
+    adminClient
+      .from('service_tickets')
+      .select('vrm_device_id, status')
+      .in('status', ['received', 'triage', 'scheduled', 'en_route', 'blocked'])
+      .limit(1000),
+    adminClient
+      .from('intelligence_recommendations')
+      .select('vrm_device_id, status')
+      .eq('status', 'open')
+      .limit(1000),
+    adminClient
+      .from('firmware_config_advisories')
+      .select('vrm_device_id, status')
+      .eq('status', 'open')
+      .limit(1000),
+    adminClient
+      .from('daily_intelligence_reports')
+      .select('vrm_device_id, report_date, status')
+      .order('report_date', { ascending: false })
+      .limit(1000),
+    adminClient
+      .from('public_form_submissions')
+      .select('id', { count: 'exact', head: true })
+      .in('status', ['received', 'reviewing']),
   ]);
 
   const totalUsers = authUsers.length;
@@ -233,6 +303,64 @@ export default async function AdminDashboard({
     networkEvents: networkEventCountResult.count ?? 0,
   };
 
+  const assignmentCountByDevice = new Map<number, number>();
+  for (const assignment of assignments ?? []) {
+    const deviceId = Number(assignment.device_id);
+    if (!Number.isFinite(deviceId)) continue;
+    assignmentCountByDevice.set(deviceId, (assignmentCountByDevice.get(deviceId) ?? 0) + 1);
+  }
+
+  const managedAttentionByDevice = new Map<number, number>();
+  for (const device of managedDeviceList) {
+    if (!isManagedNetworkAttention(device)) continue;
+    managedAttentionByDevice.set(device.vrmDeviceId, (managedAttentionByDevice.get(device.vrmDeviceId) ?? 0) + 1);
+  }
+
+  const cellularRows = (cellularReportsForCorrelationResult.data ?? []) as Array<{
+    vrm_device_id: number | null;
+    observed_at: string | null;
+  }>;
+  const latestCellularByDevice = latestValueByDevice(cellularRows, 'observed_at');
+  const recentCellularDeviceCount = new Set(
+    cellularRows
+      .filter((row) => row.observed_at && Date.now() - Date.parse(row.observed_at) <= RECENT_CELLULAR_AFTER_MS)
+      .map((row) => Number(row.vrm_device_id))
+      .filter((deviceId) => Number.isFinite(deviceId))
+  ).size;
+
+  const openTicketCounts = countByDevice((openTicketsForCorrelationResult.data ?? []) as any[]);
+  const openRecommendationCounts = countByDevice((openRecommendationsForCorrelationResult.data ?? []) as any[]);
+  const openFirmwareCounts = countByDevice((openFirmwareForCorrelationResult.data ?? []) as any[]);
+  const reportRows = (reportsForCorrelationResult.data ?? []) as Array<{
+    vrm_device_id: number | null;
+    report_date: string | null;
+    status: string | null;
+  }>;
+  const latestReportByDevice = latestValueByDevice(reportRows, 'report_date');
+  const reportsNeedingReview = reportRows.filter((row) => row.status === 'needs_review').length;
+  const adminCorrelationDevices = deviceList.map((device) => ({
+    id: device.id,
+    name: device.name,
+    siteId: device.vrm_site_id,
+    assignmentCount: assignmentCountByDevice.get(device.id) ?? 0,
+    managedAttention: managedAttentionByDevice.get(device.id) ?? 0,
+    latestCellularAt: latestCellularByDevice.get(device.id) ?? null,
+    openTickets: openTicketCounts.get(device.id) ?? 0,
+    openRecommendations: openRecommendationCounts.get(device.id) ?? 0,
+    openFirmware: openFirmwareCounts.get(device.id) ?? 0,
+    latestReportDate: latestReportByDevice.get(device.id) ?? null,
+  }));
+  const adminCorrelationCounts = {
+    openFormSubmissions: openFormSubmissionCountResult.count ?? 0,
+    routerAttention: [...managedAttentionByDevice.values()].reduce((total, value) => total + value, 0),
+    openTickets: [...openTicketCounts.values()].reduce((total, value) => total + value, 0),
+    openRecommendations: [...openRecommendationCounts.values()].reduce((total, value) => total + value, 0),
+    openFirmware: [...openFirmwareCounts.values()].reduce((total, value) => total + value, 0),
+    reportsNeedingReview,
+    devicesWithRecentCellular: recentCellularDeviceCount,
+    totalDevices: deviceList.length,
+  };
+
   return (
     <div className="nx-page min-h-screen bg-[#080c14] text-[#93c5fd] font-mono relative selection:bg-[#3b82f6] selection:text-white pt-28 pb-24">
 
@@ -315,6 +443,8 @@ export default async function AdminDashboard({
             </div>
           ))}
         </div>
+
+        <AdminCorrelationPanel devices={adminCorrelationDevices} counts={adminCorrelationCounts} />
 
         <section id="lan-device-operations" className="mb-10">
           <ManagedNetworkPanel

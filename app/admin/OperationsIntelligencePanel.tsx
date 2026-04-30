@@ -97,7 +97,7 @@ export function OperationsIntelligencePanel({
   const openFirmware = firmwareAdvisories.filter((item) => item.status === 'open');
 
   return (
-    <section className="mb-10 overflow-hidden rounded-2xl border border-[#1e3a5f] bg-[#0d1526]">
+    <section id="operations-queue" className="mb-10 overflow-hidden rounded-2xl border border-[#1e3a5f] bg-[#0d1526]">
       <div className="border-b border-[#1e3a5f]/60 px-5 py-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>

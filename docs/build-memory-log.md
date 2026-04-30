@@ -78,3 +78,23 @@ This log captures durable decisions and lessons so future AI sessions do not hav
 - A free-plan database can still support this build if we keep writes purposeful, use upserts for inventory, and avoid storing binary evidence in Postgres.
 - Retention needs to be explicit. "Small rows" become expensive when intelligence features run daily across a fleet.
 - Free-plan dashboards should show growth pressure inside the admin workflow, not only in the provider billing page.
+
+## 2026-04-30 Admin-Customer Correlation Layer
+
+### Accomplished
+
+- Added an admin correlation panel near the top of the Operations Console.
+  - Maps customer-visible surfaces to their admin owner: router visibility, form intake, intelligence follow-up, and database growth.
+  - Shows a correlated follow-up queue only when a trailer has admin evidence that needs attention.
+  - Uses recent cellular reports, managed LAN target status, open service tickets, open recommendations, firmware advisories, and generated report recency.
+- Added anchor targets to the admin panels the correlation layer points to.
+  - `#lan-device-operations`
+  - `#form-intake`
+  - `#operations-queue`
+  - `#storage-guardrails`
+
+### Valuable Lessons
+
+- Every customer-facing intelligence feature needs an admin-side owner and action path at the same time it is built.
+- Avoid duplicate dashboard sections unless they change the user's job. The admin correlation layer does not repeat raw tables; it explains where the signal lives and what action owns it.
+- Use "fresh/current/stale/no report" language for operational telemetry instead of abstract trust scores.

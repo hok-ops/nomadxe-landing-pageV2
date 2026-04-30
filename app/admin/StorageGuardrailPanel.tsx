@@ -45,7 +45,7 @@ export function StorageGuardrailPanel({ counts }: { counts: StorageGuardrailCoun
   ] as const;
 
   return (
-    <section className="mb-10 rounded-2xl border border-[#1e3a5f] bg-[#0d1526] p-5">
+    <section id="storage-guardrails" className="mb-10 rounded-2xl border border-[#1e3a5f] bg-[#0d1526] p-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="text-[10px] font-black uppercase tracking-[0.34em] text-[#93c5fd]/70">Supabase Free-Plan Guardrail</div>
