@@ -31,6 +31,27 @@ function optionalWebhookUrl(formType: PublicFormType, explicitUrl?: string | nul
   return null;
 }
 
+function redactLargePayloadValues(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(redactLargePayloadValues);
+  }
+
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+
+  const copy: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    if (key === 'data' && typeof item === 'string' && item.startsWith('data:image/')) {
+      copy.dataRedacted = true;
+      copy.originalBytesApprox = Math.ceil(item.length * 0.75);
+      continue;
+    }
+    copy[key] = redactLargePayloadValues(item);
+  }
+  return copy;
+}
+
 async function forwardSubmission(url: string, payload: Record<string, unknown>) {
   try {
     const response = await fetch(url, {
@@ -65,6 +86,7 @@ export async function submitPublicForm({
     form_type: formType,
     submitted_at: submittedAt,
   };
+  const storedPayload = redactLargePayloadValues(normalizedPayload) as Record<string, unknown>;
   const adminClient = createAdminClient();
   const name = firstText(payload, ['full_name', 'name']);
   const email = firstText(payload, ['email']);
@@ -80,7 +102,7 @@ export async function submitPublicForm({
       email: capText(email?.toLowerCase() ?? null, 254),
       company: capText(company, 200),
       phone: capText(phone, 40),
-      payload: normalizedPayload,
+      payload: storedPayload,
       request_context: {
         origin: request.headers.get('origin'),
         referer: request.headers.get('referer'),

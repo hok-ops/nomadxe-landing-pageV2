@@ -46,3 +46,17 @@ This log captures durable decisions and lessons so future AI sessions do not hav
 - Set `TELTONIKA_ROUTER_PASSWORD` in Vercel Production and Preview if native router collection should run after deploy.
 - Apply migration `00000000000017_public_form_submissions.sql` to Supabase before relying on first-party form storage in production.
 - Decide whether optional form notifications should go to email, Make, or a future internal task queue.
+
+## 2026-04-29 Supabase Free Plan Constraint
+
+### Accomplished
+
+- Confirmed the Supabase Free plan has tight database/storage quotas compared with paid plans.
+- Patched first-party form storage so image data URLs are redacted before insertion into `public_form_submissions`.
+- Optional downstream forwarding can still receive the original payload, but the Supabase database stores only photo metadata and an approximate byte count.
+
+### Valuable Lessons
+
+- Never store customer photo uploads as base64 inside Postgres JSONB on a free-plan database.
+- Use Postgres for durable form records and searchable metadata; use object storage for binary evidence when photo retention becomes necessary.
+- For the current build, telemetry reports and text form submissions are lightweight enough for the free tier, but unlimited historical retention is not. Add pruning or archiving before scale.
