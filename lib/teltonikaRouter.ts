@@ -15,10 +15,19 @@ type JsonValue = Record<string, unknown> | unknown[] | string | number | boolean
 
 const DEFAULT_TIMEOUT_MS = 8_000;
 const LAN_ENDPOINTS = [
+  '/api/interfaces/status',
+  '/api/wireless/interfaces/status',
   '/api/devices/status',
   '/api/network/devices',
   '/api/dhcp/leases',
+  '/api/dhcp/leases/status',
+  '/api/dhcp/status',
   '/api/hosts/status',
+  '/api/lan/status',
+  '/api/network/lan/status',
+  '/api/network/status',
+  '/api/network/topology/status',
+  '/api/topology/status',
 ];
 
 export type TeltonikaLanProbeResult = {

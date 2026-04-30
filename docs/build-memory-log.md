@@ -130,9 +130,13 @@ This log captures durable decisions and lessons so future AI sessions do not hav
   - If no attached hosts are found, the UI explicitly says the exact RutOS LAN client endpoint still needs to be configured through `TELTONIKA_LAN_CLIENTS_PATHS`.
 - Made Teltonika LAN endpoint probing parallel.
   - LAN candidates now run together after router login so a slow or invalid endpoint does not multiply request time across every candidate.
+- Expanded the default RutOS LAN probe candidates after live testing showed the first four paths returned authenticated `404` responses while `/api/modems/status` succeeded.
+  - Added interface, wireless interface, DHCP, LAN, network, and topology status variants.
+  - Production should still use `TELTONIKA_LAN_CLIENTS_PATHS` once the exact attached-client endpoint is proven for the deployed router firmware.
 
 ### Valuable Lessons
 
 - "Ready" is not enough for operational telemetry. The admin surface needs a proof loop that shows the exact source, result, and next configuration action.
 - Router diagnostics must stay server-side. Admins need evidence, not raw router URLs, bearer tokens, or passwords.
 - On Vercel and Supabase free-plan constraints, live diagnostics should be intentional, rate-limited, and scoped to one trailer at a time.
+- A saved modem report with `404` LAN probes means credentials and network reachability are working; it is an endpoint discovery issue, not a router-login issue.
