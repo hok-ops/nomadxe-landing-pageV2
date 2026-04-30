@@ -23,6 +23,7 @@ type AdminCorrelationCounts = {
 };
 
 const CELLULAR_FRESH_MS = 30 * 60_000;
+type WorkstreamTone = 'normal' | 'watch' | 'action' | 'critical';
 
 function formatAgo(value: string | null) {
   if (!value) return 'No signal report';
@@ -71,7 +72,8 @@ function devicePriority(device: AdminCorrelationDevice) {
   );
 }
 
-function toneClass(tone: 'normal' | 'watch' | 'action') {
+function toneClass(tone: WorkstreamTone) {
+  if (tone === 'critical') return 'border-rose-500/35 bg-rose-500/12 text-rose-200';
   if (tone === 'action') return 'border-amber-500/30 bg-amber-500/10 text-amber-200';
   if (tone === 'watch') return 'border-sky-500/30 bg-sky-500/10 text-sky-200';
   return 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200';
@@ -80,6 +82,20 @@ function toneClass(tone: 'normal' | 'watch' | 'action') {
 function valueTone(value: number) {
   if (value > 0) return 'text-amber-300';
   return 'text-emerald-300';
+}
+
+function postureLabel(tone: WorkstreamTone) {
+  if (tone === 'critical') return 'Intervention';
+  if (tone === 'action') return 'Action';
+  if (tone === 'watch') return 'Watch';
+  return 'Clear';
+}
+
+function postureClass(tone: WorkstreamTone) {
+  if (tone === 'critical') return 'border-rose-500/40 bg-rose-500/12 text-rose-200';
+  if (tone === 'action') return 'border-amber-500/35 bg-amber-500/10 text-amber-200';
+  if (tone === 'watch') return 'border-sky-500/35 bg-sky-500/10 text-sky-200';
+  return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200';
 }
 
 export function AdminCorrelationPanel({
@@ -100,6 +116,7 @@ export function AdminCorrelationPanel({
   const cellularCoveragePercent =
     counts.totalDevices > 0 ? Math.round((counts.devicesWithRecentCellular / counts.totalDevices) * 100) : 0;
   const intelligenceOpen = counts.openRecommendations + counts.openFirmware + counts.reportsNeedingReview;
+  const routerCoverageGap = Math.max(0, counts.totalDevices - counts.devicesWithRecentCellular);
   const workstreams = [
     {
       label: 'Router visibility',
@@ -111,7 +128,7 @@ export function AdminCorrelationPanel({
           : `${cellularCoveragePercent}% of registered trailers have a recent cellular signal report`,
       action: 'Run a targeted network scan, then promote only mission-critical hosts into managed alerts.',
       href: '#lan-device-operations',
-      tone: counts.routerAttention > 0 ? 'action' : 'normal',
+      tone: counts.routerAttention > 0 ? 'critical' : routerCoverageGap > 0 ? 'watch' : 'normal',
     },
     {
       label: 'Customer requests',
@@ -147,22 +164,41 @@ export function AdminCorrelationPanel({
       tone: 'watch',
     },
   ] as const;
+  const highestPosture: WorkstreamTone =
+    workstreams.some((stream) => stream.tone === 'critical')
+      ? 'critical'
+      : workstreams.some((stream) => stream.tone === 'action')
+        ? 'action'
+        : workstreams.some((stream) => stream.tone === 'watch')
+          ? 'watch'
+          : 'normal';
+  const commandLinks = [
+    ['Router', '#lan-device-operations'],
+    ['Forms', '#form-intake'],
+    ['Reports', '#operations-queue'],
+    ['Storage', '#storage-guardrails'],
+    ['Access', '#client-access-roster'],
+  ] as const;
 
   return (
-    <section className="mb-10 overflow-hidden rounded-2xl border border-[#1e3a5f] bg-[#0d1526]">
-      <div className="border-b border-[#1e3a5f]/60 px-5 py-4">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+    <section className="mb-10 overflow-hidden rounded-2xl border border-[#1e3a5f] bg-[#0d1526]" aria-labelledby="admin-command-center-title">
+      <div className="border-b border-[#1e3a5f]/60 bg-[linear-gradient(180deg,rgba(15,25,45,0.94),rgba(8,12,20,0.96))] px-5 py-4">
+        <div className="flex flex-col gap-5 2xl:flex-row 2xl:items-start 2xl:justify-between">
           <div>
             <div className="text-[10px] font-black uppercase tracking-[0.34em] text-[#93c5fd]/70">
-              Admin-Customer Correlation
+              Enterprise Command Center
             </div>
-            <h2 className="mt-2 text-xl font-black text-white">One Signal, One Owner, One Next Step</h2>
+            <h2 id="admin-command-center-title" className="mt-2 text-xl font-black text-white">One Signal, One Owner, One Next Step</h2>
             <p className="mt-2 max-w-3xl text-xs leading-6 text-[#93c5fd]/65">
-              This layer ties customer-facing dashboard signals to the exact admin surface that owns the response. It keeps
-              intelligence useful by turning reports, requests, router scans, and storage limits into visible operator work.
+              The first screen is an exception map, not a status wall. It ties customer-facing dashboard signals to the admin
+              surface that owns the response, so intelligence becomes operator work instead of background noise.
             </p>
           </div>
-          <div className="grid w-full gap-2 sm:grid-cols-4 xl:w-[34rem]">
+          <div className="grid w-full gap-2 sm:grid-cols-5 2xl:w-[43rem]">
+            <div className={`rounded-xl border px-3 py-2 text-center ${postureClass(highestPosture)}`}>
+              <div className="text-lg font-black tabular-nums">{postureLabel(highestPosture)}</div>
+              <div className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-70">Posture</div>
+            </div>
             {[
               ['Follow-up', devicesNeedingFollowUp.length, valueTone(devicesNeedingFollowUp.length)],
               ['Forms', counts.openFormSubmissions, valueTone(counts.openFormSubmissions)],
@@ -176,9 +212,21 @@ export function AdminCorrelationPanel({
             ))}
           </div>
         </div>
+
+        <nav className="mt-4 flex flex-wrap gap-2" aria-label="Admin command center shortcuts">
+          {commandLinks.map(([label, href]) => (
+            <a
+              key={href}
+              href={href}
+              className="rounded-lg border border-[#1e3a5f]/70 bg-[#080c14]/70 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#93c5fd]/58 transition-colors hover:border-[#60a5fa]/60 hover:text-white"
+            >
+              {label}
+            </a>
+          ))}
+        </nav>
       </div>
 
-      <div className="grid gap-4 px-5 py-5 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.72fr)]">
+      <div className="grid gap-4 px-5 py-5 2xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.72fr)]">
         <div className="grid gap-3 md:grid-cols-2">
           {workstreams.map((stream) => (
             <a
@@ -192,7 +240,7 @@ export function AdminCorrelationPanel({
                   <div className="mt-2 text-xs font-bold leading-relaxed text-[#bfdbfe]/88">{stream.signal}</div>
                 </div>
                 <span className="rounded-lg border border-[#93c5fd]/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-[#93c5fd]/70 group-hover:text-white">
-                  Open
+                  {postureLabel(stream.tone)}
                 </span>
               </div>
               <div className="mt-3 grid gap-2 text-[10px] leading-relaxed text-[#93c5fd]/58 sm:grid-cols-2">
@@ -275,6 +323,20 @@ export function AdminCorrelationPanel({
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      <div className="border-t border-[#1e3a5f]/50 px-5 py-3">
+        <div className="grid gap-3 text-[10px] leading-relaxed text-[#93c5fd]/52 lg:grid-cols-3">
+          <p>
+            <span className="font-black uppercase tracking-[0.18em] text-[#93c5fd]/75">Attention rule:</span> only exceptions, missing evidence, or customer-facing work appear above the fold.
+          </p>
+          <p>
+            <span className="font-black uppercase tracking-[0.18em] text-[#93c5fd]/75">Evidence rule:</span> router freshness, report dates, and open records must explain every action label.
+          </p>
+          <p>
+            <span className="font-black uppercase tracking-[0.18em] text-[#93c5fd]/75">Operator rule:</span> shortcuts jump to the owning system of record instead of duplicating full tables.
+          </p>
         </div>
       </div>
     </section>

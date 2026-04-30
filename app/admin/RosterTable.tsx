@@ -10,6 +10,8 @@ import {
   updateUserRole,
 } from './actions';
 
+type AdminAction = (formData: FormData) => void | Promise<void>;
+
 interface Assignment {
   id: number | string;
   vrm_devices?: { name?: string; vrm_site_id?: string } | { name?: string; vrm_site_id?: string }[] | null;
@@ -48,6 +50,93 @@ function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
+function riskButtonClasses(tone: 'orange' | 'violet' | 'slate' | 'emerald') {
+  if (tone === 'orange') return 'border-orange-500/30 text-orange-300 hover:bg-orange-500/10';
+  if (tone === 'violet') return 'border-violet-500/30 text-violet-300 hover:bg-violet-500/10';
+  if (tone === 'emerald') return 'border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10';
+  return 'border-slate-500/30 text-slate-300 hover:bg-slate-500/10';
+}
+
+function RiskActionForm({
+  action,
+  fields,
+  label,
+  tone,
+  title,
+  detail,
+  requiredPhrase,
+}: {
+  action: AdminAction;
+  fields: Record<string, string>;
+  label: string;
+  tone: 'orange' | 'violet' | 'slate' | 'emerald';
+  title: string;
+  detail: string;
+  requiredPhrase?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [phrase, setPhrase] = useState('');
+  const canSubmit = !requiredPhrase || phrase.trim() === requiredPhrase;
+
+  return (
+    <form action={action} className="relative">
+      {Object.entries(fields).map(([name, value]) => (
+        <input key={name} type="hidden" name={name} value={value} />
+      ))}
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className={`rounded-lg border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] transition-all ${riskButtonClasses(tone)}`}
+      >
+        {label}
+      </button>
+
+      {open && (
+        <div
+          role="dialog"
+          aria-label={title}
+          className="absolute right-0 top-full z-40 mt-2 w-[18rem] rounded-xl border border-[#1e3a5f] bg-[#080c14] p-3 text-left shadow-2xl"
+        >
+          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-white">{title}</div>
+          <p className="mt-2 text-[11px] leading-relaxed text-[#bfdbfe]/70">{detail}</p>
+          {requiredPhrase && (
+            <label className="mt-3 block">
+              <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#93c5fd]/55">
+                Type {requiredPhrase}
+              </span>
+              <input
+                value={phrase}
+                onChange={(event) => setPhrase(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-[#1e3a5f] bg-[#0d1526] px-3 py-2 text-xs text-white outline-none focus:border-[#60a5fa]"
+              />
+            </label>
+          )}
+          <div className="mt-3 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setPhrase('');
+              }}
+              className="rounded-lg border border-[#1e3a5f] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#93c5fd]/55 transition-colors hover:text-white"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className={`rounded-lg border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] transition-all disabled:cursor-not-allowed disabled:opacity-40 ${riskButtonClasses(tone)}`}
+            >
+              Confirm
+            </button>
+          </div>
+        </div>
+      )}
+    </form>
+  );
+}
+
 export function RosterTable({
   users,
   totalDevices,
@@ -67,7 +156,7 @@ export function RosterTable({
     : users;
 
   return (
-    <div className="bg-[#0d1526] border border-[#1e3a5f] rounded-xl shadow-2xl overflow-hidden">
+    <div id="client-access-roster" className="bg-[#0d1526] border border-[#1e3a5f] rounded-xl shadow-2xl overflow-hidden">
 
       <div className="flex flex-wrap gap-4 items-center justify-between px-7 py-5 border-b border-[#1e3a5f]">
         <button
@@ -199,32 +288,34 @@ export function RosterTable({
                       )}
 
                       {!isPending && (
-                        <form action={updateUserStatus}>
-                          <input type="hidden" name="userId" value={u.id} />
-                          <input type="hidden" name="status" value={isSuspended ? 'active' : 'suspended'} />
-                          <button type="submit"
-                            className={`text-[10px] font-bold px-3 py-2 rounded-lg border transition-all ${
-                              isSuspended
-                                ? 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10'
-                                : 'border-orange-500/30 text-orange-400 hover:bg-orange-500/10'
-                            }`}>
-                            {isSuspended ? 'Reactivate' : 'Suspend'}
-                          </button>
-                        </form>
+                        <RiskActionForm
+                          action={updateUserStatus}
+                          fields={{ userId: u.id, status: isSuspended ? 'active' : 'suspended' }}
+                          label={isSuspended ? 'Reactivate' : 'Suspend'}
+                          tone={isSuspended ? 'emerald' : 'orange'}
+                          title={isSuspended ? 'Reactivate account' : 'Suspend account'}
+                          detail={
+                            isSuspended
+                              ? `${u.email} will regain portal access if their credentials are valid.`
+                              : `${u.email} will lose portal access until an admin reactivates the account.`
+                          }
+                          requiredPhrase={isSuspended ? undefined : 'SUSPEND'}
+                        />
                       )}
 
-                      <form action={updateUserRole}>
-                        <input type="hidden" name="userId" value={u.id} />
-                        <input type="hidden" name="role" value={isAdmin ? 'user' : 'admin'} />
-                        <button type="submit"
-                          className={`text-[10px] font-bold px-3 py-2 rounded-lg border transition-all ${
-                            isAdmin
-                              ? 'border-slate-500/30 text-slate-400 hover:bg-slate-500/10'
-                              : 'border-violet-500/30 text-violet-400 hover:bg-violet-500/10'
-                          }`}>
-                          {isAdmin ? 'Revoke Admin' : 'Make Admin'}
-                        </button>
-                      </form>
+                      <RiskActionForm
+                        action={updateUserRole}
+                        fields={{ userId: u.id, role: isAdmin ? 'user' : 'admin' }}
+                        label={isAdmin ? 'Revoke Admin' : 'Make Admin'}
+                        tone={isAdmin ? 'slate' : 'violet'}
+                        title={isAdmin ? 'Revoke administrator role' : 'Grant administrator role'}
+                        detail={
+                          isAdmin
+                            ? `${u.email} will lose administrator privileges but keep normal portal access.`
+                            : `${u.email} will be able to manage users, devices, assignments, forms, and operational data.`
+                        }
+                        requiredPhrase={isAdmin ? 'REVOKE ADMIN' : 'MAKE ADMIN'}
+                      />
 
                       <DeleteUserButton userId={u.id} email={u.email ?? ''} />
                     </div>

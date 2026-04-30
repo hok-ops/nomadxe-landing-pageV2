@@ -98,3 +98,21 @@ This log captures durable decisions and lessons so future AI sessions do not hav
 - Every customer-facing intelligence feature needs an admin-side owner and action path at the same time it is built.
 - Avoid duplicate dashboard sections unless they change the user's job. The admin correlation layer does not repeat raw tables; it explains where the signal lives and what action owns it.
 - Use "fresh/current/stale/no report" language for operational telemetry instead of abstract trust scores.
+
+## 2026-04-30 Enterprise Admin Command Center
+
+### Accomplished
+
+- Elevated the admin correlation panel into an enterprise command-center surface.
+  - Adds an operational posture label, shortcut navigation, evidence rules, and workstream severity.
+  - Keeps the first admin screen focused on exception ownership instead of raw status volume.
+- Added proportional friction for high-risk roster actions.
+  - Suspension requires typing `SUSPEND`.
+  - Admin role changes require typing `MAKE ADMIN` or `REVOKE ADMIN`.
+  - Permanent deletion requires typing the exact account email.
+
+### Valuable Lessons
+
+- High-stakes admin interfaces should not make destructive or permission-changing actions feel as casual as routine filters.
+- Enterprise UX needs different friction levels: quick for reversible work, typed confirmation for RBAC and deletion.
+- A command center is useful only when each signal has a named owner, source of evidence, and next action.
