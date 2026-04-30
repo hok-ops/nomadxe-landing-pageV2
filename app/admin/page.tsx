@@ -5,6 +5,7 @@ import { AdminLeftPanel } from './AdminLeftPanel';
 import { ManagedNetworkPanel } from './ManagedNetworkPanel';
 import { OperationsIntelligencePanel } from './OperationsIntelligencePanel';
 import { FormSubmissionsPanel } from './FormSubmissionsPanel';
+import { StorageGuardrailPanel } from './StorageGuardrailPanel';
 import { RosterTable } from './RosterTable';
 import { ApiStructureGuide } from './ApiStructureGuide';
 import Link from 'next/link';
@@ -101,6 +102,11 @@ export default async function AdminDashboard({
     recommendationsResult,
     firmwareAdvisoriesResult,
     formSubmissionsResult,
+    formSubmissionCountResult,
+    cellularReportCountResult,
+    dailyReportCountResult,
+    discoveredHostCountResult,
+    networkEventCountResult,
   ] = await Promise.all([
     adminClient
       .from('service_tickets')
@@ -127,6 +133,21 @@ export default async function AdminDashboard({
       .select('id, form_type, status, name, email, company, phone, created_at, payload')
       .order('created_at', { ascending: false })
       .limit(12),
+    adminClient
+      .from('public_form_submissions')
+      .select('id', { count: 'exact', head: true }),
+    adminClient
+      .from('cellular_signal_reports')
+      .select('id', { count: 'exact', head: true }),
+    adminClient
+      .from('daily_intelligence_reports')
+      .select('id', { count: 'exact', head: true }),
+    adminClient
+      .from('discovered_network_devices')
+      .select('id', { count: 'exact', head: true }),
+    adminClient
+      .from('managed_network_device_events')
+      .select('id', { count: 'exact', head: true }),
   ]);
 
   const totalUsers = authUsers.length;
@@ -202,6 +223,14 @@ export default async function AdminDashboard({
       assignments: (assignments ?? []).filter((a: any) => a.user_id === u.id),
     };
   });
+
+  const storageGuardrailCounts = {
+    formSubmissions: formSubmissionCountResult.count ?? 0,
+    cellularReports: cellularReportCountResult.count ?? 0,
+    dailyReports: dailyReportCountResult.count ?? 0,
+    discoveredHosts: discoveredHostCountResult.count ?? 0,
+    networkEvents: networkEventCountResult.count ?? 0,
+  };
 
   return (
     <div className="nx-page min-h-screen bg-[#080c14] text-[#93c5fd] font-mono relative selection:bg-[#3b82f6] selection:text-white pt-28 pb-24">
@@ -295,6 +324,8 @@ export default async function AdminDashboard({
         </section>
 
         <FormSubmissionsPanel submissions={(formSubmissionsResult.data ?? []) as any[]} />
+
+        <StorageGuardrailPanel counts={storageGuardrailCounts} />
 
         <OperationsIntelligencePanel
           tickets={(serviceTicketsResult.data ?? []) as any[]}

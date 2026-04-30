@@ -60,3 +60,20 @@ This log captures durable decisions and lessons so future AI sessions do not hav
 - Never store customer photo uploads as base64 inside Postgres JSONB on a free-plan database.
 - Use Postgres for durable form records and searchable metadata; use object storage for binary evidence when photo retention becomes necessary.
 - For the current build, telemetry reports and text form submissions are lightweight enough for the free tier, but unlimited historical retention is not. Add pruning or archiving before scale.
+
+## 2026-04-30 Free-Plan Operating Guardrails
+
+### Accomplished
+
+- Added an admin "Database Growth Watch" panel for Supabase free-plan visibility.
+  - Tracks first-party form submissions, cellular reports, daily intelligence reports, discovered hosts, and managed network events.
+  - Estimates NomadXE-created operational data against the 500 MB free database ceiling.
+- Added migration `00000000000018_free_plan_retention_guardrails.sql`.
+  - Creates service-role-only function `public.prune_free_plan_operational_data(...)`.
+  - Prunes old low-value records while preserving active form submissions and current managed-device inventory.
+
+### Valuable Lessons
+
+- A free-plan database can still support this build if we keep writes purposeful, use upserts for inventory, and avoid storing binary evidence in Postgres.
+- Retention needs to be explicit. "Small rows" become expensive when intelligence features run daily across a fleet.
+- Free-plan dashboards should show growth pressure inside the admin workflow, not only in the provider billing page.
