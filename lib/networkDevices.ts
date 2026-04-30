@@ -40,6 +40,7 @@ export interface CerboNetworkScanPayload {
   vrmSiteId: string;
   observedAt?: string;
   scanMode?: 'full' | 'targets';
+  scanSource?: 'teltonika_router' | 'cerbo' | 'manual';
   cellular?: {
     source?: 'cerbo' | 'teltonika_rms' | 'router_api' | 'manual';
     operator?: string | null;
@@ -52,7 +53,7 @@ export interface CerboNetworkScanPayload {
     connectionState?: string | null;
     detail?: string | null;
   };
-  devices: Array<{
+  devices?: Array<{
     ipAddress: string;
     status: 'online' | 'offline';
     macAddress?: string | null;

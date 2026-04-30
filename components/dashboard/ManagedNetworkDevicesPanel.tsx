@@ -50,7 +50,7 @@ function observedState(device: DiscoveredNetworkDevice) {
     return {
       label: 'Offline',
       tone: 'border-rose-500/20 bg-rose-500/10 text-rose-300',
-      detail: 'Cerbo reported no response',
+      detail: 'Router scan reported no response',
       rank: 0,
     };
   }
@@ -59,7 +59,7 @@ function observedState(device: DiscoveredNetworkDevice) {
     return {
       label: 'Stale',
       tone: 'border-amber-500/20 bg-amber-500/10 text-amber-300',
-      detail: 'No recent Cerbo observation',
+      detail: 'No recent router observation',
       rank: 1,
     };
   }
@@ -94,7 +94,7 @@ function managedState(device: ManagedNetworkDevice) {
     return {
       label: 'Check overdue',
       tone: 'border-amber-500/20 bg-amber-500/10 text-amber-300',
-      detail: 'Cerbo has not reported this alert target recently',
+      detail: 'Router inventory has not reported this alert target recently',
     };
   }
 
@@ -246,8 +246,8 @@ export default function ManagedNetworkDevicesPanel({
       setCellularMessage(
         payload?.warning ??
         (payload?.automationQueued
-          ? 'Router signal reading requested. Waiting for SINR, RSRP, RSRQ, and RSSI to post back.'
-          : 'Router signal reading was logged. Automation is not configured yet, so metrics will appear after a collector posts them.')
+          ? 'Router network scan requested. Waiting for cellular metrics and LAN clients to post back.'
+          : 'Router network scan was logged. Automation is not configured yet, so metrics will appear after a collector posts them.')
       );
       void loadCellularReport();
     } catch {
@@ -267,7 +267,7 @@ export default function ManagedNetworkDevicesPanel({
               <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-white">LAN Device Inventory</h3>
             </div>
             <p className="mt-2 max-w-xl text-[11px] leading-relaxed text-[#93c5fd]/56">
-              Cerbo-reported hosts for this trailer appear automatically. Promote only mission-critical hosts into managed targets when they should trigger alerts.
+              Teltonika router LAN clients appear automatically after a network scan. Promote only mission-critical hosts into managed targets when they should trigger alerts.
             </p>
           </div>
           <div className="grid min-w-[250px] grid-cols-3 gap-2">
@@ -297,7 +297,7 @@ export default function ManagedNetworkDevicesPanel({
                 </span>
               </div>
               <p className="mt-1 max-w-2xl text-[11px] leading-relaxed text-[#93c5fd]/56">
-                Shows the latest reported cellular quality from Teltonika/Cerbo collection. SINR is signal quality, RSRP is signal strength, and RSRQ is connection quality.
+                Shows the latest cellular quality from the Teltonika router. SINR is signal quality, RSRP is signal strength, and RSRQ is connection quality.
               </p>
             </div>
             <button
@@ -306,7 +306,7 @@ export default function ManagedNetworkDevicesPanel({
               disabled={requestingCellular}
               className="rounded-lg border border-[#2563eb]/45 bg-[#1e40af]/24 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#bfdbfe] transition-colors hover:border-[#60a5fa]/65 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {requestingCellular ? 'Requesting' : 'Request Reading'}
+              {requestingCellular ? 'Requesting' : 'Request Network Scan'}
             </button>
           </div>
           <div className="mt-3 grid gap-2 sm:grid-cols-4">
@@ -336,7 +336,7 @@ export default function ManagedNetworkDevicesPanel({
         </div>
 
         {loading ? (
-          <div className="py-3 text-[11px] text-[#93c5fd]/48">Loading Cerbo LAN inventory...</div>
+          <div className="py-3 text-[11px] text-[#93c5fd]/48">Loading router LAN inventory...</div>
         ) : loadError ? (
           <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-5 text-center">
             <div className="text-sm font-bold text-rose-200">LAN inventory unavailable</div>
@@ -346,9 +346,9 @@ export default function ManagedNetworkDevicesPanel({
           </div>
         ) : !hasAnyInventory ? (
           <div className="rounded-xl border border-[#1e3a5f]/35 bg-[#0b1323]/62 px-4 py-5 text-center">
-            <div className="text-sm font-bold text-white">Waiting for the first Cerbo scan</div>
+            <div className="text-sm font-bold text-white">Waiting for the first router LAN scan</div>
             <p className="mx-auto mt-2 max-w-xl text-[11px] leading-relaxed text-[#93c5fd]/52">
-              No LAN inventory has been received for this site yet. Devices appear here after the Cerbo reporter posts a successful scan with the matching VRM site ID and ingest token.
+              No LAN inventory has been received for this site yet. Devices appear here after the Teltonika reporter posts a successful scan with the matching VRM site ID and ingest token.
             </p>
           </div>
         ) : (
@@ -401,7 +401,7 @@ export default function ManagedNetworkDevicesPanel({
                 <div>
                   <h4 className="text-[10px] font-bold uppercase tracking-[0.24em] text-sky-200">Observed Devices</h4>
                   <p className="mt-1 text-[11px] text-[#93c5fd]/52">
-                    Full Cerbo-discovered inventory. Observed-only devices are visible but do not alert.
+                    Full router-discovered inventory. Observed-only devices are visible but do not alert.
                   </p>
                 </div>
                 {orderedObserved.length > 8 && (

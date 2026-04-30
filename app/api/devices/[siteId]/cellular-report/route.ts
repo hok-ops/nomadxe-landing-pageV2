@@ -55,13 +55,13 @@ async function dispatchRouterReportRequest({
 }) {
   const webhookUrl = getRouterReportWebhookUrl();
   if (!webhookUrl) {
-    return { queued: false, warning: 'Router report request was logged, but no Make webhook is configured for cellular signal reports.' };
+    return { queued: false, warning: 'Router report request was logged, but no Make webhook is configured for router network reports.' };
   }
 
   const siteUrl = (process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? request.nextUrl.origin).replace(/\/$/, '');
   const payload = {
     form_type: 'cellular_signal_report',
-    eventType: 'cellular_signal_report_requested',
+    eventType: 'router_network_report_requested',
     requestedAt: new Date().toISOString(),
     ticketId,
     requestedByUserId: userId,
@@ -77,8 +77,10 @@ async function dispatchRouterReportRequest({
       minimumPayload: {
         vrmSiteId: String(device.vrm_site_id),
         observedAt: 'ISO timestamp',
+        scanMode: 'full',
+        scanSource: 'teltonika_router',
         cellular: {
-          source: 'teltonika_rms',
+          source: 'router_api',
           operator: 'carrier name',
           networkType: 'LTE/5G',
           band: 'cellular band',
@@ -89,6 +91,16 @@ async function dispatchRouterReportRequest({
           connectionState: 'connected',
           detail: 'short router/RMS note',
         },
+        devices: [
+          {
+            ipAddress: '192.168.1.10',
+            status: 'online',
+            macAddress: 'AA:BB:CC:DD:EE:FF',
+            hostname: 'camera-or-lan-host',
+            latencyMs: 12,
+            detail: 'Teltonika router ARP/DHCP client observation',
+          },
+        ],
       },
     },
   };
@@ -103,13 +115,13 @@ async function dispatchRouterReportRequest({
 
     if (!response.ok) {
       console.error('[cellular-report] router report webhook failed:', response.status, await response.text());
-      return { queued: false, warning: 'Router report request was logged, but the automation webhook did not accept it.' };
+      return { queued: false, warning: 'Router network report request was logged, but the automation webhook did not accept it.' };
     }
 
     return { queued: true, warning: null };
   } catch (error) {
     console.error('[cellular-report] router report webhook error:', error);
-    return { queued: false, warning: 'Router report request was logged, but automation dispatch failed.' };
+    return { queued: false, warning: 'Router network report request was logged, but automation dispatch failed.' };
   }
 }
 
@@ -163,7 +175,7 @@ export async function POST(
     .is('removed_at', null)
     .maybeSingle();
 
-  const description = `Request a cellular signal reading for ${device.display_name ?? device.name}. Include SINR, RSRP, RSRQ, RSSI, carrier/operator, band, network type, and connection state.`;
+  const description = `Request a Teltonika router network report for ${device.display_name ?? device.name}. Include SINR, RSRP, RSRQ, RSSI, carrier/operator, band, network type, connection state, and LAN client inventory from router ARP/DHCP observations.`;
   const { data: ticket, error: ticketError } = await adminClient
     .from('service_tickets')
     .insert({
@@ -173,9 +185,9 @@ export async function POST(
       type: 'connectivity',
       priority: 'normal',
       status: 'received',
-      title: 'Cellular signal reading request',
+      title: 'Router network report request',
       description,
-      customer_visible_note: 'Received by NomadXE operations. The latest cellular signal reading will appear after the router/RMS reporter posts it.',
+      customer_visible_note: 'Received by NomadXE operations. Cellular signal and LAN inventory will update after the router reporter posts back.',
     })
     .select('id')
     .single();
@@ -190,9 +202,9 @@ export async function POST(
     vrm_device_id: Number(device.id),
     event_type: 'service',
     severity: 'info',
-    title: 'Cellular signal reading requested',
-    summary: `${device.display_name ?? device.name}: customer requested SINR, RSRP, RSRQ, RSSI, carrier, and band reading.`,
-    evidence: { ticketId: ticket.id, requestType: 'cellular_signal_report' },
+    title: 'Router network report requested',
+    summary: `${device.display_name ?? device.name}: customer requested cellular signal metrics and LAN inventory from the Teltonika router.`,
+    evidence: { ticketId: ticket.id, requestType: 'router_network_report' },
   });
 
   const dispatch = await dispatchRouterReportRequest({

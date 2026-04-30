@@ -22,7 +22,9 @@ function parseBearer(request: Request) {
   return scheme?.toLowerCase() === 'bearer' ? token : null;
 }
 
-function isReportedStatus(value: unknown): value is CerboNetworkScanPayload['devices'][number]['status'] {
+type ReportedDeviceStatus = NonNullable<CerboNetworkScanPayload['devices']>[number]['status'];
+
+function isReportedStatus(value: unknown): value is ReportedDeviceStatus {
   return value === 'online' || value === 'offline';
 }
 
@@ -159,6 +161,11 @@ export async function POST(request: Request) {
     const ignored: string[] = [];
     const reportedIps = new Set<string>();
     const isFullScan = body.scanMode === 'full';
+    const scanSource = body.scanSource === 'cerbo'
+      ? 'Cerbo LAN scan'
+      : body.scanSource === 'manual'
+        ? 'manual LAN scan'
+        : 'Teltonika router LAN scan';
 
     const applyManagedStatus = async (
       managedDevice: ManagedDeviceRow,
@@ -273,7 +280,7 @@ export async function POST(request: Request) {
     }
 
     if (isFullScan) {
-      const offlineDetail = 'not present in full Cerbo LAN scan';
+      const offlineDetail = `not present in full ${scanSource}`;
       for (const managedDevice of Array.from(devicesByIp.values())) {
         if (reportedIps.has(managedDevice.ip_address) || managedDevice.last_status === 'offline') {
           continue;
