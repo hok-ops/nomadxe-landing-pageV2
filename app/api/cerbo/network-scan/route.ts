@@ -94,7 +94,9 @@ export async function POST(request: Request) {
 
     if (managedError) {
       console.error('[cerbo-network-scan] managed device lookup error:', managedError.message);
-      return NextResponse.json({ error: 'Managed device lookup failed' }, { status: 500 });
+      if (!hasCellularReport) {
+        return NextResponse.json({ error: 'Managed device lookup failed' }, { status: 500 });
+      }
     }
 
     const devicesByIp = new Map<string, ManagedDeviceRow>(

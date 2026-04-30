@@ -18,6 +18,9 @@ type FleetMapPoint = {
   lon: number;
   x: number;
   y: number;
+  anchorX: number;
+  anchorY: number;
+  clusterSize: number;
   status: 'live' | 'stale' | 'low-battery';
   statusLabel: string;
   batteryLabel: string;
@@ -41,6 +44,7 @@ const MAP_WIDTH = 1024;
 const MAP_HEIGHT = 520;
 const MIN_ZOOM = 3;
 const MAX_ZOOM = 11;
+const PIN_CLUSTER_DISTANCE_PCT = 4.2;
 
 function isValidCoordinate(lat: number | null | undefined, lon: number | null | undefined) {
   return (
@@ -84,7 +88,41 @@ function chooseZoom(points: Array<Pick<FleetMapPoint, 'lat' | 'lon'>>) {
   return MIN_ZOOM;
 }
 
-function buildMapGeometry(rawPoints: Array<Omit<FleetMapPoint, 'x' | 'y'>>) {
+function spreadClusteredPins(points: FleetMapPoint[]) {
+  const clustered = points.map((point) => ({ ...point }));
+  const visited = new Set<string>();
+
+  for (const seed of clustered) {
+    if (visited.has(seed.siteId)) continue;
+
+    const cluster = clustered.filter((candidate) => {
+      if (visited.has(candidate.siteId)) return false;
+      const dx = candidate.anchorX - seed.anchorX;
+      const dy = candidate.anchorY - seed.anchorY;
+      return Math.sqrt(dx * dx + dy * dy) <= PIN_CLUSTER_DISTANCE_PCT;
+    });
+
+    cluster.forEach((point) => visited.add(point.siteId));
+    if (cluster.length <= 1) continue;
+
+    const centerX = cluster.reduce((sum, point) => sum + point.anchorX, 0) / cluster.length;
+    const centerY = cluster.reduce((sum, point) => sum + point.anchorY, 0) / cluster.length;
+    const radius = Math.min(8, 2.7 + cluster.length * 0.72);
+
+    cluster
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .forEach((point, index) => {
+        const angle = -Math.PI / 2 + (index / cluster.length) * Math.PI * 2;
+        point.clusterSize = cluster.length;
+        point.x = Math.max(4, Math.min(96, centerX + Math.cos(angle) * radius));
+        point.y = Math.max(6, Math.min(94, centerY + Math.sin(angle) * radius));
+      });
+  }
+
+  return clustered;
+}
+
+function buildMapGeometry(rawPoints: Array<Omit<FleetMapPoint, 'x' | 'y' | 'anchorX' | 'anchorY' | 'clusterSize'>>) {
   if (rawPoints.length === 0) return { points: [] as FleetMapPoint[], tiles: [] as MapTile[], zoom: 0 };
 
   const zoom = chooseZoom(rawPoints);
@@ -112,11 +150,22 @@ function buildMapGeometry(rawPoints: Array<Omit<FleetMapPoint, 'x' | 'y'>>) {
     }
   }
 
-  const points = rawPoints.map((point) => {
+  const projectedPoints = rawPoints.map((point) => {
     const x = ((lonToWorldX(point.lon, zoom) - (centerX - MAP_WIDTH / 2)) / MAP_WIDTH) * 100;
     const y = ((latToWorldY(point.lat, zoom) - (centerY - MAP_HEIGHT / 2)) / MAP_HEIGHT) * 100;
-    return { ...point, x: Math.max(4, Math.min(96, x)), y: Math.max(6, Math.min(94, y)) };
+    const safeX = Math.max(4, Math.min(96, x));
+    const safeY = Math.max(6, Math.min(94, y));
+    return {
+      ...point,
+      x: safeX,
+      y: safeY,
+      anchorX: safeX,
+      anchorY: safeY,
+      clusterSize: 1,
+    };
   });
+
+  const points = spreadClusteredPins(projectedPoints);
 
   return { points, tiles, zoom };
 }
@@ -131,7 +180,11 @@ function stateFromPoint(point: Pick<FleetMapPoint, 'location' | 'lat' | 'lon'>) 
   return 'GPS';
 }
 
-function buildPoint(device: MapDevice, data: VRMData | null, nowS: number): Omit<FleetMapPoint, 'x' | 'y'> | null {
+function buildPoint(
+  device: MapDevice,
+  data: VRMData | null,
+  nowS: number
+): Omit<FleetMapPoint, 'x' | 'y' | 'anchorX' | 'anchorY' | 'clusterSize'> | null {
   if (!data || !isValidCoordinate(data.lat, data.lon)) return null;
 
   const ageSeconds = data.lastSeen ? Math.max(0, nowS - data.lastSeen) : Number.POSITIVE_INFINITY;
@@ -193,7 +246,7 @@ export default function FleetMapView({
   const nowS = Date.now() / 1000;
   const rawPoints = devices
     .map((device) => buildPoint(device, dataMap[device.siteId] ?? null, nowS))
-    .filter((point): point is Omit<FleetMapPoint, 'x' | 'y'> => Boolean(point))
+    .filter((point): point is Omit<FleetMapPoint, 'x' | 'y' | 'anchorX' | 'anchorY' | 'clusterSize'> => Boolean(point))
     .sort((a, b) => a.name.localeCompare(b.name));
   const { points, tiles, zoom } = buildMapGeometry(rawPoints);
   const selectedPoint = points.find((point) => point.siteId === selectedId) ?? null;
@@ -293,15 +346,42 @@ export default function FleetMapView({
               {points.length > 1 && (
                 <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                   <polyline
-                    points={points.map((point) => `${point.x},${point.y}`).join(' ')}
+                    points={points.map((point) => `${point.anchorX},${point.anchorY}`).join(' ')}
                     fill="none"
                     stroke={isLight ? '#2563eb' : '#60a5fa'}
                     strokeWidth="0.35"
                     strokeDasharray="1.2 1.4"
                     opacity="0.5"
                   />
+                  {points
+                    .filter((point) => point.clusterSize > 1)
+                    .map((point) => (
+                      <line
+                        key={`${point.siteId}-leader`}
+                        x1={point.anchorX}
+                        y1={point.anchorY}
+                        x2={point.x}
+                        y2={point.y}
+                        stroke={isLight ? '#0f766e' : '#5eead4'}
+                        strokeWidth="0.22"
+                        strokeDasharray="0.8 0.9"
+                        opacity="0.58"
+                      />
+                    ))}
                 </svg>
               )}
+              {points
+                .filter((point) => point.clusterSize > 1)
+                .map((point) => (
+                  <span
+                    key={`${point.siteId}-anchor`}
+                    className={`absolute z-[8] h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border ${
+                      isLight ? 'border-teal-700 bg-white' : 'border-teal-200 bg-[#07111f]'
+                    }`}
+                    style={{ left: `${point.anchorX}%`, top: `${point.anchorY}%` }}
+                    aria-hidden="true"
+                  />
+                ))}
               {points.map((point) => {
                 const selected = point.siteId === selectedId;
                 return (
