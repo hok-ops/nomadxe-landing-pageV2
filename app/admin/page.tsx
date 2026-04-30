@@ -31,6 +31,7 @@ const EVENT_MESSAGES: Record<string, { type: 'success' | 'error'; text: string }
   account_created:   { type: 'success', text: 'Account created.' },
   managed_device_added: { type: 'success', text: 'Managed LAN device added.' },
   managed_device_removed: { type: 'success', text: 'Managed LAN device removed.' },
+  maintenance_run: { type: 'success', text: 'Free-plan maintenance cleanup completed.' },
 };
 
 export default async function AdminDashboard({

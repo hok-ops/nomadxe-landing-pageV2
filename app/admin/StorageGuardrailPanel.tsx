@@ -1,3 +1,5 @@
+import { runFreePlanMaintenance } from './actions';
+
 type StorageGuardrailCounts = {
   formSubmissions: number;
   cellularReports: number;
@@ -56,6 +58,14 @@ export function StorageGuardrailPanel({ counts }: { counts: StorageGuardrailCoun
           <div className="text-[9px] font-black uppercase tracking-[0.22em] text-[#93c5fd]/45">Estimated App Data</div>
           <div className="mt-2 text-2xl font-black text-white">{formatBytes(estimatedBytes)}</div>
           <div className="mt-1 text-[11px] text-[#93c5fd]/62">about {estimatedPercent}% of a 500 MB free database quota</div>
+          <form action={runFreePlanMaintenance} className="mt-3">
+            <button
+              type="submit"
+              className="w-full rounded-lg border border-[#3b82f6]/40 bg-[#1e40af]/22 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#bfdbfe] transition-colors hover:border-[#60a5fa]/70 hover:bg-[#2563eb]/30 hover:text-white"
+            >
+              Run Cleanup
+            </button>
+          </form>
         </div>
       </div>
 

@@ -68,6 +68,7 @@ This log captures durable decisions and lessons so future AI sessions do not hav
 - Added an admin "Database Growth Watch" panel for Supabase free-plan visibility.
   - Tracks first-party form submissions, cellular reports, daily intelligence reports, discovered hosts, and managed network events.
   - Estimates NomadXE-created operational data against the 500 MB free database ceiling.
+  - Includes an admin-only cleanup button that calls the service-role pruning RPC.
 - Added migration `00000000000018_free_plan_retention_guardrails.sql`.
   - Creates service-role-only function `public.prune_free_plan_operational_data(...)`.
   - Prunes old low-value records while preserving active form submissions and current managed-device inventory.

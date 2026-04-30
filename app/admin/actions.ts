@@ -26,6 +26,7 @@ const ERROR_CODES: Record<string, string> = {
   'Managed device name, target trailer, and IP address are required': 'missing_fields',
   'Invalid managed network device ID': 'invalid_input',
   'Invalid discovered network device ID': 'invalid_input',
+  'Free-plan maintenance unavailable': 'maintenance_unavailable',
 };
 
 function toErrorCode(message: string): string {
@@ -539,6 +540,25 @@ export async function createClientAccount(formData: FormData) {
     if (error) throw new Error(error.message);
     revalidatePath('/admin');
     redirect('/admin?event=account_created');
+  } catch (err: any) {
+    if (err.digest) throw err;
+    redirect(`/admin?event=error&code=${toErrorCode(err.message)}`);
+  }
+}
+
+export async function runFreePlanMaintenance() {
+  try {
+    await verifyAdmin();
+
+    const adminClient = createAdminClient();
+    const { error } = await adminClient.rpc('prune_free_plan_operational_data');
+    if (error) {
+      console.error('[runFreePlanMaintenance] prune failed:', error.message);
+      throw new Error('Free-plan maintenance unavailable');
+    }
+
+    revalidatePath('/admin');
+    redirect('/admin?event=maintenance_run');
   } catch (err: any) {
     if (err.digest) throw err;
     redirect(`/admin?event=error&code=${toErrorCode(err.message)}`);
